@@ -1,0 +1,137 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/secrets/**)",
+      "Read(**/.credentials/**)",
+      "Read(**/*secret*)",
+      "Read(**/master.key)",
+      "Read(**/credentials.yml.enc)",
+      "Bash(sudo:*)",
+      "Bash(rm -rf /)*",
+      "Bash(rm -rf /*)",
+      "Bash(chmod 777:*)",
+      "Bash(curl * | bash)",
+      "Bash(wget * | bash)"
+    ],
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Bash(bundle exec rspec:*)",
+      "Bash(bundle exec rubocop:*)",
+      "Bash(rails db:migrate:status)",
+      "Bash(rails routes:*)",
+      "Bash(npm run test:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx react-native:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(docker-compose ps)",
+      "Bash(docker-compose logs:*)",
+      "Bash(terraform plan:*)",
+      "Bash(terraform validate)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/security-scan.py",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/dangerous-command-blocker.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/pre-commit-check.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/auto-format.sh",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/test-runner.sh",
+            "timeout": 10
+          },
+          {
+            "type": "prompt",
+            "prompt": "Check the file that was just edited. If it is a source code file (.rb, .py, .ts, .tsx, .js, .jsx): 1) Count the lines in the file. For .rb model files (app/models/**) warn at 200 lines per rails-conventions.md. For .tsx/.ts component files warn at 200 lines per react-native.md. For all other source files warn at 300 lines per code-standards.md. Format: 'WARNING: File exceeds N-line limit (currently M lines). Consider splitting responsibilities.' 2) Scan for any function/method/def that exceeds 30 lines — if found, warn: 'WARNING: Function [name] exceeds 30-line limit (currently N lines). Consider decomposing.' 3) Scan for functions with more than 4 parameters — if found, warn: 'WARNING: Function [name] has N parameters (max 4). Use an options/config object.' 4) Scan for nesting depth exceeding 3 levels — if found, warn: 'WARNING: Nesting depth exceeds 3 levels. Use early returns or extract helper functions.' 5) Check error handling: if any rescue/catch/except block is empty or only contains a comment, warn: 'WARNING: Empty error handler found per error-handling.md.' 6) If a .rb file has rescue Exception (not StandardError), warn: 'WARNING: Rescue StandardError, not Exception.' 7) Test file coverage check: if the edited file is a source file under app/ or src/ (not a test/spec file itself), check if a corresponding test file exists. For Rails: app/services/foo.rb should have spec/services/foo_spec.rb. For React Native: src/hooks/useFoo.ts should have src/hooks/__tests__/useFoo.test.ts or tests/hooks/useFoo.test.ts. If no matching test file is found, warn: 'WARNING: No test file found for [filename]. Consider adding tests per testing.md (80% coverage target for business logic).' Only warn, do not block. Skip non-source files.",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/audit-logger.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Review what was accomplished in this session. Check: 1) Was the user's request fully addressed? 2) Were all modified files saved? 3) Were tests mentioned but not run? 4) Are there any TODOs or incomplete items left? If the task appears incomplete, respond with 'INCOMPLETE: [reason]'. If complete, respond with 'COMPLETE'.",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/vague-request-detector.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "You are working in a Software Development House with this tech stack: Rails (backend), Panko Serializer, PostgreSQL + PostGIS (geospatial database), React Native (mobile), Zustand (client state), TanStack Query (server state), Centrifugal/Centrifugo (real-time WebSocket), Redis (cache + Sidekiq queues), AWS + GCP (cloud), Terraform (IaC), Docker Compose (local dev). ALWAYS prefer established community libraries (gems, npm packages) over custom implementations. Frame all recommendations within this stack.",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

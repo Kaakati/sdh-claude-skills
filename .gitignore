@@ -1,0 +1,20 @@
+# Claude Code personal files
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/audit/
+.claude/hooks/__pycache__/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.idea/
+.vscode/settings.json
+*.swp
+*.swo

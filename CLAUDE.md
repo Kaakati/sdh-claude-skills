@@ -1,0 +1,175 @@
+# Software Development House — Enterprise Development Standards
+
+This repository follows enterprise-grade development standards for a professional software development house. All contributors and AI agents must adhere to these guidelines.
+
+## Project Identity
+
+We are a Software Development House building production systems for clients. Quality, maintainability, and security are non-negotiable. Every line of code represents our professional standard.
+
+## Tech Stack
+
+| Layer | Technology | Notes |
+|-------|-----------|-------|
+| Backend | Ruby on Rails | API-only mode for mobile backends |
+| Serialization | Panko Serializer | High-performance JSON serialization |
+| Database | PostgreSQL + PostGIS | Geospatial-enabled relational database |
+| Mobile | React Native | Cross-platform iOS/Android |
+| State Management | Zustand | Client-only state, never server data |
+| Data Fetching | TanStack Query (React Query) | All server state lives here |
+| Real-time | Centrifugal (Centrifugo) | WebSocket channels for live updates |
+| Caching / Queues | Redis | Rails cache backend + Sidekiq queues |
+| Cloud (Primary) | AWS | ECS Fargate, RDS, ElastiCache, S3, CloudFront |
+| Cloud (Secondary) | GCP | When specific GCP services are needed |
+| Infrastructure | Terraform | All infrastructure as code |
+| Local Dev | Docker Compose | PostgreSQL, Redis, Centrifugo, Rails |
+| Philosophy | Community libraries first | Prefer proven gems/packages over custom code |
+
+### Library Preferences
+- **Prefer community libraries over native/custom implementations.** If a well-maintained gem or npm package exists for the job, use it.
+- Authentication: `devise` + `devise-jwt` | Authorization: `pundit`
+- Pagination: `pagy` | Search: `pg_search` | Geospatial: `rgeo`, `geocoder`
+- HTTP: `faraday` (Rails), `axios` (React Native)
+- Forms: `react-hook-form` + `zod` | Navigation: `@react-navigation/native`
+- Storage: `react-native-mmkv` | Images: `react-native-fast-image`
+
+## Git Workflow
+
+- **Conventional Commits**: All commit messages must follow the format `type(scope): description`
+  - Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`, `ci`, `build`
+  - Example: `feat(auth): add JWT refresh token rotation`
+- **Branch Naming**: `feature/TICKET-123-short-description`, `bugfix/TICKET-456-fix-desc`, `hotfix/TICKET-789-critical`, `release/v1.2.0`
+- **PR Requirements**: Description with context, test plan, screenshots for UI changes, at least one approval
+- **Merge Strategy**: Squash merge to main, rebase feature branches on target before merge
+- **Protected Branches**: No direct pushes to `main`, `master`, or `develop`
+
+@docs/git-instructions.md
+
+## Code Standards
+
+- **SOLID Principles**: Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion
+- **DRY**: Do not repeat yourself — extract shared logic into well-named utilities
+- **KISS**: Keep it simple. Prefer clarity over cleverness
+- **Clean Code**: Meaningful names, small functions, minimal comments (code should be self-documenting)
+- **Functions**: Max 30 lines. If longer, decompose into smaller units
+- **Files**: Target max 300 lines. Split when a file has multiple responsibilities
+
+## Architecture
+
+- **Rails Backend**: Service objects for business logic, Panko serializers for JSON, Sidekiq for background jobs
+- **React Native Frontend**: Zustand stores for client state, TanStack Query for server data, Centrifugo for real-time
+- **Clean Architecture**: Controllers → Services → Models (Rails) | Screens → Hooks → API Client (React Native)
+- **Dependency Injection**: Depend on abstractions, not concretions. Use DI containers where appropriate
+- **Domain-Driven Design**: Use bounded contexts, aggregates, and value objects for complex business domains
+
+@docs/architecture-guide.md
+
+## Testing
+
+- **Coverage Targets**: 80% for business logic, 60% overall minimum
+- **Test Pyramid**: Unit tests (many) > Integration tests (some) > E2E tests (few)
+- **Test Quality**: Follow AAA pattern (Arrange, Act, Assert). One concept per test
+- **Naming**: `should [expected behavior] when [condition]`
+- **CI Gate**: Tests must pass before merge. No skipping or disabling tests without a tracking ticket
+
+## Security
+
+- **Secrets**: Never commit secrets, API keys, or credentials. Use environment variables and secret managers
+- **Input Validation**: Validate and sanitize all user inputs at system boundaries
+- **SQL**: Parameterized queries only. No string concatenation for query building
+- **Dependencies**: Audit dependencies regularly. No known critical vulnerabilities in production
+- **OWASP**: All code must account for OWASP Top 10 risks
+
+## CI/CD
+
+- All PRs must pass CI pipeline (lint, test, build, security scan) before merge
+- No direct pushes to main — all changes go through pull requests
+- Automated deployments from main to staging, manual promotion to production
+- Feature flags for incremental rollouts of significant changes
+
+## Documentation Standards
+
+- Documentation ships with the code — update docs in the same PR as the code change
+- Every public API endpoint must have documented parameters, return types, and error codes
+- Use ADR format (ADR-NNN: Title, Status, Context, Decision, Consequences) for architectural decisions — store in `docs/adr/`
+- Maintain `CHANGELOG.md` following Keep a Changelog format (Added, Changed, Fixed, Deprecated, Removed, Security)
+- Runbooks for operational procedures go in `docs/runbooks/` with: When to Use, Steps, Verification, Rollback, Contacts
+
+## Rule Reference
+
+Detailed domain-specific rules are maintained in `.claude/rules/`:
+
+- `code-standards.md` — Naming, SOLID, function/file limits, error handling, logging
+- `security.md` — OWASP, auth, input validation, secret management
+- `testing.md` — Test patterns, mocking, coverage
+- `git-workflow.md` — Commits, branches, PRs
+- `api-design.md` — REST conventions, error formats, pagination
+- `database.md` — Migrations, indexing, query optimization
+- `rails-conventions.md` — Rails models, controllers, services, Panko, Sidekiq
+- `react-native.md` — React Native, Zustand, TanStack Query, Centrifugo
+- `infrastructure.md` — Terraform, Docker Compose, AWS, GCP, CI/CD
+- `error-handling.md` — Error handling across Rails, React Native, Sidekiq, API responses
+- `monitoring.md` — Structured logging, health checks, CloudWatch alarms, Sentry
+- `clean-architecture.md` — Layer separation, dependency direction, boundary violations
+- `i18n.md` — Internationalization conventions, locale files, RTL support, key naming
+
+## Agents
+
+Custom agents are available in `.claude/agents/` for specialized tasks:
+- `requirements-consultant` — Partner consultant for clarifying vague requirements (Opus)
+- `security-auditor` — Security vulnerability scanning and OWASP audit
+- `code-reviewer` — Comprehensive code quality and PR review
+- `test-engineer` — Test generation and coverage improvement
+- `architecture-advisor` — Architectural decisions and ADRs (Sonnet, plan mode)
+- `devops-engineer` — CI/CD, Terraform, Docker, deployment
+- `refactor-specialist` — Safe incremental refactoring
+- `clean-architecture` — Clean Architecture conformance, layer boundary validation, dependency direction enforcement (Sonnet, plan mode)
+
+## Skills
+
+On-demand skills available via slash commands:
+- `/code-reviewer` — Code review and PR review with dynamic git diff injection (routes to code-reviewer agent)
+- `/test-generator` — Generate tests with AAA pattern (routes to test-engineer agent)
+- `/security-auditor` — Security audit against OWASP Top 10, SBOM generation, license compliance (routes to security-auditor agent)
+- `/api-designer` — REST API design and review
+- `/rails-architect` — Rails backend architecture with Panko, PostGIS, Sidekiq
+- `/react-native-dev` — React Native features with Zustand, TanStack, Centrifugo
+- `/db-migration` — Schema design and safe database migration creation
+- `/performance-profiler` — Performance investigation and optimization
+- `/deploy` — Deployment workflow with pre-flight checks, canary/blue-green strategies (user-invoked only)
+- `/onboarding` — Developer onboarding guides, setup docs, knowledge transfer
+- `/doc-generator` — Technical documentation, ADRs, retrospectives, change management procedures (fork context)
+- `/technical-rfc` — Technical RFC proposals for significant changes requiring team consensus
+- `/incident-response` — Production incident diagnosis, chaos engineering, operations runbooks (Opus)
+- `/i18n` — Internationalization for Rails (YAML locales, lazy lookup) and React Native (i18next, RTL)
+- `/compliance-auditor` — SOC2, HIPAA, PCI-DSS, GDPR compliance auditing and documentation
+- `/clean-architecture` — Clean Architecture validation, layer boundary enforcement (routes to clean-architecture agent)
+- `/sprint-planner` — Sprint planning, effort estimation, capacity planning, backlog grooming
+
+## Hooks (Deterministic Automation)
+
+Active hooks in `.claude/settings.json` enforce quality at every lifecycle point:
+
+**PreToolUse** (before tool executes):
+- `security-scan.py` — Blocks writes to protected files, detects hardcoded secrets
+- `dangerous-command-blocker.py` — Blocks destructive shell commands
+- `pre-commit-check.py` — Validates conventional commit format, blocks force pushes
+
+**PostToolUse** (after tool completes):
+- `auto-format.sh` — Auto-formats edited files (rubocop, prettier, terraform fmt)
+- `test-runner.sh` — Reminds to run tests for modified code
+- Prompt hook enforces code-standards.md (30-line functions, 4-param max, 3-level nesting, domain-aware file limits: 200 lines for Rails models/.tsx components, 300 lines elsewhere), error-handling.md (empty catch blocks, rescue Exception), and testing.md (warns when source files lack corresponding test files)
+- `audit-logger.py` — Logs all tool executions for compliance (JSON-lines)
+
+**Stop** (when Claude finishes):
+- Prompt hook validates task completion
+
+**UserPromptSubmit** (before processing):
+- `vague-request-detector.py` — Suggests requirements-consultant for ambiguous inputs
+
+**SubagentStart** (when subagent spawns):
+- Prompt hook injects tech stack context into all subagents
+
+## Enterprise Governance
+
+- `managed-settings.template.json` — IT deployment template for non-overridable org policies
+- `CLAUDE.local.md.template` — Developer personal override template (copy to CLAUDE.local.md)

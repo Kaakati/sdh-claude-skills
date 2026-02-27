@@ -1,0 +1,26 @@
+# Personal Development Overrides
+# Copy this to CLAUDE.local.md and customize for your preferences.
+# This file is gitignored and never shared with the team.
+
+## My Preferences
+- I prefer [concise/verbose] explanations
+- My editor is [VS Code / RubyMine / Cursor]
+- I work primarily on [backend / mobile / full-stack]
+
+## My Development Environment
+- My local Rails server runs on port 3000
+- My local PostgreSQL uses the default port 5432
+- My React Native development targets [iOS / Android / both]
+
+## Personal Shortcuts
+- When I say "run tests", I mean `bundle exec rspec` for backend or `npm test` for mobile
+- When I say "check types", I mean `npx tsc --noEmit`
+- When I say "lint", I mean `bundle exec rubocop` for Ruby or `npx eslint .` for TypeScript
+
+## Current Focus
+- I'm currently working on: [feature/module name]
+- Key files I'm touching: [list paths]
+- Related ticket: [TICKET-XXX]
+
+## Notes
+- [Add any personal notes or reminders here]

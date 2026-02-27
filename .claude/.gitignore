@@ -1,0 +1,10 @@
+# Personal settings (never share)
+settings.local.json
+audit/
+
+# Python cache from hooks
+hooks/__pycache__/
+hooks/*.pyc
+
+# Template files (informational only)
+# managed-settings.template.json is committed as reference

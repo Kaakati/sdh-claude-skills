@@ -1,0 +1,51 @@
+{
+  "_comment": "TEMPLATE: Deploy to /etc/claude-code/managed-settings.json (Linux) or C:\\ProgramData\\ClaudeCode\\managed-settings.json (Windows). This file CANNOT be overridden by any user or project configuration.",
+
+  "forceLoginMethod": "console",
+  "forceLoginOrgUUID": "YOUR-ORG-UUID-HERE",
+
+  "disableBypassPermissionsMode": "disable",
+  "allowManagedHooksOnly": false,
+  "allowManagedPermissionRulesOnly": false,
+
+  "autoUpdatesChannel": "stable",
+
+  "permissions": {
+    "deny": [
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/secrets/**)",
+      "Read(**/master.key)",
+      "Read(**/credentials.yml.enc)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Bash(sudo:*)",
+      "Bash(rm -rf /)*",
+      "Bash(chmod 777:*)",
+      "Bash(curl * | bash)",
+      "Bash(wget * | bash)",
+      "Bash(nc:*)",
+      "Bash(ncat:*)",
+      "WebFetch(domain:*internal*)"
+    ]
+  },
+
+  "allowedMcpServers": [
+    {"serverName": "postgres-readonly", "_comment": "Read-only access to staging DB"},
+    {"serverName": "jira-connector", "_comment": "Ticket management integration"}
+  ],
+
+  "deniedMcpServers": [
+    {"serverName": "*", "_comment": "Deny all MCP servers not explicitly allowed"}
+  ],
+
+  "companyAnnouncements": [
+    "Security: Review our coding standards at .claude/rules/security.md",
+    "New: Use /requirements-consultant for vague requirements before coding"
+  ],
+
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "SLASH_COMMAND_TOOL_CHAR_BUDGET": "20000"
+  }
+}
