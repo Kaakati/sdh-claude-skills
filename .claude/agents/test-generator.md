@@ -1,5 +1,5 @@
 ---
-name: test-engineer
+name: test-generator
 description: Test engineering specialist. Use when generating test suites, improving test coverage, debugging flaky tests, or setting up test infrastructure.
 tools: Read, Grep, Glob, Bash, Write, Edit
 model: sonnet

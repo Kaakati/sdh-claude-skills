@@ -56,6 +56,16 @@
         ]
       },
       {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/migration-validator.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           {
@@ -66,6 +76,11 @@
           {
             "type": "command",
             "command": "python3 .claude/hooks/pre-commit-check.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/deployment-gate.py",
             "timeout": 10
           }
         ]
@@ -99,6 +114,16 @@
             "type": "prompt",
             "prompt": "Check the file that was just edited. If it is a source file under app/, src/, web/src/, or next/src/ (not a test/spec file itself), check if a corresponding test file exists. For Rails: app/services/foo.rb should have spec/services/foo_spec.rb. For React Native: src/hooks/useFoo.ts should have src/hooks/__tests__/useFoo.test.ts or tests/hooks/useFoo.test.ts. For Vite SPA: web/src/components/Foo.tsx should have web/src/components/Foo.test.tsx or web/tests/components/Foo.test.tsx. For Next.js: next/src/actions/foo.ts should have next/tests/actions/foo.test.ts. If no matching test file is found, warn: 'WARNING: No test file found for [filename]. Consider adding tests per testing.md (80% coverage target for business logic).' Only warn, do not block. Skip non-source files.",
             "timeout": 10
+          },
+          {
+            "type": "prompt",
+            "prompt": "Check the file that was just edited for Clean Architecture layer boundary violations per clean-architecture.md. Only check source files (.rb, .ts, .tsx, .js, .jsx). 1) Rails: If the file is in app/models/ and imports from app/controllers/ or app/serializers/, warn: 'WARNING: Model imports controller/serializer — entity depends on adapter. Move logic to a service per clean-architecture.md.' 2) If the file is in app/services/ and returns HTTP status codes or references response/render, warn: 'WARNING: Service returns HTTP concepts — use case knows about HTTP. Return Result objects per clean-architecture.md.' 3) React Native/Vite/Next.js: If the file is in src/domain/, web/src/domain/, or next/src/domain/ and imports from react, react-native, next, or framework modules, warn: 'WARNING: Domain type imports framework module — entity depends on framework per clean-architecture.md.' 4) If a screen/page file (src/screens/**, web/src/pages/**, next/app/**) directly imports axios or an API client (not a hook), warn: 'WARNING: Screen/page imports API client directly — use a hook as intermediary per clean-architecture.md.' Skip non-source files.",
+            "timeout": 10
+          },
+          {
+            "type": "prompt",
+            "prompt": "Check the file that was just edited. If it is a .tsx, .jsx, or .erb file under app/views/, src/, web/src/, or next/: scan for hardcoded user-facing strings. In .tsx/.jsx files, look for plain text content between JSX tags that is NOT wrapped in a t() or useTranslation() call (ignore single characters, numbers, className values, and HTML attributes). In .erb files, look for plain text not wrapped in t() or I18n.t(). If hardcoded strings are found, warn: 'WARNING: Hardcoded user-facing string detected. Use translation keys per i18n.md — never hardcode user-facing strings.' Only warn, do not block. Skip config files, test files, and non-UI source files.",
+            "timeout": 10
           }
         ]
       },
@@ -121,6 +146,18 @@
             "type": "prompt",
             "prompt": "Review what was accomplished in this session. Check: 1) Was the user's request fully addressed? 2) Were all modified files saved? 3) Were tests mentioned but not run? 4) Are there any TODOs or incomplete items left? If the task appears incomplete, respond with 'INCOMPLETE: [reason]'. If complete, respond with 'COMPLETE'.",
             "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Briefly verify the development environment is ready. Check: 1) Is this a git repository? If not, note it. 2) Are there uncommitted changes that might affect the session? 3) What is the current branch? If on main/master, note that feature work should use a feature branch. Keep the check brief and informational — do not block the session. Format: 'Environment: [branch name], [clean/dirty working tree], [any notable observations].'",
+            "timeout": 10
           }
         ]
       }

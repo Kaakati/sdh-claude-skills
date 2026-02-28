@@ -9,250 +9,34 @@ model: sonnet
 
 Validate, implement, and maintain Clean Architecture patterns across the full stack. This skill covers architectural conformance checking, layer boundary enforcement, and guided refactoring.
 
+See `references/layer-examples.md` for full code examples across all frameworks.
+
 ## Architecture Layers
 
 ### Layer 1: Entities (Domain Core)
-
 The innermost layer. Pure business logic with zero framework dependencies.
-
-#### Rails — Entities
-```ruby
-# app/models/order.rb — Domain logic only
-class Order < ApplicationRecord
-  # Associations (domain relationships)
-  belongs_to :user
-  has_many :order_items, dependent: :destroy
-
-  # Validations (domain rules)
-  validates :total_amount, numericality: { greater_than: 0 }
-  validates :status, inclusion: { in: %w[pending confirmed shipped delivered cancelled] }
-
-  # Domain methods (business rules)
-  def cancellable?
-    %w[pending confirmed].include?(status)
-  end
-
-  def total
-    order_items.sum(&:subtotal)
-  end
-end
-
-# app/values/money.rb — Value Object
-class Money
-  attr_reader :amount, :currency
-
-  def initialize(amount, currency = 'USD')
-    @amount = BigDecimal(amount.to_s)
-    @currency = currency
-  end
-
-  def +(other)
-    raise ArgumentError, "Currency mismatch" unless currency == other.currency
-    Money.new(amount + other.amount, currency)
-  end
-end
-```
-
-#### React Native — Entities
-```typescript
-// src/domain/order.ts — Pure TypeScript, no React imports
-export interface Order {
-  id: string;
-  userId: string;
-  status: OrderStatus;
-  totalAmount: number;
-  items: OrderItem[];
-  createdAt: string;
-}
-
-export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
-
-export function isCancellable(order: Order): boolean {
-  return ['pending', 'confirmed'].includes(order.status);
-}
-```
+- **Rails**: Models with domain logic only (`app/models/`), value objects (`app/values/`)
+- **React Native**: Pure TypeScript interfaces and domain functions (`src/domain/`)
+- **Vite SPA**: Pure TypeScript types (`web/src/domain/`)
+- **Next.js**: Shared TypeScript types (`next/src/domain/`)
 
 ### Layer 2: Use Cases (Application Logic)
-
 Orchestrate business workflows. Depend on entities, return Result objects.
-
-#### Rails — Service Objects
-```ruby
-# app/services/orders/create_order_service.rb
-module Orders
-  class CreateOrderService
-    def initialize(user:, cart_items:, payment_method:)
-      @user = user
-      @cart_items = cart_items
-      @payment_method = payment_method
-    end
-
-    def call
-      ActiveRecord::Base.transaction do
-        order = build_order
-        process_payment(order)
-        notify_fulfillment(order)
-        Result.success(order)
-      end
-    rescue PaymentFailedError => e
-      Result.failure(:payment_failed, e.message)
-    rescue ActiveRecord::RecordInvalid => e
-      Result.failure(:validation_error, e.record.errors.full_messages)
-    end
-
-    private
-
-    def build_order
-      # Domain logic orchestration — no HTTP, no serialization
-    end
-
-    def process_payment(order)
-      # Calls payment gateway through an adapter
-    end
-
-    def notify_fulfillment(order)
-      # Enqueues Sidekiq job — thin delegation
-      OrderFulfillmentJob.perform_async(order.id)
-    end
-  end
-end
-```
-
-#### Result Object Pattern
-```ruby
-# app/services/result.rb
-class Result
-  attr_reader :value, :error_type, :error_message
-
-  def self.success(value)
-    new(success: true, value: value)
-  end
-
-  def self.failure(error_type, message)
-    new(success: false, error_type: error_type, error_message: message)
-  end
-
-  def success?
-    @success
-  end
-
-  def failure?
-    !@success
-  end
-
-  private
-
-  def initialize(success:, value: nil, error_type: nil, error_message: nil)
-    @success = success
-    @value = value
-    @error_type = error_type
-    @error_message = error_message
-  end
-end
-```
-
-#### React Native — Custom Hooks (Use Cases)
-```typescript
-// src/hooks/useCreateOrder.ts
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ordersApi } from '../api/orders';
-import type { CreateOrderPayload } from '../domain/order';
-
-export function useCreateOrder() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (payload: CreateOrderPayload) => ordersApi.create(payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-      queryClient.invalidateQueries({ queryKey: ['cart'] });
-    },
-  });
-}
-```
+- **Rails**: Service objects with single `call` method (`app/services/`)
+- **React Native**: Custom hooks wrapping TanStack Query (`src/hooks/`)
+- **Vite SPA**: TanStack Query hooks (`web/src/hooks/`, `web/src/api/`)
+- **Next.js (Server)**: Server actions with zod validation (`next/src/actions/`)
+- **Next.js (Client)**: Custom hooks (`next/src/hooks/`)
 
 ### Layer 3: Interface Adapters
-
-Translate between the application core and external concerns.
-
-#### Rails — Thin Controllers
-```ruby
-# app/controllers/api/v1/orders_controller.rb
-class Api::V1::OrdersController < ApplicationController
-  def create
-    authorize Order  # Pundit authorization
-
-    result = Orders::CreateOrderService.new(
-      user: current_user,
-      cart_items: permitted_params[:items],
-      payment_method: permitted_params[:payment_method]
-    ).call
-
-    if result.success?
-      render json: Panko::Response.new(
-        order: OrderSerializer.new.serialize(result.value)
-      ), status: :created
-    else
-      render json: { error: result.error_message, type: result.error_type }, status: error_status(result.error_type)
-    end
-  end
-
-  private
-
-  def permitted_params
-    params.require(:order).permit(:payment_method, items: [:product_id, :quantity])
-  end
-
-  def error_status(error_type)
-    { payment_failed: :payment_required, validation_error: :unprocessable_entity }.fetch(error_type, :internal_server_error)
-  end
-end
-```
-
-#### Rails — Panko Serializers
-```ruby
-# app/serializers/order_serializer.rb
-class OrderSerializer < Panko::Serializer
-  attributes :id, :status, :total_amount, :created_at
-  has_many :order_items, serializer: OrderItemSerializer
-end
-```
-
-#### React Native — Screens (Thin)
-```tsx
-// src/screens/CreateOrderScreen.tsx
-import { useCreateOrder } from '../hooks/useCreateOrder';
-import { useCart } from '../hooks/useCart';
-import { OrderForm } from '../components/OrderForm';
-
-export function CreateOrderScreen() {
-  const { data: cart } = useCart();
-  const createOrder = useCreateOrder();
-
-  const handleSubmit = (paymentMethod: string) => {
-    createOrder.mutate({ items: cart.items, paymentMethod });
-  };
-
-  return (
-    <OrderForm
-      cart={cart}
-      onSubmit={handleSubmit}
-      isLoading={createOrder.isPending}
-      error={createOrder.error}
-    />
-  );
-}
-```
+Translate between application core and external concerns.
+- **Rails**: Thin controllers (authorize → service → serialize), Panko serializers
+- **React Native**: Thin screens composing hooks + components (`src/screens/`)
+- **Vite SPA**: Thin pages composing hooks + components (`web/src/pages/`)
+- **Next.js**: Server Component pages, layouts (`next/app/`), client components (`next/src/components/`)
 
 ### Layer 4: Frameworks & Drivers
-
-External tools and infrastructure. Configured, not coded against directly.
-
-- Rails framework, ActiveRecord, Puma
-- React Native framework, Metro bundler
-- PostgreSQL, Redis, Centrifugo
-- AWS services (ECS, RDS, S3)
-- Sidekiq, TanStack Query, Zustand
+External tools configured, not coded against: Rails, React Native, React, Next.js, PostgreSQL, Redis, Centrifugo, AWS, Sidekiq, TanStack Query, Zustand.
 
 ## Conformance Validation Checklist
 
@@ -275,82 +59,6 @@ External tools and infrastructure. Configured, not coded against directly.
 - [ ] No circular dependencies between services
 - [ ] API client transforms responses to domain types at the boundary
 
-### ReactJS (Vite SPA) — Entities
-```typescript
-// web/src/domain/order.ts — Pure TypeScript, no React imports
-export interface Order {
-  id: string;
-  status: OrderStatus;
-  totalAmount: number;
-  items: OrderItem[];
-}
-export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
-
-export function isCancellable(order: Order): boolean {
-  return ['pending', 'confirmed'].includes(order.status);
-}
-```
-
-### ReactJS (Vite SPA) — Use Cases (Hooks)
-```typescript
-// web/src/api/orders.ts — Use case as TanStack Query hook
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from './client';
-import type { Order } from '../domain/order';
-
-export function useOrders() {
-  return useQuery({
-    queryKey: ['orders'],
-    queryFn: () => apiClient.get<Order[]>('/api/v1/orders'),
-    staleTime: 30_000,
-  });
-}
-```
-
-### ReactJS (Vite SPA) — Interface Adapters (Pages)
-```tsx
-// web/src/pages/Orders.tsx — Thin page, composes hooks + components
-import { useOrders } from '../api/orders';
-import { OrderTable } from '../components/OrderTable';
-
-export default function OrdersPage() {
-  const { data: orders, isLoading } = useOrders();
-  return <OrderTable orders={orders ?? []} isLoading={isLoading} />;
-}
-```
-
-### Next.js App Router — Use Cases (Server Actions)
-```tsx
-// next/src/actions/orders.ts — Server action as use case
-'use server';
-import { revalidatePath } from 'next/cache';
-import { z } from 'zod';
-
-const CreateOrderSchema = z.object({ /* ... */ });
-
-export async function createOrder(prevState: unknown, formData: FormData) {
-  const parsed = CreateOrderSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { errors: parsed.error.flatten().fieldErrors };
-  await railsApi.post('/api/v1/orders', parsed.data);
-  revalidatePath('/orders');
-  return { success: true };
-}
-```
-
-### Next.js App Router — Interface Adapters (Server Component Pages)
-```tsx
-// next/app/orders/page.tsx — Server Component fetches data, composes components
-import { OrderTable } from '@/components/OrderTable';
-import { railsApi } from '@/api/client';
-
-export default async function OrdersPage() {
-  const orders = await railsApi.get('/api/v1/orders');
-  return <OrderTable initialData={orders} />;
-}
-```
-
-## Extended Conformance Checklist (Web)
-
 ### Vite SPA
 - [ ] Pages call hooks, not API clients directly
 - [ ] Domain types have no React or framework imports
@@ -366,26 +74,9 @@ export default async function OrdersPage() {
 
 ## Common Refactoring Patterns
 
-### Extract Service from Controller
-**Before**: Controller with business logic inline.
-**After**: Thin controller + service object + Result type.
-
-### Extract Hook from Screen
-**Before**: Screen with useEffect/API calls/state management inline.
-**After**: Custom hook encapsulating data fetching + mutations, screen just renders.
-
-### Extract Hook from Page (Vite SPA)
-**Before**: Page component with inline API calls and business logic.
-**After**: Custom hook wrapping TanStack Query, page just renders.
-
-### Extract Client Component from Server Component (Next.js)
-**Before**: Server Component page with `'use client'` for one interactive widget.
-**After**: Server Component page composing a separate Client Component for interactivity.
-
-### Extract Value Object from Model
-**Before**: Model with related attributes and methods scattered.
-**After**: Value object grouping related attributes with domain behavior.
-
-### Extract Adapter for External Service
-**Before**: Service directly calling external API with HTTP details.
-**After**: Adapter interface that wraps the external API, service depends on abstraction.
+1. **Extract Service from Controller** — Move inline business logic from controller to a service object returning Result.
+2. **Extract Hook from Screen** — Move useEffect/API calls/state management from screen to a custom hook.
+3. **Extract Hook from Page (Vite SPA)** — Move inline API calls from page component to TanStack Query hook.
+4. **Extract Client Component from Server Component (Next.js)** — Move interactive widget to a separate `'use client'` component.
+5. **Extract Value Object from Model** — Group related attributes and domain behavior into an immutable value object.
+6. **Extract Adapter for External Service** — Wrap external API with adapter interface; service depends on abstraction.

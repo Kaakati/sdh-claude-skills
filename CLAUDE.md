@@ -131,17 +131,17 @@ Custom agents are available in `.claude/agents/` for specialized tasks:
 - `requirements-consultant` — Partner consultant for clarifying vague requirements (Opus)
 - `security-auditor` — Security vulnerability scanning and OWASP audit
 - `code-reviewer` — Comprehensive code quality and PR review
-- `test-engineer` — Test generation and coverage improvement
-- `architecture-advisor` — Architectural decisions and ADRs (Sonnet, plan mode)
+- `test-generator` — Test generation and coverage improvement
+- `architecture-advisor` — Architectural decisions and ADRs (Opus, plan mode)
 - `devops-engineer` — CI/CD, Terraform, Docker, deployment
-- `refactor-specialist` — Safe incremental refactoring
-- `clean-architecture` — Clean Architecture conformance, layer boundary validation, dependency direction enforcement (Sonnet, plan mode)
+- `refactor-specialist` — Safe incremental refactoring (Opus)
+- `clean-architecture` — Clean Architecture conformance, layer boundary validation, dependency direction enforcement (Opus, plan mode)
 
 ## Skills
 
 On-demand skills available via slash commands:
 - `/code-reviewer` — Code review and PR review with dynamic git diff injection (routes to code-reviewer agent)
-- `/test-generator` — Generate tests with AAA pattern (routes to test-engineer agent)
+- `/test-generator` — Generate tests with AAA pattern (routes to test-generator agent)
 - `/security-auditor` — Security audit against OWASP Top 10, SBOM generation, license compliance (routes to security-auditor agent)
 - `/api-designer` — REST API design and review
 - `/rails-architect` — Rails backend architecture with Panko, PostGIS, Sidekiq
@@ -169,6 +169,8 @@ Active hooks in `.claude/settings.json` enforce quality at every lifecycle point
 - `security-scan.py` — Blocks writes to protected files, detects hardcoded secrets
 - `dangerous-command-blocker.py` — Blocks destructive shell commands
 - `pre-commit-check.py` — Validates conventional commit format, blocks force pushes
+- `migration-validator.py` — Validates migration reversibility, SQL injection, destructive ops
+- `deployment-gate.py` — Requires confirmation for deploys (git push main, terraform apply, vercel deploy)
 
 **PostToolUse** (after tool completes):
 - `auto-format.sh` — Auto-formats edited files (rubocop, prettier, terraform fmt)
@@ -176,7 +178,12 @@ Active hooks in `.claude/settings.json` enforce quality at every lifecycle point
 - **Code quality prompt** — Enforces code-standards.md (30-line functions, 4-param max, 3-level nesting, domain-aware file limits: 200 lines for Rails models/.tsx components, 300 lines elsewhere)
 - **Error handling prompt** — Enforces error-handling.md (empty catch blocks, rescue Exception)
 - **Test coverage prompt** — Enforces testing.md (warns when source files lack corresponding test files)
+- **Clean architecture prompt** — Enforces clean-architecture.md (layer boundary violations, dependency direction)
+- **i18n prompt** — Enforces i18n.md (hardcoded user-facing strings in .tsx/.jsx/.erb files)
 - `audit-logger.py` — Logs all tool executions for compliance (JSON-lines)
+
+**SessionStart** (when session begins):
+- Prompt hook validates development environment (git repo, branch, working tree status)
 
 **Stop** (when Claude finishes):
 - Prompt hook validates task completion

@@ -7,7 +7,9 @@ model: sonnet
 
 # Code Reviewer
 
-Perform systematic code and PR reviews for quality, maintainability, and adherence to team conventions.
+This skill routes to the **code-reviewer agent** for systematic review. The agent's 11-step protocol covers: context understanding, naming conventions, cyclomatic complexity, SOLID principles, error handling, test coverage, DRY violations, documentation, performance, architecture fit, and web-specific patterns.
+
+This file adds dynamic context injection and supplementary checklists.
 
 ## Dynamic Context (auto-loaded when available)
 
@@ -15,122 +17,31 @@ Perform systematic code and PR reviews for quality, maintainability, and adheren
 
 !`git log --oneline -5 2>/dev/null || echo "No git log available"`
 
-## Review Protocol
+## Supplementary: Accessibility Check (Web — Vite SPA + Next.js)
 
-### Step 1: Understand Context
+In addition to the agent's web-specific review (Step 11), verify:
+- Semantic HTML elements (`<nav>`, `<main>`, `<section>`, `<article>`, `<button>`, `<a>`)
+- All interactive elements are keyboard accessible (Tab, Enter, Space, Escape)
+- Images use `alt` attributes. Decorative images use `alt=""`
+- Color contrast meets WCAG AA (4.5:1 normal text, 3:1 large text)
+- Forms have `<label>` elements associated with inputs (via `htmlFor`)
+- ARIA attributes used correctly — prefer semantic HTML over ARIA
+- Focus management: modals trap focus, dialogs return focus on close
+- Skip navigation link for keyboard users
+- Next.js: `next/image` with `alt`, `next/link` for navigation
 
-1. Review the diff and commit messages above to understand scope and intent.
-2. Identify which layers are affected: API, service, model, migration, mobile, infrastructure.
-3. Check if there is a related issue, ticket, or specification to validate against.
-4. Map the change to the broader architecture.
+See `@rules/accessibility.md` for the full WCAG 2.1 AA standard.
 
-### Step 2: Structural Review
+## Supplementary: Accessibility Check (React Native)
 
-1. **File organization** — Are changes in the correct modules? Do new files follow the project's directory structure conventions?
-2. **Import hygiene** — No unused imports, no circular dependencies, imports ordered per project convention.
-3. **Module boundaries** — Does the change respect architectural layers? No domain logic in controllers, no data access in presentation.
-4. **SOLID principles**:
-   - **Single Responsibility**: Each class/module/function does one thing.
-   - **Open/Closed**: Extended via abstraction, not modification of existing behavior.
-   - **Liskov Substitution**: Subtypes are substitutable for their base types.
-   - **Interface Segregation**: No forced dependencies on unused interfaces.
-   - **Dependency Inversion**: High-level modules depend on abstractions, not concretions.
+- Interactive elements have `accessibilityLabel` and `accessibilityRole` props
+- Touch targets are at least 44x44 points
+- Color is not the sole means of conveying information
+- Screen reader navigation order is logical
+- Dynamic content updates announced via `AccessibilityInfo.announceForAccessibility`
 
-### Step 3: Code Quality Analysis
-
-#### Readability
-- Variable and function names clearly express intent.
-- No abbreviations unless they are universally understood domain terms.
-- Functions are short and focused (prefer under 30 lines).
-- Comments explain *why*, not *what* — self-documenting code is preferred.
-- No dead code, commented-out blocks, or TODO items without tracking references.
-
-#### Complexity
-- **Cyclomatic complexity must be below 10** per function.
-- Nesting depth should not exceed 3 levels — use early returns, guard clauses, or extraction.
-- Boolean expressions should be simple — extract complex conditions into named variables or functions.
-- Avoid long parameter lists (more than 4 parameters suggests a need for an options object or restructuring).
-
-#### Naming Conventions
-- Classes: `PascalCase`
-- Functions/methods: `camelCase` or `snake_case` per project convention
-- Constants: `UPPER_SNAKE_CASE`
-- Boolean variables: prefix with `is`, `has`, `should`, `can`
-- Event handlers: prefix with `handle` or `on`
-- Async functions: name should imply async nature where not obvious
-
-#### Error Handling
-- All external calls (API, database, file I/O) have error handling.
-- Error messages are descriptive and include context (what failed, what was expected).
-- No swallowed exceptions — every catch block logs, re-throws, or handles meaningfully.
-- Custom error types used where appropriate for domain-specific failures.
-- Error responses follow the project's standard error format.
-
-### Step 4: Security Scan
-
-- No hardcoded secrets, API keys, tokens, or passwords.
-- User input is validated and sanitized before use.
-- SQL queries use parameterized statements.
-- Authentication and authorization checks are present where required.
-- No sensitive data logged or exposed in error messages.
-- File paths are validated to prevent path traversal.
-
-Refer to the `security-auditor` skill for deeper security analysis.
-
-### Step 5: Performance Check
-
-- No N+1 query patterns — batch data fetching where possible.
-- Expensive operations are not inside loops.
-- Database queries use appropriate indexes (check query plans for new queries).
-- Large data sets use pagination or streaming.
-- No unnecessary re-renders in frontend code (check memoization, dependency arrays).
-- Caching is used where appropriate and cache invalidation is handled.
-
-### Step 6: Test Coverage Assessment
-
-- New code paths have corresponding tests.
-- Edge cases are covered: null/undefined inputs, empty collections, boundary values.
-- Error paths are tested — not just the happy path.
-- Mocks are used appropriately — external dependencies mocked, internal logic tested directly.
-- Test names clearly describe the scenario and expected outcome.
-- No test interdependencies — each test is independent and idempotent.
-
-### Step 7: Documentation Check
-
-- Public APIs have documentation (JSDoc, docstrings, or equivalent).
-- Complex algorithms have explanatory comments.
-- README or relevant docs are updated if behavior changes.
-- Breaking changes are documented in changelog or migration guide.
-- Configuration changes are documented with defaults and valid ranges.
-
-### Step 8a: Accessibility Check (Web — Vite SPA + Next.js)
-
-#### Review Checklist
-- Use semantic HTML elements (`<nav>`, `<main>`, `<section>`, `<article>`, `<button>`, `<a>`).
-- All interactive elements are keyboard accessible (focusable, operable via Enter/Space).
-- Images use `alt` attributes. Decorative images use `alt=""`.
-- Color contrast meets WCAG AA standards (4.5:1 for normal text, 3:1 for large text).
-- Forms have visible `<label>` elements associated with inputs (via `htmlFor`).
-- ARIA attributes used correctly — prefer semantic HTML over ARIA when possible.
-- Focus management: modal traps focus, dialogs return focus on close.
-- Skip navigation link for keyboard users.
-- Next.js: use `next/image` with `alt`, `next/link` for accessible navigation.
-
-### Step 8: Accessibility Check (React Native)
-
-#### Review Checklist
-- Interactive elements have `accessibilityLabel` and `accessibilityRole` props.
-- Images have `accessibilityLabel` describing content (not "image of...").
-- Touch targets are at least 44x44 points.
-- Color is not the sole means of conveying information (check color-blind safety).
-- Screen reader navigation order is logical (`accessibilityOrder` or DOM order).
-- Dynamic content updates announced via `AccessibilityInfo.announceForAccessibility`.
-- Forms have visible labels (not just placeholders) and error messages associated with fields.
-
-#### Implementation Patterns
-
-**Accessible Touchable Components**:
 ```tsx
+// Accessible touchable
 <TouchableOpacity
   accessibilityRole="button"
   accessibilityLabel="Delete order"
@@ -140,15 +51,12 @@ Refer to the `security-auditor` skill for deeper security analysis.
 >
   <TrashIcon />
 </TouchableOpacity>
-```
 
-**Accessible Form Fields**:
-```tsx
+// Accessible form field
 <View>
   <Text nativeID="emailLabel">Email Address</Text>
   <TextInput
     accessibilityLabelledBy="emailLabel"
-    accessibilityRole="none"
     textContentType="emailAddress"
     autoComplete="email"
   />
@@ -156,31 +64,15 @@ Refer to the `security-auditor` skill for deeper security analysis.
 </View>
 ```
 
-**Live Region for Dynamic Content**:
-```tsx
-<Text accessibilityLiveRegion="polite">
-  {`${items.length} items in cart`}
-</Text>
-```
-
-**Grouping Related Elements**:
-```tsx
-<View accessible={true} accessibilityLabel={`Order ${order.id}, status ${order.status}, total ${order.total}`}>
-  <Text>{order.id}</Text>
-  <Text>{order.status}</Text>
-  <Text>{order.total}</Text>
-</View>
-```
-
-### Step 9: Stack-Specific Checks (Rails + React Native + Web)
+## Supplementary: Stack-Specific Checks
 
 **Rails**: Panko serializers used (not raw models)? Service objects for business logic? Pundit `authorize` on every action? Sidekiq jobs idempotent? Redis cache TTLs set?
 
 **React Native**: Server data in TanStack Query (not Zustand)? Proper `staleTime`? `FlatList` for lists? `useCallback` on render functions? Centrifugo subscriptions cleaned up on unmount?
 
-**ReactJS (Vite SPA)**: All routes lazy-loaded? Server data in TanStack Query (not Zustand)? Tailwind CSS for styling (no CSS modules/inline styles)? Forms use react-hook-form + zod? Bundle size checked with `vite-bundle-visualizer`? `useCallback`/`useMemo` for expensive computations?
+**ReactJS (Vite SPA)**: Routes lazy-loaded? TanStack Query for server data? Tailwind CSS (no inline styles)? Forms use react-hook-form + zod? Bundle size checked?
 
-**Next.js (App Router)**: Server Components used by default (no unnecessary `'use client'`)? Server actions validate input with zod? `next/image` for images and `next/link` for navigation? Every page exports `metadata` or `generateMetadata`? `loading.tsx` and `error.tsx` boundaries present? `revalidatePath`/`revalidateTag` called after mutations?
+**Next.js (App Router)**: Server Components by default? Server actions validate with zod? `next/image` and `next/link`? Metadata exported? `loading.tsx`/`error.tsx` boundaries? `revalidatePath`/`revalidateTag` after mutations?
 
 **Migrations**: Reversible? Foreign keys indexed? PostGIS columns have GiST index? No data + schema changes mixed?
 
@@ -190,24 +82,15 @@ Present findings in this table format:
 
 | Category | Finding | Severity | File:Line | Recommendation |
 |---|---|---|---|---|
-| Readability | Function `processData` is 85 lines long | Medium | src/service.ts:42 | Extract into smaller focused functions |
-| Complexity | Nested if/else 5 levels deep | High | src/handler.ts:112 | Use early returns and guard clauses |
-| Security | API key hardcoded in config | Critical | src/config.ts:8 | Move to environment variable |
-| Performance | N+1 query in user listing | High | src/users.ts:67 | Use eager loading or batch query |
-| Testing | No tests for error handling path | Medium | src/auth.ts:34 | Add test for invalid token scenario |
 
-### Severity Levels
+**Severity Levels:**
+- **Must-Fix**: Security vulnerabilities, data loss, production-breaking — block merge
+- **Should-Fix**: Design problems, maintainability — strongly recommend before merge
+- **Suggestion**: Quality improvements — consider for this or follow-up PR
+- **Nit**: Style preferences — optional, do not block merge
 
-- **Critical**: Security vulnerabilities, data loss risks, production-breaking issues. Must fix before merge.
-- **High**: Bugs, significant performance issues, major maintainability concerns. Should fix before merge.
-- **Medium**: Code quality issues, minor performance concerns, missing tests. Fix or create follow-up ticket.
-- **Low**: Style preferences, minor improvements, suggestions. Optional — discuss with author.
-
-## Summary Template
-
-After the findings table, provide:
-
+End each review with:
 1. **Overall Assessment**: Approve / Request Changes / Needs Discussion
-2. **Strengths**: What was done well (always include positive feedback).
-3. **Key Issues**: Top 3 items that must be addressed.
-4. **Suggestions**: Optional improvements for consideration.
+2. **Strengths**: What was done well (always include positive feedback)
+3. **Key Issues**: Top 3 items that must be addressed
+4. **Key Takeaway**: Single most important improvement for future code

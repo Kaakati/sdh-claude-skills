@@ -1,7 +1,7 @@
 ---
 name: clean-architecture
 description: Validate and enforce Clean Architecture principles — dependency direction, layer boundaries, and architectural conformance. Use this agent for architectural reviews, layer boundary violations, dependency analysis, and structural refactoring toward Clean Architecture patterns.
-model: sonnet
+model: opus
 mode: plan
 allowed-tools: Read, Grep, Glob, Bash
 ---

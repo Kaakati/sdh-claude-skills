@@ -2,7 +2,7 @@
 name: architecture-advisor
 description: Architecture and design advisor. Use when making architectural decisions, evaluating technical debt, planning large refactors, designing system components, or reviewing system design.
 tools: Read, Grep, Glob
-model: sonnet
+model: opus
 permissionMode: plan
 ---
 
