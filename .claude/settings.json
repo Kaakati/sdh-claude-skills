@@ -101,28 +101,28 @@
             "timeout": 10
           },
           {
-            "type": "prompt",
-            "prompt": "Check the file that was just edited. If it is a source code file (.rb, .py, .ts, .tsx, .js, .jsx): 1) Count the lines in the file. For .rb model files (app/models/**) warn at 200 lines per rails-conventions.md. For .tsx/.ts component files (src/screens/**, src/components/**, web/src/components/**, web/src/pages/**, next/src/components/**, next/app/**) warn at 200 lines per react-native.md/reactjs.md/nextjs.md. For all other source files warn at 300 lines per code-standards.md. Format: 'WARNING: File exceeds N-line limit (currently M lines). Consider splitting responsibilities.' 2) Scan for any function/method/def that exceeds 30 lines — if found, warn: 'WARNING: Function [name] exceeds 30-line limit (currently N lines). Consider decomposing.' 3) Scan for functions with more than 4 parameters — if found, warn: 'WARNING: Function [name] has N parameters (max 4). Use an options/config object.' 4) Scan for nesting depth exceeding 3 levels — if found, warn: 'WARNING: Nesting depth exceeds 3 levels. Use early returns or extract helper functions.' Skip non-source files.",
+            "type": "command",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/code-quality-checker.py",
             "timeout": 10
           },
           {
-            "type": "prompt",
-            "prompt": "Check the file that was just edited. If it is a source code file: 1) If any rescue/catch/except block is empty or only contains a comment, warn: 'WARNING: Empty error handler found per error-handling.md.' 2) If a .rb file has rescue Exception (not StandardError), warn: 'WARNING: Rescue StandardError, not Exception per error-handling.md.' Skip non-source files.",
+            "type": "command",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/error-handling-checker.py",
             "timeout": 10
           },
           {
-            "type": "prompt",
-            "prompt": "Check the file that was just edited. If it is a source file under app/, src/, web/src/, or next/src/ (not a test/spec file itself), check if a corresponding test file exists. For Rails: app/services/foo.rb should have spec/services/foo_spec.rb. For React Native: src/hooks/useFoo.ts should have src/hooks/__tests__/useFoo.test.ts or tests/hooks/useFoo.test.ts. For Vite SPA: web/src/components/Foo.tsx should have web/src/components/Foo.test.tsx or web/tests/components/Foo.test.tsx. For Next.js: next/src/actions/foo.ts should have next/tests/actions/foo.test.ts. If no matching test file is found, warn: 'WARNING: No test file found for [filename]. Consider adding tests per testing.md (80% coverage target for business logic).' Only warn, do not block. Skip non-source files.",
+            "type": "command",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/test-coverage-checker.py",
             "timeout": 10
           },
           {
-            "type": "prompt",
-            "prompt": "Check the file that was just edited for Clean Architecture layer boundary violations per clean-architecture.md. Only check source files (.rb, .ts, .tsx, .js, .jsx). 1) Rails: If the file is in app/models/ and imports from app/controllers/ or app/serializers/, warn: 'WARNING: Model imports controller/serializer — entity depends on adapter. Move logic to a service per clean-architecture.md.' 2) If the file is in app/services/ and returns HTTP status codes or references response/render, warn: 'WARNING: Service returns HTTP concepts — use case knows about HTTP. Return Result objects per clean-architecture.md.' 3) React Native/Vite/Next.js: If the file is in src/domain/, web/src/domain/, or next/src/domain/ and imports from react, react-native, next, or framework modules, warn: 'WARNING: Domain type imports framework module — entity depends on framework per clean-architecture.md.' 4) If a screen/page file (src/screens/**, web/src/pages/**, next/app/**) directly imports axios or an API client (not a hook), warn: 'WARNING: Screen/page imports API client directly — use a hook as intermediary per clean-architecture.md.' Skip non-source files.",
+            "type": "command",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/clean-architecture-checker.py",
             "timeout": 10
           },
           {
-            "type": "prompt",
-            "prompt": "Check the file that was just edited. If it is a .tsx, .jsx, or .erb file under app/views/, src/, web/src/, or next/: scan for hardcoded user-facing strings. In .tsx/.jsx files, look for plain text content between JSX tags that is NOT wrapped in a t() or useTranslation() call (ignore single characters, numbers, className values, and HTML attributes). In .erb files, look for plain text not wrapped in t() or I18n.t(). If hardcoded strings are found, warn: 'WARNING: Hardcoded user-facing string detected. Use translation keys per i18n.md — never hardcode user-facing strings.' Only warn, do not block. Skip config files, test files, and non-UI source files.",
+            "type": "command",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/i18n-checker.py",
             "timeout": 10
           },
           {
@@ -136,8 +136,8 @@
             "timeout": 10
           },
           {
-            "type": "prompt",
-            "prompt": "Check the file that was just edited. ONLY check .rb files under app/controllers/ or app/jobs/. Skip all other files immediately. For matching files, check: 1) Log statements (Rails.logger, logger.info, logger.error, logger.warn) in controller actions or job perform methods that do not include request_id — warn: 'WARNING: Log statement without request_id. Include request_id for distributed tracing per monitoring.md.' 2) Log statements containing the words password, token, secret, ssn, or credit_card (case-insensitive) as interpolated values — warn: 'WARNING: Potentially sensitive data in log statement per monitoring.md. Never log passwords, tokens, PII, or secrets.' Only warn, do not block.",
+            "type": "command",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/monitoring-checker.py",
             "timeout": 10
           }
         ]
@@ -153,25 +153,13 @@
         ]
       }
     ],
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Review what was accomplished in this session. Check: 1) Was the user's request fully addressed? 2) Were all modified files saved? 3) Were tests mentioned but not run? 4) Are there any TODOs or incomplete items left? If the task appears incomplete, respond with 'INCOMPLETE: [reason]'. If complete, respond with 'COMPLETE'.",
-            "timeout": 30
-          }
-        ]
-      }
-    ],
     "SessionStart": [
       {
         "matcher": "",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Briefly verify the development environment is ready. Check: 1) Is this a git repository? If not, note it. 2) Are there uncommitted changes that might affect the session? 3) What is the current branch? If on main/master, note that feature work should use a feature branch. Keep the check brief and informational — do not block the session. Format: 'Environment: [branch name], [clean/dirty working tree], [any notable observations].'",
+            "type": "command",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/session-start-check.py",
             "timeout": 10
           }
         ]
@@ -189,13 +177,25 @@
         ]
       }
     ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/session-stop-summary.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "SubagentStart": [
       {
         "matcher": "",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "You are working in a Software Development House with this tech stack: Rails (backend), Panko Serializer, PostgreSQL + PostGIS (geospatial database), React Native (mobile), ReactJS + Vite (web SPA), Next.js App Router (web SSR/SSG), Tailwind CSS (web styling), Framer Motion (web animations), ApexCharts (web charts), Zustand (client state), TanStack Query (server state), Centrifugal/Centrifugo (real-time WebSocket), Redis (cache + Sidekiq queues), AWS + GCP (cloud), Vercel (Next.js deployment), Terraform (IaC), Docker Compose (local dev). Web testing uses Vitest + React Testing Library. ALWAYS prefer established community libraries (gems, npm packages) over custom implementations. Frame all recommendations within this stack.",
+            "type": "command",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/subagent-context.py",
             "timeout": 10
           }
         ]
