@@ -123,6 +123,7 @@ Detailed domain-specific rules are maintained in `.claude/rules/`:
 - `monitoring.md` — Structured logging, health checks, CloudWatch alarms, Sentry
 - `clean-architecture.md` — Layer separation, dependency direction, boundary violations
 - `i18n.md` — Internationalization conventions, locale files, RTL support, key naming
+- `accessibility.md` — WCAG 2.1 AA, semantic HTML, keyboard navigation, color contrast, ARIA
 
 ## Agents
 
@@ -154,7 +155,8 @@ On-demand skills available via slash commands:
 - `/doc-generator` — Technical documentation, ADRs, retrospectives, change management procedures (fork context)
 - `/technical-rfc` — Technical RFC proposals for significant changes requiring team consensus
 - `/incident-response` — Production incident diagnosis, chaos engineering, operations runbooks (Opus)
-- `/i18n` — Internationalization for Rails (YAML locales, lazy lookup) and React Native (i18next, RTL)
+- `/requirements-consultant` — Requirements discovery, user story generation, feasibility analysis (routes to requirements-consultant agent, Opus)
+- `/i18n` — Internationalization for Rails, React Native, ReactJS Vite SPA, and Next.js (locales, RTL, CSS logical properties)
 - `/compliance-auditor` — SOC2, HIPAA, PCI-DSS, GDPR compliance auditing and documentation
 - `/clean-architecture` — Clean Architecture validation, layer boundary enforcement (routes to clean-architecture agent)
 - `/sprint-planner` — Sprint planning, effort estimation, capacity planning, backlog grooming
@@ -171,7 +173,9 @@ Active hooks in `.claude/settings.json` enforce quality at every lifecycle point
 **PostToolUse** (after tool completes):
 - `auto-format.sh` — Auto-formats edited files (rubocop, prettier, terraform fmt)
 - `test-runner.sh` — Reminds to run tests for modified code
-- Prompt hook enforces code-standards.md (30-line functions, 4-param max, 3-level nesting, domain-aware file limits: 200 lines for Rails models/.tsx components, 300 lines elsewhere), error-handling.md (empty catch blocks, rescue Exception), and testing.md (warns when source files lack corresponding test files)
+- **Code quality prompt** — Enforces code-standards.md (30-line functions, 4-param max, 3-level nesting, domain-aware file limits: 200 lines for Rails models/.tsx components, 300 lines elsewhere)
+- **Error handling prompt** — Enforces error-handling.md (empty catch blocks, rescue Exception)
+- **Test coverage prompt** — Enforces testing.md (warns when source files lack corresponding test files)
 - `audit-logger.py` — Logs all tool executions for compliance (JSON-lines)
 
 **Stop** (when Claude finishes):

@@ -1,12 +1,12 @@
 ---
 name: i18n
-description: Implement internationalization (i18n) and localization (l10n) for Rails backends and React Native mobile apps. Use this skill whenever someone asks about translations, locales, internationalization, or says things like "add i18n support", "translate this", "support multiple languages", "add locale", "RTL support", "pluralization", or "localize the app". Also trigger for date/currency/number formatting across locales.
+description: Implement internationalization (i18n) and localization (l10n) for Rails backends, React Native mobile, ReactJS Vite SPA, and Next.js web apps. Use this skill whenever someone asks about translations, locales, internationalization, or says things like "add i18n support", "translate this", "support multiple languages", "add locale", "RTL support", "pluralization", "localize the app", or "web translations". Also trigger for date/currency/number formatting across locales, CSS logical properties for RTL, or server component i18n.
 model: sonnet
 ---
 
 # Internationalization (i18n)
 
-Implement and maintain internationalization across the full stack: Rails API backend and React Native mobile frontend.
+Implement and maintain internationalization across the full stack: Rails API backend, React Native mobile, ReactJS Vite SPA, and Next.js App Router web frontends.
 
 ## Rails Backend i18n
 
