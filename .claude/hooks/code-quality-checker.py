@@ -19,6 +19,7 @@ COMPONENT_PREFIXES = (
     "mobile/src/screens/", "mobile/src/components/",
     "web/src/components/", "web/src/pages/",
     "next/src/components/", "next/app/",
+    "backend/app/components/", "backend/app/views/",
 )
 MODEL_LIMIT = 200
 COMPONENT_LIMIT = 200

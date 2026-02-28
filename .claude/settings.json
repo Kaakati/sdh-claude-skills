@@ -139,6 +139,11 @@
             "type": "command",
             "command": "bash .claude/hooks/run-python.sh .claude/hooks/monitoring-checker.py",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/atomic-design-checker.py",
+            "timeout": 10
           }
         ]
       },

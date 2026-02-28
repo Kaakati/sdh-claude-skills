@@ -11,6 +11,7 @@ We are a Software Development House building production systems for clients. Qua
 | Layer | Technology | Notes |
 |-------|-----------|-------|
 | Backend | Ruby on Rails | API-only mode, shared by all frontends |
+| View Layer | Phlex | Object-oriented Ruby views (~1.4 Gbps rendering) |
 | Serialization | Panko Serializer | High-performance JSON serialization |
 | Database | PostgreSQL + PostGIS | Geospatial-enabled relational database |
 | Mobile | React Native | Cross-platform iOS/Android |
@@ -35,6 +36,7 @@ We are a Software Development House building production systems for clients. Qua
 - HTTP: `faraday` (Rails), `axios` (React Native + Web)
 - Forms: `react-hook-form` + `zod` | Navigation: `@react-navigation/native`
 - Storage: `react-native-mmkv` | Images: `react-native-fast-image`
+- Views: `phlex-rails` + `class_variants` | Stimulus: `stimulus-rails`
 - Web Routing: `react-router` (Vite SPA) | Web Styling: `tailwindcss` + `clsx` + `tailwind-merge`
 - Web Animations: `framer-motion` | Web Charts: `react-apexcharts`
 - Web Testing: `vitest` + `@testing-library/react` + `msw`
@@ -63,7 +65,7 @@ We are a Software Development House building production systems for clients. Qua
 
 ## Architecture
 
-- **Rails Backend**: Service objects for business logic, Panko serializers for JSON, Sidekiq for background jobs
+- **Rails Backend**: Service objects for business logic, Panko serializers for JSON, Phlex for views (Atomic Design), Sidekiq for background jobs
 - **React Native Frontend**: Zustand stores for client state, TanStack Query for server data, Centrifugo for real-time
 - **ReactJS (Vite SPA)**: Pages → Hooks → API Client, React Router (lazy-loaded), Tailwind CSS, Framer Motion, ApexCharts
 - **Next.js (App Router)**: Server Components for data fetching, server actions for mutations, Client Components for interactivity
@@ -124,6 +126,7 @@ Detailed domain-specific rules are maintained in `.claude/rules/`:
 - `clean-architecture.md` — Layer separation, dependency direction, boundary violations
 - `i18n.md` — Internationalization conventions, locale files, RTL support, key naming
 - `accessibility.md` — WCAG 2.1 AA, semantic HTML, keyboard navigation, color contrast, ARIA
+- `phlex-conventions.md` — Phlex component conventions, Atomic Design structure, `class_variants`, Stimulus/Turbo
 
 ## Agents
 
@@ -137,6 +140,7 @@ Custom agents are available in `.claude/agents/` for specialized tasks:
 - `refactor-specialist` — Safe incremental refactoring (Opus)
 - `clean-architecture` — Clean Architecture conformance, layer boundary validation, dependency direction enforcement (Opus, plan mode)
 - `incident-responder` — Production incident diagnosis, mitigation, post-mortem, chaos engineering (Opus)
+- `phlex-developer` — Phlex view components with Atomic Design, Tailwind tokens, Stimulus, Turbo
 
 ## Skills
 
@@ -167,6 +171,9 @@ On-demand skills available via slash commands:
 - `/composition-patterns` — React composition patterns (compound components, context, React 19)
 - `/react-native-best-practices` — React Native/Expo performance best practices (35+ rules)
 - `/web-design-guidelines` — Web interface design review (100+ accessibility/UX rules)
+- `/atomic-design` — Atomic Design methodology for component hierarchy across all frontend platforms
+- `/phlex-dev` — Phlex view components with Atomic Design, Tailwind, Stimulus, Turbo (routes to phlex-developer agent)
+- `/theming` — Cross-platform design tokens, dark/light mode, WCAG AA contrast
 
 ## Hooks (Deterministic Automation)
 
@@ -190,6 +197,7 @@ Active hooks in `.claude/settings.json` enforce quality at every lifecycle point
 - **Accessibility agent hook** — Enforces accessibility.md (semantic HTML, alt text, label associations, focus indicators, ARIA misuse) — Haiku agent with Read/Grep/Glob tools, scoped to .tsx/.jsx under web/next/frontend
 - **API design agent hook** — Enforces api-design.md (URL nouns, data wrapper, error format, HTTP status codes) — Haiku agent with Read/Grep/Glob tools, scoped to controllers and API routes
 - **Monitoring prompt** — Enforces monitoring.md (request_id in logs, sensitive data logging) — scoped to .rb under backend/app/controllers and backend/app/jobs
+- `atomic-design-checker.py` — Validates Atomic Design hierarchy (atom independence, molecule composition, organism boundaries, naming) across Phlex, ReactJS, Next.js, React Native
 - `audit-logger.py` — Logs all tool executions for compliance (JSON-lines)
 
 **SessionStart** (when session begins):
