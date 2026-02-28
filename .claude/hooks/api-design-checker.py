@@ -116,7 +116,7 @@ def check_post_returns_200(content):
     # Rails: in a create action, render ... status: :ok or status: 200
     # Heuristic: look for def create ... render ... status: :ok
     create_pattern = re.compile(
-        r"def\s+create\b.*?(?=\bdef\s|\z)", re.DOTALL
+        r"def\s+create\b.*?(?=\bdef\s|\Z)", re.DOTALL
     )
     for match in create_pattern.finditer(content):
         block = match.group(0)

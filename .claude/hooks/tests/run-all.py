@@ -67,6 +67,30 @@ def assert_warns(name, hook_script, tool_name, tool_input):
         print(f"  FAIL: {name} — expected warning, got exit={code}, output={stdout[:200]}")
 
 
+def assert_silent(name, hook_script, tool_name, tool_input):
+    """Assert the hook exits 0 with no output (silent skip)."""
+    global PASS, FAIL
+    code, stdout = run_hook(hook_script, tool_name, tool_input)
+    if code == 0 and stdout == "":
+        PASS += 1
+        print(f"  PASS: {name}")
+    else:
+        FAIL += 1
+        print(f"  FAIL: {name} — expected silent exit, got exit={code}, output={stdout[:200]}")
+
+
+def assert_output_contains(name, hook_script, tool_name, tool_input, substring):
+    """Assert the hook output contains a specific substring."""
+    global PASS, FAIL
+    code, stdout = run_hook(hook_script, tool_name, tool_input)
+    if code == 0 and substring.lower() in stdout.lower():
+        PASS += 1
+        print(f"  PASS: {name}")
+    else:
+        FAIL += 1
+        print(f"  FAIL: {name} — expected '{substring}' in output, got exit={code}, output={stdout[:200]}")
+
+
 def test_dangerous_command_blocker():
     print("\n[dangerous-command-blocker.py]")
     assert_blocked("blocks rm -rf /", "dangerous-command-blocker.py", "Bash",
@@ -134,6 +158,163 @@ def test_pre_commit_check():
                    {"command": "npm test"})
 
 
+def test_accessibility_checker():
+    print("\n[accessibility-checker.py]")
+
+    # --- Silent skips for non-matching files ---
+    assert_silent("skips markdown files", "accessibility-checker.py", "Edit",
+                  {"file_path": "README.md"})
+    assert_silent("skips JSON config", "accessibility-checker.py", "Edit",
+                  {"file_path": ".claude/settings.json"})
+    assert_silent("skips Ruby files", "accessibility-checker.py", "Edit",
+                  {"file_path": "app/models/user.rb"})
+    assert_silent("skips Python files", "accessibility-checker.py", "Edit",
+                  {"file_path": ".claude/hooks/test-runner.py"})
+    assert_silent("skips tsx outside web/next/frontend", "accessibility-checker.py", "Edit",
+                  {"file_path": "src/components/Button.tsx"})
+    assert_silent("skips empty input", "accessibility-checker.py", "Edit",
+                  {"file_path": ""})
+
+    # --- Warnings on matching files ---
+    # Create temp test files for detection tests
+    import tempfile, os
+    tmpdir = tempfile.mkdtemp()
+    web_dir = os.path.join(tmpdir, "web", "src", "components")
+    os.makedirs(web_dir)
+
+    # Test: div onClick detection
+    div_click_file = os.path.join(web_dir, "BadButton.tsx")
+    with open(div_click_file, "w") as f:
+        f.write('<div onClick={() => handleClick()}>Click me</div>')
+    assert_output_contains("warns on div onClick", "accessibility-checker.py", "Edit",
+                           {"file_path": div_click_file}, "non-semantic")
+
+    # Test: span onClick detection
+    span_click_file = os.path.join(web_dir, "BadSpan.tsx")
+    with open(span_click_file, "w") as f:
+        f.write('<span onClick={toggle} className="link">Toggle</span>')
+    assert_output_contains("warns on span onClick", "accessibility-checker.py", "Edit",
+                           {"file_path": span_click_file}, "non-semantic")
+
+    # Test: img without alt
+    img_file = os.path.join(web_dir, "BadImage.tsx")
+    with open(img_file, "w") as f:
+        f.write('<img src="/logo.png" width={100} />')
+    assert_output_contains("warns on img without alt", "accessibility-checker.py", "Edit",
+                           {"file_path": img_file}, "alt text")
+
+    # Test: Image (next/image) without alt
+    next_dir = os.path.join(tmpdir, "next", "app", "components")
+    os.makedirs(next_dir)
+    next_img_file = os.path.join(next_dir, "Hero.tsx")
+    with open(next_img_file, "w") as f:
+        f.write('<Image src="/hero.jpg" width={800} height={400} />')
+    assert_output_contains("warns on next/image without alt", "accessibility-checker.py", "Edit",
+                           {"file_path": next_img_file}, "alt text")
+
+    # Test: input without label
+    input_file = os.path.join(web_dir, "BadForm.tsx")
+    with open(input_file, "w") as f:
+        f.write('<input type="text" id="email" placeholder="Email" />')
+    assert_output_contains("warns on input without label", "accessibility-checker.py", "Edit",
+                           {"file_path": input_file}, "label")
+
+    # Test: outline:none
+    outline_file = os.path.join(web_dir, "BadFocus.tsx")
+    with open(outline_file, "w") as f:
+        f.write('const style = { outline: none };\n<button style={style}>Go</button>')
+    assert_output_contains("warns on outline:none", "accessibility-checker.py", "Edit",
+                           {"file_path": outline_file}, "focus indicator")
+
+    # Test: aria-hidden with onClick
+    aria_file = os.path.join(web_dir, "BadAria.tsx")
+    with open(aria_file, "w") as f:
+        f.write('<div aria-hidden="true" onClick={close}>X</div>')
+    assert_output_contains("warns on aria-hidden with onClick", "accessibility-checker.py", "Edit",
+                           {"file_path": aria_file}, "hidden from assistive")
+
+    # Test: clean file passes silently
+    clean_file = os.path.join(web_dir, "GoodButton.tsx")
+    with open(clean_file, "w") as f:
+        f.write('<button onClick={handleClick}>Click me</button>\n<img src="/logo.png" alt="Company logo" />')
+    assert_silent("no warnings on clean file", "accessibility-checker.py", "Edit",
+                  {"file_path": clean_file})
+
+    # Cleanup temp files
+    import shutil
+    shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def test_api_design_checker():
+    print("\n[api-design-checker.py]")
+
+    # --- Silent skips for non-matching files ---
+    assert_silent("skips markdown files", "api-design-checker.py", "Edit",
+                  {"file_path": "README.md"})
+    assert_silent("skips settings JSON", "api-design-checker.py", "Edit",
+                  {"file_path": ".claude/settings.json"})
+    assert_silent("skips model files", "api-design-checker.py", "Edit",
+                  {"file_path": "app/models/user.rb"})
+    assert_silent("skips view files", "api-design-checker.py", "Edit",
+                  {"file_path": "web/src/components/Button.tsx"})
+    assert_silent("skips empty input", "api-design-checker.py", "Edit",
+                  {"file_path": ""})
+
+    # --- Warnings on matching files ---
+    import tempfile, os
+    tmpdir = tempfile.mkdtemp()
+    ctrl_dir = os.path.join(tmpdir, "app", "controllers")
+    os.makedirs(ctrl_dir)
+
+    # Test: verb in route path
+    verb_file = os.path.join(ctrl_dir, "routes.rb")
+    with open(verb_file, "w") as f:
+        f.write("get '/api/getUsers', to: 'users#index'\n")
+    assert_output_contains("warns on verb in URL path", "api-design-checker.py", "Edit",
+                           {"file_path": verb_file}, "verb")
+
+    # Test: unwrapped array response (Rails)
+    array_file = os.path.join(ctrl_dir, "users_controller.rb")
+    with open(array_file, "w") as f:
+        f.write("render json: [user1, user2, user3]\n")
+    assert_output_contains("warns on unwrapped array (Rails)", "api-design-checker.py", "Edit",
+                           {"file_path": array_file}, "data key")
+
+    # Test: error response missing code/request_id
+    error_file = os.path.join(ctrl_dir, "orders_controller.rb")
+    with open(error_file, "w") as f:
+        f.write('render json: { error: "Not found" }, status: :not_found\n')
+    assert_output_contains("warns on error missing code/request_id", "api-design-checker.py", "Edit",
+                           {"file_path": error_file}, "error response missing")
+
+    # Test: POST create returning 200
+    post_file = os.path.join(ctrl_dir, "items_controller.rb")
+    with open(post_file, "w") as f:
+        f.write("def create\n  item = Item.create!(params)\n  render json: item, status: :ok\nend\n")
+    assert_output_contains("warns on POST returning 200", "api-design-checker.py", "Edit",
+                           {"file_path": post_file}, "201")
+
+    # Test: JS API unwrapped array
+    api_dir = os.path.join(tmpdir, "src", "api")
+    os.makedirs(api_dir)
+    js_array_file = os.path.join(api_dir, "users.ts")
+    with open(js_array_file, "w") as f:
+        f.write("res.json([user1, user2])\n")
+    assert_output_contains("warns on unwrapped array (JS)", "api-design-checker.py", "Edit",
+                           {"file_path": js_array_file}, "data key")
+
+    # Test: clean controller passes silently
+    clean_file = os.path.join(ctrl_dir, "clean_controller.rb")
+    with open(clean_file, "w") as f:
+        f.write("def index\n  render json: { data: users, meta: { total: count } }\nend\n")
+    assert_silent("no warnings on clean controller", "api-design-checker.py", "Edit",
+                  {"file_path": clean_file})
+
+    # Cleanup temp files
+    import shutil
+    shutil.rmtree(tmpdir, ignore_errors=True)
+
+
 def main():
     print("=" * 60)
     print("Hook Test Harness")
@@ -143,6 +324,8 @@ def main():
     test_migration_validator()
     test_deployment_gate()
     test_pre_commit_check()
+    test_accessibility_checker()
+    test_api_design_checker()
 
     print("\n" + "=" * 60)
     print(f"Results: {PASS} passed, {FAIL} failed")
