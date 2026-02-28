@@ -12,7 +12,7 @@ Instead of relying on ad-hoc prompting, this system provides:
 
 - **16 rules** that are automatically loaded based on file paths being edited
 - **8 specialized agents** that handle complex tasks with constrained tool access
-- **20 slash-command skills** that provide repeatable, templated workflows
+- **24 slash-command skills** that provide repeatable, templated workflows
 - **9 hook scripts + 8 prompt hooks** that enforce quality gates on every action
 
 ## Project Directory Convention
@@ -21,34 +21,35 @@ Instead of relying on ad-hoc prompting, this system provides:
 
 ### Required Directory Names
 
-| Framework | Required Directory | Alternatives | Example |
-|-----------|-------------------|--------------|---------|
-| **Rails API** | `app/` | `lib/`, `config/`, `db/` | `app/models/user.rb` |
-| **React Native** | `src/` | `mobile/`, `app/` (with `.tsx`) | `src/screens/HomeScreen.tsx` |
-| **ReactJS (Vite SPA)** | `web/` | `frontend/` | `web/src/pages/Dashboard.tsx` |
-| **Next.js (App Router)** | `next/` | — | `next/app/page.tsx` |
+| Framework | Required Directory | Contents | Example |
+|-----------|-------------------|----------|---------|
+| **Rails API** | `backend/` | `app/`, `lib/`, `config/`, `db/`, `spec/` | `backend/app/models/user.rb` |
+| **React Native** | `mobile/` | `src/` (screens, hooks, stores, components) | `mobile/src/screens/HomeScreen.tsx` |
+| **ReactJS (Vite SPA)** | `web/` | `src/` (pages, hooks, components, api) | `web/src/pages/Dashboard.tsx` |
+| **Next.js (App Router)** | `next/` | `app/`, `src/` (components, hooks, actions) | `next/app/page.tsx` |
 
 ### Why This Matters
 
-Rules are auto-loaded by file path. If you put your Vite SPA code in `client/` instead of `web/`, the ReactJS rules (`reactjs.md`, `accessibility.md`) will **not** activate. Similarly, if you put Next.js code in `webapp/` instead of `next/`, the Next.js rules will not trigger.
+Rules are auto-loaded by file path. If you put your Rails code in `api/` instead of `backend/`, the Rails rules will **not** activate. Similarly, if you put React Native code in `src/` instead of `mobile/`, the React Native rules will not trigger.
 
 ### Path Glob Mapping
 
 Here is exactly which rules activate for which paths:
 
 ```
-File you edit                         Rules that auto-load
-─────────────────────────────────     ──────────────────────────────────────
-app/**/*.rb                         → rails-conventions, clean-architecture
-src/**/*.tsx                        → react-native, clean-architecture
-web/**                              → reactjs, accessibility, clean-architecture
-web/src/i18n/**                     → i18n
-next/**                             → nextjs, accessibility, clean-architecture
-next/src/i18n/**                    → i18n
-config/locales/**                   → i18n
-**/migrations/**                    → database
-terraform/**                        → infrastructure, monitoring
-**/*.test.*, **/*.spec.*            → testing
+File you edit                              Rules that auto-load
+──────────────────────────────────────     ──────────────────────────────────────
+backend/app/**/*.rb                      → rails-conventions, clean-architecture
+backend/config/**/*.rb                   → rails-conventions
+mobile/src/**/*.tsx                      → react-native, clean-architecture
+web/**                                   → reactjs, accessibility, clean-architecture
+web/src/i18n/**                          → i18n
+next/**                                  → nextjs, accessibility, clean-architecture
+next/src/i18n/**                         → i18n
+backend/config/locales/**                → i18n
+**/migrations/**                         → database
+terraform/**                             → infrastructure, monitoring
+**/*.test.*, **/*.spec.*                 → testing
 ```
 
 ### PostToolUse Hook Path Awareness
@@ -57,8 +58,8 @@ The PostToolUse prompt hooks also use these paths for domain-aware limits:
 
 | Path Pattern | File Limit | Rationale |
 |--------------|-----------|-----------|
-| `app/models/**` | 200 lines | Rails models per rails-conventions.md |
-| `src/screens/**`, `src/components/**` | 200 lines | React Native components |
+| `backend/app/models/**` | 200 lines | Rails models per rails-conventions.md |
+| `mobile/src/screens/**`, `mobile/src/components/**` | 200 lines | React Native components |
 | `web/src/components/**`, `web/src/pages/**` | 200 lines | Vite SPA components per reactjs.md |
 | `next/src/components/**`, `next/app/**` | 200 lines | Next.js components per nextjs.md |
 | All other source files | 300 lines | General limit per code-standards.md |
@@ -69,19 +70,28 @@ The PostToolUse prompt hooks also use these paths for domain-aware limits:
 your-project/
 ├── CLAUDE.md                         # Master config (always loaded)
 ├── .claude/                          # All Claude Code configuration
-├── app/                              # Rails API backend
-│   ├── controllers/
-│   ├── models/
-│   ├── serializers/
-│   ├── services/
-│   └── values/
-├── src/                              # React Native mobile app
-│   ├── domain/                       # Pure TypeScript types
-│   ├── hooks/                        # TanStack Query hooks
-│   ├── screens/                      # Screen components
-│   ├── components/                   # Shared components
-│   ├── stores/                       # Zustand stores
-│   └── api/                          # API client
+├── backend/                          # Rails API backend
+│   ├── app/
+│   │   ├── controllers/
+│   │   ├── models/
+│   │   ├── serializers/
+│   │   ├── services/
+│   │   └── jobs/
+│   ├── config/
+│   │   └── locales/                  # i18n YAML locales
+│   ├── db/
+│   │   └── migrate/                  # Rails migrations
+│   ├── lib/
+│   └── spec/                         # Rails RSpec tests
+├── mobile/                           # React Native mobile app
+│   └── src/
+│       ├── domain/                   # Pure TypeScript types
+│       ├── hooks/                    # TanStack Query hooks
+│       ├── screens/                  # Screen components
+│       ├── components/               # Shared components
+│       ├── stores/                   # Zustand stores
+│       ├── api/                      # API client
+│       └── i18n/                     # i18n config
 ├── web/                              # ReactJS Vite SPA
 │   ├── src/
 │   │   ├── domain/                   # Pure TypeScript types
@@ -107,11 +117,6 @@ your-project/
 │   │   ├── api/                      # Rails API client
 │   │   └── i18n/                     # i18n config
 │   └── tests/                        # Tests
-├── config/                           # Rails config
-│   └── locales/                      # i18n YAML locales
-├── db/
-│   └── migrate/                      # Rails migrations
-├── spec/                             # Rails RSpec tests
 ├── terraform/                        # Infrastructure as code
 └── docker-compose.yml                # Local development
 ```
@@ -174,40 +179,31 @@ CLAUDE.md                          ← Master configuration (loaded every sessio
 │   ├── test-generator.md             (Sonnet, testing)
 │   ├── devops-engineer.md            (Sonnet, infra)
 │   └── refactor-specialist.md        (Opus, refactoring)
-├── .claude/skills/                ← 20 slash-command skills
+├── .claude/skills/                ← 24 slash-command skills
 │   ├── api-designer/
 │   ├── clean-architecture/
-│   │   ├── SKILL.md
-│   │   └── references/
-│   │       └── layer-examples.md
 │   ├── code-reviewer/
 │   ├── compliance-auditor/
+│   ├── composition-patterns/         (React composition, compound components)
 │   ├── db-migration/
 │   ├── deploy/
 │   ├── doc-generator/
 │   ├── i18n/
 │   ├── incident-response/
+│   ├── nextjs-dev/
 │   ├── onboarding/
 │   ├── performance-profiler/
 │   ├── rails-architect/
+│   ├── react-best-practices/         (57 React/Next.js perf rules)
+│   ├── react-native-best-practices/  (35+ React Native perf rules)
 │   ├── react-native-dev/
 │   ├── reactjs-dev/
-│   │   ├── SKILL.md
-│   │   └── references/
-│   │       ├── component-patterns.md
-│   │       ├── data-patterns.md
-│   │       └── ui-patterns.md
-│   ├── nextjs-dev/
-│   │   ├── SKILL.md
-│   │   └── references/
-│   │       ├── server-patterns.md
-│   │       ├── client-patterns.md
-│   │       └── infrastructure-patterns.md
 │   ├── requirements-consultant/
 │   ├── security-auditor/
 │   ├── sprint-planner/
 │   ├── technical-rfc/
-│   └── test-generator/
+│   ├── test-generator/
+│   └── web-design-guidelines/        (100+ accessibility/UX rules)
 ├── .claude/hooks/                 ← 9 automation scripts
 │   ├── security-scan.py              (PreToolUse: blocks secrets)
 │   ├── dangerous-command-blocker.py  (PreToolUse: blocks destructive cmds)
@@ -257,9 +253,9 @@ Rules are loaded automatically when you edit files matching their `paths` globs:
 | `code-standards.md` | All source files | SOLID, 30-line functions, 4-param max, naming conventions |
 | `security.md` | All source files | OWASP Top 10, input validation, parameterized queries |
 | `testing.md` | Test/spec files + web source | AAA pattern, 80% coverage target, Vitest + RTL |
-| `clean-architecture.md` | `app/**`, `src/**`, `web/**`, `next/**` | Dependency direction, layer boundaries, violation detection |
-| `rails-conventions.md` | `app/**/*.rb` | Models, controllers, services, Panko, Sidekiq patterns |
-| `react-native.md` | `src/**/*.{ts,tsx}` | Zustand, TanStack Query, Centrifugo, component patterns |
+| `clean-architecture.md` | `backend/app/**`, `mobile/src/**`, `web/**`, `next/**` | Dependency direction, layer boundaries, violation detection |
+| `rails-conventions.md` | `backend/app/**/*.rb` | Models, controllers, services, Panko, Sidekiq patterns |
+| `react-native.md` | `mobile/src/**/*.{ts,tsx}` | Zustand, TanStack Query, Centrifugo, component patterns |
 | `reactjs.md` | `web/**`, `frontend/**` | React Router, Tailwind CSS, Framer Motion, ApexCharts |
 | `nextjs.md` | `next/**` | Server Components, server actions, ISR/SSG, Vercel |
 | `accessibility.md` | `web/**`, `next/**`, `frontend/**` | WCAG 2.1 AA, semantic HTML, keyboard navigation |
@@ -312,6 +308,10 @@ Invoke with `/skill-name` for templated, repeatable workflows:
 | `/technical-rfc` | — | RFC proposals for significant changes |
 | `/onboarding` | — | Developer setup guides |
 | `/incident-response` | — | Production incident diagnosis, chaos engineering (Opus) |
+| `/react-best-practices` | — | React/Next.js performance optimization (57 rules, 8 categories) |
+| `/composition-patterns` | — | React composition patterns (compound components, context, React 19) |
+| `/react-native-best-practices` | — | React Native/Expo performance best practices (35+ rules) |
+| `/web-design-guidelines` | — | Web interface design review (100+ accessibility/UX rules) |
 
 ## Getting Started
 
@@ -332,13 +332,13 @@ Ensure your project follows the required directory naming convention:
 
 ```bash
 # Your project must use these directory names:
-mkdir -p app/          # Rails API backend
-mkdir -p src/          # React Native mobile
-mkdir -p web/src/      # ReactJS Vite SPA  (NOT "client/", NOT "frontend/src/")
-mkdir -p next/app/     # Next.js App Router (NOT "webapp/", NOT "ssr/")
+mkdir -p backend/app/  # Rails API backend
+mkdir -p mobile/src/   # React Native mobile
+mkdir -p web/src/      # ReactJS Vite SPA
+mkdir -p next/app/     # Next.js App Router
 ```
 
-If you use `frontend/` instead of `web/`, the ReactJS and accessibility rules will still trigger (both paths are configured). But `next/` has no alternative — it must be `next/`.
+Each directory name is a contract — path globs in rules, hooks, and skills depend on these exact names.
 
 ### 3. Customize for your project
 
@@ -415,7 +415,7 @@ The `audit-logger.py` hook logs every tool execution in JSON-lines format, provi
 
 5. **Community libraries over custom code** — The entire configuration assumes and enforces the use of established gems and npm packages (devise, pundit, pagy, react-hook-form, zod, etc.).
 
-6. **Directory naming is a contract** — `web/` means Vite SPA, `next/` means Next.js, `src/` means React Native. This is not arbitrary — path globs in rules, hooks, and skills depend on these exact directory names.
+6. **Directory naming is a contract** — `backend/` means Rails, `mobile/` means React Native, `web/` means Vite SPA, `next/` means Next.js. This is not arbitrary — path globs in rules, hooks, and skills depend on these exact directory names.
 
 ## Repository Structure
 
@@ -429,7 +429,7 @@ The `audit-logger.py` hook logs every tool execution in JSON-lines format, provi
     ├── settings.json                  # Permissions + hooks
     ├── managed-settings.template.json # IT admin template
     ├── agents/          (8 agents)
-    ├── skills/          (20 skills, each with SKILL.md + references/)
+    ├── skills/          (24 skills, each with SKILL.md + references/)
     ├── rules/           (16 rule files)
     └── hooks/           (9 automation scripts + test harness)
 ```
