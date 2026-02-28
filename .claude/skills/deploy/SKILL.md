@@ -2,7 +2,7 @@
 name: deploy
 description: Execute deployment workflows with pre-flight checks, environment validation, health verification, and rollback procedures. Use this skill whenever someone asks to deploy, push to staging, release to production, or says things like "deploy to staging", "release this to production", "run the deployment checklist", "is this ready to deploy", "execute the release", or "roll back the deployment". Also trigger when someone mentions deployment readiness, smoke tests after deploy, rollback procedures, or canary/blue-green deployment strategy.
 model: sonnet
-disable-model-invocation: true
+agent: devops-engineer
 hooks:
   - event: PreToolUse
     matcher: Bash

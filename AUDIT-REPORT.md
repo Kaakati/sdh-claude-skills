@@ -12,34 +12,37 @@
 
 ### Current Inventory (Post Full Implementation)
 
-| Category | Pre-Audit | Post P0 | Post All Rx | Delta |
-|----------|-----------|---------|-------------|-------|
-| Skills | 19 | 20 | **20** | +1 (requirements-consultant) |
-| Agents | 8 | 8 | **8** | 0 (renamed test-engineer→test-generator) |
-| Rules | 15 | 16 | **16** | +1 (accessibility.md) |
-| Hook scripts (.claude/hooks/) | 7 | 7 | **9** | +2 (migration-validator, deployment-gate) |
-| Prompt hooks (settings.json) | 3 | 5 | **8** | +5 (split monolith, clean-arch, i18n, SessionStart) |
-| Command hooks (settings.json) | 7 | 7 | **10** | +3 (migration-validator, deployment-gate, SessionStart) |
-| Skill-scoped hooks | 1 | 1 | 1 | 0 |
-| Lifecycle events used | 5/14 | 5/14 | **6/14** | +1 (SessionStart) |
-| Templates | 2 | 2 | 2 | 0 |
-| Hook test harness | 0 | 0 | **1** | +1 (run-all.py) |
-| Opus model agents | 1 | 1 | **4** | +3 (architecture-advisor, clean-architecture, refactor-specialist) |
+| Category | Pre-Audit | Post P0 | Post All Rx | Post Interlock | Delta |
+|----------|-----------|---------|-------------|----------------|-------|
+| Skills | 19 | 20 | 20 | **22** | +2 (architecture-advisor, refactor) |
+| Agents | 8 | 8 | 8 | **9** | +1 (incident-responder) |
+| Rules | 15 | 16 | 16 | **16** | 0 |
+| Hook scripts (.claude/hooks/) | 7 | 7 | 9 | **9** | 0 |
+| Prompt hooks (settings.json) | 3 | 5 | 8 | **9** | +1 (monitoring) |
+| Agent hooks (settings.json) | 0 | 0 | 0 | **2** | +2 (accessibility, api-design) |
+| Command hooks (settings.json) | 7 | 7 | 10 | **10** | 0 |
+| Skill-scoped hooks | 1 | 1 | 1 | **1** | 0 |
+| Lifecycle events used | 5/14 | 5/14 | 6/14 | **6/14** | 0 |
+| Templates | 2 | 2 | 2 | **2** | 0 |
+| Hook test harness | 0 | 0 | 1 | **1** | 0 |
+| Opus model agents | 1 | 1 | 4 | **5** | +1 (incident-responder) |
+| Skills routing to agents | 4 | 5 | 5 | **9** | +4 (architecture-advisor, refactor, deploy, incident-response) |
 
 ### Key Metrics
 
-| Metric | Before | After P0 | After All Rx | Status |
-|--------|--------|----------|-------------|--------|
-| SDLC phase coverage | 7/8 phases | 8/8 phases | 8/8 phases | COMPLETE |
-| Rules with hook enforcement | 8/15 (53%) | 9/16 (56%) | 11/16 (69%) | TARGET MET |
-| Skill-agent interlocking | 4/19 (21%) | 5/20 (25%) | 5/20 (25%) | IMPROVED |
-| Context budget utilization | ~3,400 / 16,000 (21%) | ~3,600 / 16,000 (23%) | ~3,600 / 16,000 (23%) | HEALTHY |
-| Opus model usage | 2 components | 3 components | 6 components | +4 (3 agents + 1 skill) |
-| SKILL.md compliance (< 200 lines) | 19/19 | 20/20 | 20/20 | COMPLIANT |
-| Reference files split | 2 monoliths | 2 monoliths | 8 focused files | OPTIMIZED |
-| Conflicts resolved | 1 active | 0 | 0 | RESOLVED |
-| Stale descriptions fixed | 1 active | 0 | 0 | RESOLVED |
-| Agent naming consistency | 1 mismatch | 1 mismatch | 0 | RESOLVED |
+| Metric | Before | After P0 | After All Rx | After Interlock | Status |
+|--------|--------|----------|-------------|-----------------|--------|
+| SDLC phase coverage | 7/8 phases | 8/8 phases | 8/8 phases | 8/8 phases | COMPLETE |
+| Rules with hook enforcement | 8/15 (53%) | 9/16 (56%) | 11/16 (69%) | **14/16 (88%)** | IMPROVED |
+| Skill-agent interlocking | 4/19 (21%) | 5/20 (25%) | 5/20 (25%) | **9/22 (41%)** | IMPROVED |
+| Context budget utilization | ~3,400 / 16,000 (21%) | ~3,600 / 16,000 (23%) | ~3,600 / 16,000 (23%) | ~4,200 / 16,000 (26%) | HEALTHY |
+| Opus model usage | 2 components | 3 components | 6 components | **8 components** | +2 (agent + skill) |
+| SKILL.md compliance (< 200 lines) | 19/19 | 20/20 | 20/20 | 22/22 | COMPLIANT |
+| Orphan agents (no skill route) | 4 | 3 | 3 | **0** | RESOLVED |
+| Reference files split | 2 monoliths | 2 monoliths | 8 focused files | 8 focused files | OPTIMIZED |
+| Conflicts resolved | 1 active | 0 | 0 | 0 | RESOLVED |
+| Stale descriptions fixed | 1 active | 0 | 0 | 0 | RESOLVED |
+| Agent naming consistency | 1 mismatch | 1 mismatch | 0 | 0 | RESOLVED |
 
 ### Findings Summary by Tag
 

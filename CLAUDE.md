@@ -136,6 +136,7 @@ Custom agents are available in `.claude/agents/` for specialized tasks:
 - `devops-engineer` — CI/CD, Terraform, Docker, deployment
 - `refactor-specialist` — Safe incremental refactoring (Opus)
 - `clean-architecture` — Clean Architecture conformance, layer boundary validation, dependency direction enforcement (Opus, plan mode)
+- `incident-responder` — Production incident diagnosis, mitigation, post-mortem, chaos engineering (Opus)
 
 ## Skills
 
@@ -150,16 +151,18 @@ On-demand skills available via slash commands:
 - `/nextjs-dev` — Next.js App Router features with Server Components, server actions, Vercel deployment
 - `/db-migration` — Schema design and safe database migration creation
 - `/performance-profiler` — Performance investigation and optimization
-- `/deploy` — Deployment workflow with pre-flight checks, canary/blue-green strategies (user-invoked only)
+- `/deploy` — Deployment workflow with pre-flight checks, canary/blue-green strategies (routes to devops-engineer agent)
 - `/onboarding` — Developer onboarding guides, setup docs, knowledge transfer
 - `/doc-generator` — Technical documentation, ADRs, retrospectives, change management procedures (fork context)
 - `/technical-rfc` — Technical RFC proposals for significant changes requiring team consensus
-- `/incident-response` — Production incident diagnosis, chaos engineering, operations runbooks (Opus)
+- `/incident-response` — Production incident diagnosis, chaos engineering, operations runbooks (routes to incident-responder agent, Opus)
 - `/requirements-consultant` — Requirements discovery, user story generation, feasibility analysis (routes to requirements-consultant agent, Opus)
 - `/i18n` — Internationalization for Rails, React Native, ReactJS Vite SPA, and Next.js (locales, RTL, CSS logical properties)
 - `/compliance-auditor` — SOC2, HIPAA, PCI-DSS, GDPR compliance auditing and documentation
 - `/clean-architecture` — Clean Architecture validation, layer boundary enforcement (routes to clean-architecture agent)
 - `/sprint-planner` — Sprint planning, effort estimation, capacity planning, backlog grooming
+- `/architecture-advisor` — Architectural decisions, ADRs, tech evaluation, system design (routes to architecture-advisor agent, Opus)
+- `/refactor` — Safe incremental refactoring with Fowler's patterns, test-first methodology (routes to refactor-specialist agent, Opus)
 
 ## Hooks (Deterministic Automation)
 
@@ -180,6 +183,9 @@ Active hooks in `.claude/settings.json` enforce quality at every lifecycle point
 - **Test coverage prompt** — Enforces testing.md (warns when source files lack corresponding test files)
 - **Clean architecture prompt** — Enforces clean-architecture.md (layer boundary violations, dependency direction)
 - **i18n prompt** — Enforces i18n.md (hardcoded user-facing strings in .tsx/.jsx/.erb files)
+- **Accessibility agent hook** — Enforces accessibility.md (semantic HTML, alt text, label associations, focus indicators, ARIA misuse) — Haiku agent with Read/Grep/Glob tools, scoped to .tsx/.jsx under web/next/frontend
+- **API design agent hook** — Enforces api-design.md (URL nouns, data wrapper, error format, HTTP status codes) — Haiku agent with Read/Grep/Glob tools, scoped to controllers and API routes
+- **Monitoring prompt** — Enforces monitoring.md (request_id in logs, sensitive data logging) — scoped to .rb under app/controllers and app/jobs
 - `audit-logger.py` — Logs all tool executions for compliance (JSON-lines)
 
 **SessionStart** (when session begins):

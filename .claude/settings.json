@@ -124,6 +124,23 @@
             "type": "prompt",
             "prompt": "Check the file that was just edited. If it is a .tsx, .jsx, or .erb file under app/views/, src/, web/src/, or next/: scan for hardcoded user-facing strings. In .tsx/.jsx files, look for plain text content between JSX tags that is NOT wrapped in a t() or useTranslation() call (ignore single characters, numbers, className values, and HTML attributes). In .erb files, look for plain text not wrapped in t() or I18n.t(). If hardcoded strings are found, warn: 'WARNING: Hardcoded user-facing string detected. Use translation keys per i18n.md — never hardcode user-facing strings.' Only warn, do not block. Skip config files, test files, and non-UI source files.",
             "timeout": 10
+          },
+          {
+            "type": "agent",
+            "prompt": "Check the file that was just edited for web accessibility violations per accessibility.md. ONLY check .tsx and .jsx files under web/**, next/**, or frontend/**. Skip all other files immediately with no output. For matching files, check: 1) <div onClick> or <span onClick> that should be <button> — warn: 'WARNING: Non-semantic clickable element. Use <button> for actions per accessibility.md.' 2) <img> or <Image> (next/image) without alt attribute — warn: 'WARNING: Image missing alt text per accessibility.md.' 3) <input> without associated <label> (htmlFor/id pairing or wrapping label) — warn: 'WARNING: Input without associated label per accessibility.md.' 4) outline:none or outline:0 in style/className without a visible focus replacement — warn: 'WARNING: Focus indicator removed without replacement per accessibility.md.' 5) aria-hidden=\"true\" on elements with onClick handlers — warn: 'WARNING: Interactive element hidden from assistive technology per accessibility.md.' Only warn, do not block.",
+            "model": "claude-haiku-4-5-20251001",
+            "timeout": 20
+          },
+          {
+            "type": "agent",
+            "prompt": "Check the file that was just edited for API design violations per api-design.md. ONLY check files matching app/controllers/**, src/api/**, web/src/api/**, or next/src/actions/**. Skip all other files immediately with no output. For matching files, check: 1) Route definitions with verbs in URLs (getUser, createOrder, deleteItem) — warn: 'WARNING: Verb in URL path. Use plural nouns for resources per api-design.md.' 2) JSON responses returning arrays not wrapped in a data key — warn: 'WARNING: Collection response not wrapped in data key per api-design.md.' 3) Error responses missing code or requestId fields — warn: 'WARNING: Error response missing code/requestId per api-design.md.' 4) POST actions returning 200 instead of 201 — warn: 'WARNING: POST should return 201 Created, not 200 per api-design.md.' Only warn, do not block.",
+            "model": "claude-haiku-4-5-20251001",
+            "timeout": 20
+          },
+          {
+            "type": "prompt",
+            "prompt": "Check the file that was just edited. ONLY check .rb files under app/controllers/ or app/jobs/. Skip all other files immediately. For matching files, check: 1) Log statements (Rails.logger, logger.info, logger.error, logger.warn) in controller actions or job perform methods that do not include request_id — warn: 'WARNING: Log statement without request_id. Include request_id for distributed tracing per monitoring.md.' 2) Log statements containing the words password, token, secret, ssn, or credit_card (case-insensitive) as interpolated values — warn: 'WARNING: Potentially sensitive data in log statement per monitoring.md. Never log passwords, tokens, PII, or secrets.' Only warn, do not block.",
+            "timeout": 10
           }
         ]
       },
