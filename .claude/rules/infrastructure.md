@@ -83,6 +83,37 @@ paths:
 - Environment variable naming: `RAILS_ENV`, `DATABASE_URL`, `REDIS_URL`, `CENTRIFUGO_API_KEY`
 - Use `dotenv-rails` for local development only
 
+## Web Frontend Deployment
+
+### Vite SPA → S3 + CloudFront (Static Hosting)
+- Build: `npm run build` produces static files in `web/dist/`.
+- Upload to S3 bucket configured for static website hosting.
+- CloudFront distribution for CDN, HTTPS, and caching.
+- Cache headers: `Cache-Control: public, max-age=31536000, immutable` for hashed assets; `no-cache` for `index.html`.
+- CloudFront invalidation on deploy: `aws cloudfront create-invalidation --paths "/index.html"`.
+- SPA routing: Configure CloudFront custom error response to redirect 404s to `/index.html`.
+
+### Next.js → Vercel (Primary)
+- Connect Git repository for automatic preview + production deployments.
+- Environment variables set in Vercel dashboard (per environment).
+- Use `vercel.json` for custom headers, redirects, and rewrites.
+- Preview deployments for every PR — unique URL for QA review.
+- Rollback via Vercel dashboard or CLI: `vercel rollback`.
+
+### Next.js → AWS ECS (Alternative)
+- Set `output: 'standalone'` in `next.config.ts` for minimal Docker image.
+- Multi-stage Docker build: install deps → build → copy standalone output.
+- Deploy as ECS Fargate service behind ALB.
+- CloudFront for static assets (`_next/static/`) served from S3.
+- Environment variables via ECS task definition or AWS Secrets Manager.
+
+### Web CI/CD Pipeline
+- **PR checks**: TypeScript check (`tsc --noEmit`), lint (ESLint + Prettier), unit tests (Vitest), build verification.
+- **Staging**: Auto-deploy on merge to main.
+- **Production**: Manual approval gate, Lighthouse CI score check.
+- **Bundle size budget**: Fail CI if initial JS exceeds 300KB (Vite) or client bundle exceeds 200KB (Next.js).
+- **Preview environments**: Deploy PR branches to unique URLs (Vercel preview or S3 subdirectory).
+
 ## Cost Optimization
 
 ### Reserved Instances and Savings Plans

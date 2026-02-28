@@ -280,3 +280,75 @@ aws elbv2 modify-listener --listener-arn $LISTENER_ARN \
 - Shared RDS database (migrations must be backward-compatible)
 - Shared Redis/ElastiCache instance
 - DNS or ALB listener swap for traffic routing
+
+## Web Frontend Deployments
+
+### Vercel Deployment (Next.js)
+
+#### Git-Based (Recommended)
+1. Connect GitHub repository in Vercel dashboard.
+2. Configure environment variables per environment (preview, production).
+3. Every push creates a preview deployment. Merges to `main` deploy to production.
+
+#### CLI-Based
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy preview (from next/ directory)
+cd next && vercel
+
+# Deploy to production
+vercel --prod
+
+# Rollback to previous deployment
+vercel rollback
+```
+
+#### `vercel.json` Configuration
+```json
+{
+  "headers": [
+    { "source": "/(.*)", "headers": [
+      { "key": "X-Frame-Options", "value": "DENY" },
+      { "key": "X-Content-Type-Options", "value": "nosniff" },
+      { "key": "Strict-Transport-Security", "value": "max-age=63072000" }
+    ]}
+  ],
+  "redirects": [
+    { "source": "/old-path", "destination": "/new-path", "permanent": true }
+  ]
+}
+```
+
+### S3 + CloudFront Deployment (Vite SPA)
+
+```bash
+# 1. Build the Vite SPA
+cd web && npm run build
+
+# 2. Sync built files to S3 (with cache headers)
+aws s3 sync dist/ s3://$BUCKET_NAME/ \
+  --exclude "index.html" \
+  --cache-control "public, max-age=31536000, immutable"
+
+# 3. Upload index.html with no-cache
+aws s3 cp dist/index.html s3://$BUCKET_NAME/index.html \
+  --cache-control "no-cache, no-store, must-revalidate"
+
+# 4. Invalidate CloudFront cache for index.html
+aws cloudfront create-invalidation \
+  --distribution-id $CF_DISTRIBUTION_ID \
+  --paths "/index.html"
+```
+
+#### S3 + CloudFront Prerequisites
+- S3 bucket with static website hosting enabled (or OAI for private bucket)
+- CloudFront distribution with custom error response: 404 → `/index.html` (SPA routing)
+- ACM certificate for HTTPS
+- Route 53 CNAME record pointing to CloudFront distribution
+- IAM role for CI/CD with `s3:PutObject` and `cloudfront:CreateInvalidation` permissions
+
+#### Rollback (S3)
+- Revert to previous git commit and redeploy, or
+- Maintain versioned S3 objects and restore previous version

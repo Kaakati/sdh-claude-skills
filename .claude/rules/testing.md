@@ -3,6 +3,9 @@ paths:
   - "**/*.test.*"
   - "**/*.spec.*"
   - "**/tests/**"
+  - "web/src/**"
+  - "next/src/**"
+  - "next/app/**"
 ---
 
 # Testing Standards
@@ -130,6 +133,39 @@ describe("validateAge", () => {
 - **Integration tests**: Test interactions between modules or with real databases/APIs. Use test containers or in-memory databases.
 - **E2E tests**: Test complete user flows. Keep these minimal and focused on critical paths. They are slow and brittle by nature.
 - **Contract tests**: Validate API contracts between services. Use Pact or similar tools for service boundaries.
+
+## Web Frontend Testing (Vitest + React Testing Library)
+
+### Vitest Configuration
+- Use Vitest for all web frontend tests (Vite SPA and Next.js) — Jest-compatible API with native Vite support.
+- Configure in `vitest.config.ts` with `@testing-library/jest-dom` matchers.
+- Use `jsdom` or `happy-dom` environment for component tests.
+- Co-locate test files: `Component.tsx` → `Component.test.tsx`.
+
+### React Testing Library Query Priority
+Follow this priority order — prefer accessible queries that reflect how users interact:
+1. `getByRole` — best; queries by ARIA role (button, heading, textbox)
+2. `getByLabelText` — for form elements with associated labels
+3. `getByPlaceholderText` — when labels are not visible
+4. `getByText` — for non-interactive elements
+5. `getByTestId` — last resort; use only when no semantic query applies
+
+### Testing React Components
+- Test user behavior, not implementation details.
+- Use `userEvent` (not `fireEvent`) for realistic user interactions.
+- Mock API calls with MSW (Mock Service Worker), not manual mocks.
+- Wrap components with test providers (QueryClient, Router, i18n) via a shared `renderWithProviders` utility.
+
+### Next.js Server Component Testing
+- Test Server Components as async functions — call the component, assert on the returned JSX.
+- Mock `fetch` or the Rails API client at the module level.
+- Test `generateMetadata` functions separately for SEO validation.
+
+### Next.js Server Action Testing
+- Test server actions as async functions with `FormData` input.
+- Mock `revalidatePath`, `revalidateTag`, and `redirect` from `next/cache` and `next/navigation`.
+- Assert on validation error return shape for invalid inputs.
+- Assert on side effects (API calls, revalidation) for valid inputs.
 
 ## Anti-Patterns to Avoid
 

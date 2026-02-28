@@ -216,6 +216,32 @@ Benchmark methodology:
 - Test under realistic load, not just single-request timing.
 - Include warm-up period to fill caches.
 
+### Web Core Web Vitals
+
+For web frontends (Vite SPA + Next.js), measure and optimize Core Web Vitals:
+
+| Metric | Target | Tool |
+|--------|--------|------|
+| LCP (Largest Contentful Paint) | < 2.5s | Lighthouse, web-vitals |
+| INP (Interaction to Next Paint) | < 200ms | Lighthouse, web-vitals |
+| CLS (Cumulative Layout Shift) | < 0.1 | Lighthouse, web-vitals |
+| TTFB (Time to First Byte) | < 800ms | Lighthouse |
+
+#### Web Bundle Analysis
+- **Vite SPA**: Use `vite-bundle-visualizer` (`npx vite-bundle-visualizer`) to audit chunk sizes. Target < 300KB initial JS.
+- **Next.js**: Use `@next/bundle-analyzer` to inspect client and server bundles. Target < 200KB client JS per route.
+- Check for: large dependencies, duplicate modules, missing tree-shaking, unoptimized images.
+
+#### Hydration Performance (Next.js)
+- Minimize Client Component boundaries — each `'use client'` component adds to hydration cost.
+- Use `<Suspense>` to stream Server Component content progressively.
+- Pass serialized data from Server Components to Client Components to avoid double-fetching.
+
+#### Lighthouse CI
+- Run Lighthouse CI in the deployment pipeline.
+- Set performance budget: performance > 90, accessibility > 95, best practices > 90.
+- Fail CI if scores drop below thresholds.
+
 ## Output Format
 
 When reporting performance findings:

@@ -275,6 +275,95 @@ External tools and infrastructure. Configured, not coded against directly.
 - [ ] No circular dependencies between services
 - [ ] API client transforms responses to domain types at the boundary
 
+### ReactJS (Vite SPA) — Entities
+```typescript
+// web/src/domain/order.ts — Pure TypeScript, no React imports
+export interface Order {
+  id: string;
+  status: OrderStatus;
+  totalAmount: number;
+  items: OrderItem[];
+}
+export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+
+export function isCancellable(order: Order): boolean {
+  return ['pending', 'confirmed'].includes(order.status);
+}
+```
+
+### ReactJS (Vite SPA) — Use Cases (Hooks)
+```typescript
+// web/src/api/orders.ts — Use case as TanStack Query hook
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from './client';
+import type { Order } from '../domain/order';
+
+export function useOrders() {
+  return useQuery({
+    queryKey: ['orders'],
+    queryFn: () => apiClient.get<Order[]>('/api/v1/orders'),
+    staleTime: 30_000,
+  });
+}
+```
+
+### ReactJS (Vite SPA) — Interface Adapters (Pages)
+```tsx
+// web/src/pages/Orders.tsx — Thin page, composes hooks + components
+import { useOrders } from '../api/orders';
+import { OrderTable } from '../components/OrderTable';
+
+export default function OrdersPage() {
+  const { data: orders, isLoading } = useOrders();
+  return <OrderTable orders={orders ?? []} isLoading={isLoading} />;
+}
+```
+
+### Next.js App Router — Use Cases (Server Actions)
+```tsx
+// next/src/actions/orders.ts — Server action as use case
+'use server';
+import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+
+const CreateOrderSchema = z.object({ /* ... */ });
+
+export async function createOrder(prevState: unknown, formData: FormData) {
+  const parsed = CreateOrderSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { errors: parsed.error.flatten().fieldErrors };
+  await railsApi.post('/api/v1/orders', parsed.data);
+  revalidatePath('/orders');
+  return { success: true };
+}
+```
+
+### Next.js App Router — Interface Adapters (Server Component Pages)
+```tsx
+// next/app/orders/page.tsx — Server Component fetches data, composes components
+import { OrderTable } from '@/components/OrderTable';
+import { railsApi } from '@/api/client';
+
+export default async function OrdersPage() {
+  const orders = await railsApi.get('/api/v1/orders');
+  return <OrderTable initialData={orders} />;
+}
+```
+
+## Extended Conformance Checklist (Web)
+
+### Vite SPA
+- [ ] Pages call hooks, not API clients directly
+- [ ] Domain types have no React or framework imports
+- [ ] Zustand stores contain ONLY client state (no API responses)
+- [ ] All routes are lazy-loaded
+
+### Next.js App Router
+- [ ] Server actions validate input with zod (they are public endpoints)
+- [ ] Server actions do NOT import React components or return JSX
+- [ ] Pages use Server Components for data fetching (no `'use client'` on page files)
+- [ ] Client Components are leaf-level — interactive parts only
+- [ ] Domain types are shared across server/client boundaries without framework imports
+
 ## Common Refactoring Patterns
 
 ### Extract Service from Controller
@@ -284,6 +373,14 @@ External tools and infrastructure. Configured, not coded against directly.
 ### Extract Hook from Screen
 **Before**: Screen with useEffect/API calls/state management inline.
 **After**: Custom hook encapsulating data fetching + mutations, screen just renders.
+
+### Extract Hook from Page (Vite SPA)
+**Before**: Page component with inline API calls and business logic.
+**After**: Custom hook wrapping TanStack Query, page just renders.
+
+### Extract Client Component from Server Component (Next.js)
+**Before**: Server Component page with `'use client'` for one interactive widget.
+**After**: Server Component page composing a separate Client Component for interactivity.
 
 ### Extract Value Object from Model
 **Before**: Model with related attributes and methods scattered.

@@ -10,16 +10,20 @@ We are a Software Development House building production systems for clients. Qua
 
 | Layer | Technology | Notes |
 |-------|-----------|-------|
-| Backend | Ruby on Rails | API-only mode for mobile backends |
+| Backend | Ruby on Rails | API-only mode, shared by all frontends |
 | Serialization | Panko Serializer | High-performance JSON serialization |
 | Database | PostgreSQL + PostGIS | Geospatial-enabled relational database |
 | Mobile | React Native | Cross-platform iOS/Android |
+| Web (SPA) | ReactJS + Vite | Single-page app with React Router |
+| Web (SSR) | Next.js (App Router) | Server Components, server actions, ISR/SSG |
+| Web Styling | Tailwind CSS | Utility-first CSS for all web frontends |
 | State Management | Zustand | Client-only state, never server data |
 | Data Fetching | TanStack Query (React Query) | All server state lives here |
 | Real-time | Centrifugal (Centrifugo) | WebSocket channels for live updates |
 | Caching / Queues | Redis | Rails cache backend + Sidekiq queues |
 | Cloud (Primary) | AWS | ECS Fargate, RDS, ElastiCache, S3, CloudFront |
 | Cloud (Secondary) | GCP | When specific GCP services are needed |
+| Cloud (Next.js) | Vercel | Primary Next.js deployment platform |
 | Infrastructure | Terraform | All infrastructure as code |
 | Local Dev | Docker Compose | PostgreSQL, Redis, Centrifugo, Rails |
 | Philosophy | Community libraries first | Prefer proven gems/packages over custom code |
@@ -28,9 +32,13 @@ We are a Software Development House building production systems for clients. Qua
 - **Prefer community libraries over native/custom implementations.** If a well-maintained gem or npm package exists for the job, use it.
 - Authentication: `devise` + `devise-jwt` | Authorization: `pundit`
 - Pagination: `pagy` | Search: `pg_search` | Geospatial: `rgeo`, `geocoder`
-- HTTP: `faraday` (Rails), `axios` (React Native)
+- HTTP: `faraday` (Rails), `axios` (React Native + Web)
 - Forms: `react-hook-form` + `zod` | Navigation: `@react-navigation/native`
 - Storage: `react-native-mmkv` | Images: `react-native-fast-image`
+- Web Routing: `react-router` (Vite SPA) | Web Styling: `tailwindcss` + `clsx` + `tailwind-merge`
+- Web Animations: `framer-motion` | Web Charts: `react-apexcharts`
+- Web Testing: `vitest` + `@testing-library/react` + `msw`
+- Next.js Images: `next/image` | Next.js Navigation: `next/link`
 
 ## Git Workflow
 
@@ -57,7 +65,9 @@ We are a Software Development House building production systems for clients. Qua
 
 - **Rails Backend**: Service objects for business logic, Panko serializers for JSON, Sidekiq for background jobs
 - **React Native Frontend**: Zustand stores for client state, TanStack Query for server data, Centrifugo for real-time
-- **Clean Architecture**: Controllers → Services → Models (Rails) | Screens → Hooks → API Client (React Native)
+- **ReactJS (Vite SPA)**: Pages → Hooks → API Client, React Router (lazy-loaded), Tailwind CSS, Framer Motion, ApexCharts
+- **Next.js (App Router)**: Server Components for data fetching, server actions for mutations, Client Components for interactivity
+- **Clean Architecture**: Controllers → Services → Models (Rails) | Screens → Hooks → API Client (React Native) | Pages → Hooks → API Client (Vite) | Server Components → Server Actions → API Client (Next.js)
 - **Dependency Injection**: Depend on abstractions, not concretions. Use DI containers where appropriate
 - **Domain-Driven Design**: Use bounded contexts, aggregates, and value objects for complex business domains
 
@@ -106,7 +116,9 @@ Detailed domain-specific rules are maintained in `.claude/rules/`:
 - `database.md` — Migrations, indexing, query optimization
 - `rails-conventions.md` — Rails models, controllers, services, Panko, Sidekiq
 - `react-native.md` — React Native, Zustand, TanStack Query, Centrifugo
-- `infrastructure.md` — Terraform, Docker Compose, AWS, GCP, CI/CD
+- `reactjs.md` — ReactJS Vite SPA, React Router, Tailwind CSS, Framer Motion, ApexCharts
+- `nextjs.md` — Next.js App Router, Server Components, server actions, Vercel deployment
+- `infrastructure.md` — Terraform, Docker Compose, AWS, GCP, Vercel, CI/CD
 - `error-handling.md` — Error handling across Rails, React Native, Sidekiq, API responses
 - `monitoring.md` — Structured logging, health checks, CloudWatch alarms, Sentry
 - `clean-architecture.md` — Layer separation, dependency direction, boundary violations
@@ -133,6 +145,8 @@ On-demand skills available via slash commands:
 - `/api-designer` — REST API design and review
 - `/rails-architect` — Rails backend architecture with Panko, PostGIS, Sidekiq
 - `/react-native-dev` — React Native features with Zustand, TanStack, Centrifugo
+- `/reactjs-dev` — ReactJS Vite SPA features with React Router, Tailwind, Framer Motion, ApexCharts
+- `/nextjs-dev` — Next.js App Router features with Server Components, server actions, Vercel deployment
 - `/db-migration` — Schema design and safe database migration creation
 - `/performance-profiler` — Performance investigation and optimization
 - `/deploy` — Deployment workflow with pre-flight checks, canary/blue-green strategies (user-invoked only)

@@ -103,6 +103,19 @@ Refer to the `security-auditor` skill for deeper security analysis.
 - Breaking changes are documented in changelog or migration guide.
 - Configuration changes are documented with defaults and valid ranges.
 
+### Step 8a: Accessibility Check (Web — Vite SPA + Next.js)
+
+#### Review Checklist
+- Use semantic HTML elements (`<nav>`, `<main>`, `<section>`, `<article>`, `<button>`, `<a>`).
+- All interactive elements are keyboard accessible (focusable, operable via Enter/Space).
+- Images use `alt` attributes. Decorative images use `alt=""`.
+- Color contrast meets WCAG AA standards (4.5:1 for normal text, 3:1 for large text).
+- Forms have visible `<label>` elements associated with inputs (via `htmlFor`).
+- ARIA attributes used correctly — prefer semantic HTML over ARIA when possible.
+- Focus management: modal traps focus, dialogs return focus on close.
+- Skip navigation link for keyboard users.
+- Next.js: use `next/image` with `alt`, `next/link` for accessible navigation.
+
 ### Step 8: Accessibility Check (React Native)
 
 #### Review Checklist
@@ -159,11 +172,15 @@ Refer to the `security-auditor` skill for deeper security analysis.
 </View>
 ```
 
-### Step 9: Stack-Specific Checks (Rails + React Native)
+### Step 9: Stack-Specific Checks (Rails + React Native + Web)
 
 **Rails**: Panko serializers used (not raw models)? Service objects for business logic? Pundit `authorize` on every action? Sidekiq jobs idempotent? Redis cache TTLs set?
 
 **React Native**: Server data in TanStack Query (not Zustand)? Proper `staleTime`? `FlatList` for lists? `useCallback` on render functions? Centrifugo subscriptions cleaned up on unmount?
+
+**ReactJS (Vite SPA)**: All routes lazy-loaded? Server data in TanStack Query (not Zustand)? Tailwind CSS for styling (no CSS modules/inline styles)? Forms use react-hook-form + zod? Bundle size checked with `vite-bundle-visualizer`? `useCallback`/`useMemo` for expensive computations?
+
+**Next.js (App Router)**: Server Components used by default (no unnecessary `'use client'`)? Server actions validate input with zod? `next/image` for images and `next/link` for navigation? Every page exports `metadata` or `generateMetadata`? `loading.tsx` and `error.tsx` boundaries present? `revalidatePath`/`revalidateTag` called after mutations?
 
 **Migrations**: Reversible? Foreign keys indexed? PostGIS columns have GiST index? No data + schema changes mixed?
 

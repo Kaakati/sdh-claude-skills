@@ -188,6 +188,78 @@ Examples:
 - **Process questions**: Refer to this onboarding guide and the dev-handbook.
 - **Blocked on access/tools**: Contact the team lead immediately.
 
+### Step 9: Web Frontend Setup
+
+#### Vite SPA Setup
+```bash
+# Navigate to web directory
+cd web/
+
+# Install dependencies
+npm install
+
+# Start development server (default port 5173)
+npm run dev
+# App available at http://localhost:5173
+
+# Run tests
+npm run test
+
+# Build for production
+npm run build
+```
+
+#### Next.js Setup
+```bash
+# Navigate to next directory
+cd next/
+
+# Install dependencies
+npm install
+
+# Start development server (port 3001 to avoid conflict with Vite)
+npm run dev -- -p 3001
+# App available at http://localhost:3001
+
+# Run tests
+npm run test
+
+# Build for production
+npm run build
+```
+
+#### Web Project Structure Walkthrough
+```
+web/                          # Vite SPA (React + React Router)
+├── src/
+│   ├── pages/               # One page per route (lazy-loaded)
+│   ├── components/          # Shared UI components
+│   ├── hooks/               # Custom hooks (business logic)
+│   ├── api/                 # TanStack Query hooks + axios client
+│   ├── stores/              # Zustand stores (client-only state)
+│   ├── domain/              # TypeScript domain types
+│   ├── router/              # React Router configuration
+│   └── i18n/                # Internationalization
+
+next/                         # Next.js App Router (SSR/SSG)
+├── app/                     # App Router pages and layouts
+│   ├── layout.tsx           # Root layout
+│   ├── page.tsx             # Home page (Server Component)
+│   └── (dashboard)/         # Route group
+├── src/
+│   ├── actions/             # Server actions (mutations)
+│   ├── components/          # Shared components
+│   ├── hooks/               # Client-side hooks
+│   └── api/                 # Rails API client
+├── middleware.ts             # Auth, locale detection
+```
+
+#### Key Conventions for Web
+- **All frontends share the same Rails API** — React Native, Vite SPA, and Next.js.
+- **TanStack Query** for server data, **Zustand** for client-only state (same pattern across all frontends).
+- **Tailwind CSS** for web styling (not used in React Native).
+- **Vitest** for web testing (not Jest).
+
 ## First Week Plan
 
 | Day | Focus | Goal |
