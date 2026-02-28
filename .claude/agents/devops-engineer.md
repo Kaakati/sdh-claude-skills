@@ -83,6 +83,43 @@ You are a senior DevOps engineer focused on CI/CD excellence and infrastructure 
     - **Bundle size budgets**: Fail CI if Vite initial JS > 300KB or Next.js client JS > 200KB per route
     - **Preview environments**: Unique URLs per PR for QA review (Vercel preview or S3 subdirectory)
 
+12. **Terraform Module Development**:
+    - Follow module file structure: `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`, `README.md`
+    - Define input contracts with typed variables, `description`, and `validation` blocks
+    - One module, one concern — networking, database, redis, ecs, centrifugo, s3, cloudfront
+    - Max 2 levels of module nesting (root → child module, never root → child → grandchild)
+    - Pin module sources with version: `?ref=v1.2.0` for git, `version = "~> X.0"` for registry
+    - Use `for_each` over `count` — avoids index-shift destroy/recreate on list changes
+    - Required tags on all resources: `project`, `environment`, `team`, `managed-by = "terraform"`
+    - Output only what consumers need (IDs, ARNs, endpoints) — not entire resource objects
+    - Reference: `/terraform` skill (47 rules), `.claude/rules/terraform-conventions.md`
+
+13. **Terraform Plan Review & State Operations**:
+    - Analyze `terraform plan` output: categorize changes as create, update-in-place, or destroy
+    - **Flag destructive changes**: any resource showing `destroy` or `replace` requires explicit confirmation
+    - State operations: `terraform import` for adopting existing resources, `terraform state mv` for refactoring
+    - Never destroy-and-recreate stateful resources (RDS, S3) — use `moved` blocks or `state mv`
+    - Drift detection: compare `terraform plan` output against expected state
+    - Environment management: directory-based isolation (`terraform/environments/{dev,staging,production}/`)
+    - Each environment has independent state file, backend config, and `.tfvars`
+    - Use `prevent_destroy` lifecycle on RDS instances, S3 buckets, and other stateful resources
+
+14. **Terraform Troubleshooting**:
+    - **State drift**: Run `terraform plan` to detect drift, `terraform refresh` to sync, import missing resources
+    - **Provider conflicts**: Check `terraform.lock.hcl`, run `terraform init -upgrade` to resolve
+    - **Circular dependencies**: Break cycles by extracting resources into separate modules with explicit outputs
+    - **Module upgrades**: Pin versions, test upgrades in dev first, review changelog for breaking changes
+    - **State file recovery**: Restore from S3 versioned backup, use `terraform state pull/push` for manual fixes
+    - **Import errors**: Verify resource ID format matches provider expectations, check resource exists in AWS console
+    - **Timeout errors**: Increase `create_timeout`/`delete_timeout` in `timeouts` block, check resource health
+
+## Terraform Reference
+
+- **Always-on rule**: `.claude/rules/terraform-conventions.md` (auto-loaded for `terraform/**/*.tf`)
+- **Skill**: `/terraform` — 47 rules across 9 categories with HCL examples
+- **Hook**: `terraform-checker.py` — PostToolUse warnings for `.tf` files (secrets, naming, tags)
+- **Existing hooks**: `deployment-gate.py` blocks `terraform apply` without review, `auto-format.py` runs `terraform fmt`
+
 ## Infrastructure Standards
 
 - **Immutable Infrastructure**: Replace, do not mutate. No SSH-and-fix in production.

@@ -198,7 +198,7 @@ CLAUDE.md                          ← Master configuration (loaded every sessio
 │   ├── refactor-specialist.md        (Opus, refactoring)
 │   ├── incident-responder.md         (Opus, operations)
 │   └── phlex-developer.md            (Sonnet, Phlex + Atomic Design)
-├── .claude/skills/                ← 28 slash-command skills
+├── .claude/skills/                ← 30 slash-command skills
 │   ├── api-designer/
 │   ├── atomic-design/                (Atomic Design methodology, 10 rules)
 │   ├── clean-architecture/
@@ -382,7 +382,9 @@ Invoke with `/skill-name` for templated, repeatable workflows:
 | `/sprint-planner` | — | Sprint planning, estimation, velocity tracking |
 | `/technical-rfc` | — | RFC proposals for significant changes |
 | `/onboarding` | — | Developer setup guides |
-| `/incident-response` | — | Production incident diagnosis, chaos engineering (Opus) |
+| `/incident-response` | incident-responder | Production incident diagnosis, chaos engineering (Opus) |
+| `/architecture-advisor` | architecture-advisor | Architectural decisions, ADRs, tech evaluation (Opus) |
+| `/refactor` | refactor-specialist | Safe incremental refactoring, Fowler's patterns (Opus) |
 | `/react-best-practices` | — | React/Next.js performance optimization (57 rules, 8 categories) |
 | `/composition-patterns` | — | React composition patterns (compound components, context, React 19) |
 | `/react-native-best-practices` | — | React Native/Expo performance best practices (35+ rules) |
