@@ -176,8 +176,8 @@ Active hooks in `.claude/settings.json` enforce quality at every lifecycle point
 - `deployment-gate.py` — Requires confirmation for deploys (git push main, terraform apply, vercel deploy)
 
 **PostToolUse** (after tool completes):
-- `auto-format.sh` — Auto-formats edited files (rubocop, prettier, terraform fmt)
-- `test-runner.sh` — Reminds to run tests for modified code
+- `auto-format.py` — Auto-formats edited files (rubocop, prettier, terraform fmt)
+- `test-runner.py` — Reminds to run tests for modified code
 - **Code quality prompt** — Enforces code-standards.md (30-line functions, 4-param max, 3-level nesting, domain-aware file limits: 200 lines for Rails models/.tsx components, 300 lines elsewhere)
 - **Error handling prompt** — Enforces error-handling.md (empty catch blocks, rescue Exception)
 - **Test coverage prompt** — Enforces testing.md (warns when source files lack corresponding test files)

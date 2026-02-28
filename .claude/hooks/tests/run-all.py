@@ -3,7 +3,7 @@
 Hook test harness — runs all hook test cases and reports results.
 
 Usage:
-  python3 .claude/hooks/tests/run-all.py
+  python .claude/hooks/tests/run-all.py
 
 Each test sends simulated tool_input JSON to a hook script via stdin
 and asserts on the exit code and stdout output.
@@ -22,7 +22,7 @@ def run_hook(hook_script, tool_name, tool_input):
     """Run a hook script with simulated input and return (exit_code, stdout)."""
     data = json.dumps({"tool_name": tool_name, "tool_input": tool_input})
     result = subprocess.run(
-        ["python3", os.path.join(HOOKS_DIR, hook_script)],
+        [sys.executable, os.path.join(HOOKS_DIR, hook_script)],
         input=data,
         capture_output=True,
         text=True,

@@ -214,8 +214,9 @@ CLAUDE.md                          ← Master configuration (loaded every sessio
 │   ├── pre-commit-check.py           (PreToolUse: validates commits)
 │   ├── migration-validator.py        (PreToolUse: validates migrations)
 │   ├── deployment-gate.py            (PreToolUse: deployment confirmation)
-│   ├── auto-format.sh                (PostToolUse: formats code)
-│   ├── test-runner.sh                (PostToolUse: reminds to test)
+│   ├── run-python.sh                 (Cross-platform Python 3 launcher)
+│   ├── auto-format.py                (PostToolUse: formats code)
+│   ├── test-runner.py                (PostToolUse: reminds to test)
 │   ├── audit-logger.py               (PostToolUse: compliance logging)
 │   ├── vague-request-detector.py     (UserPromptSubmit: catches ambiguity)
 │   └── tests/
@@ -234,8 +235,8 @@ Every action Claude takes passes through deterministic quality gates:
 | **Before running commands** | `dangerous-command-blocker.py` | Blocks `rm -rf`, `DROP TABLE`, privilege escalation |
 | **Before deployments** | `deployment-gate.py` | Requires confirmation for `git push main`, `terraform apply`, `vercel deploy` |
 | **Before git commits** | `pre-commit-check.py` | Validates conventional commit format, blocks force pushes |
-| **After editing files** | `auto-format.sh` | Runs rubocop, prettier, terraform fmt |
-| **After editing files** | `test-runner.sh` | Reminds to run corresponding tests |
+| **After editing files** | `auto-format.py` | Runs rubocop, prettier, terraform fmt |
+| **After editing files** | `test-runner.py` | Reminds to run corresponding tests |
 | **After editing files** | Code quality prompt | 30-line functions, 4-param max, 3-level nesting, domain-aware file limits |
 | **After editing files** | Error handling prompt | Empty catch blocks, `rescue Exception` detection |
 | **After editing files** | Test coverage prompt | Missing test file detection |
@@ -354,15 +355,17 @@ Edit `CLAUDE.local.md` to set your preferences:
 
 ### 4. Verify hooks work
 
-The hooks require Python 3 and Bash. Ensure they're available in your environment:
+The hooks require Python 3 and Bash. All Python hooks are launched via `run-python.sh`, which automatically finds `python3` (Linux/macOS) or `python` (Windows/conda) — no manual setup needed.
 
 ```bash
-python3 --version  # Required for security-scan, audit-logger, migration-validator, etc.
-bash --version     # Required for auto-format, test-runner
+# Verify the launcher finds Python 3
+bash .claude/hooks/run-python.sh --version
 
 # Run the hook test harness to verify all hooks work
-python3 .claude/hooks/tests/run-all.py
+python .claude/hooks/tests/run-all.py
 ```
+
+> **Windows note**: Git for Windows includes Bash. Ensure `python` is on your PATH (the Microsoft Store stub does not count — install from python.org or use conda/pyenv-win).
 
 ### 5. Use slash commands
 

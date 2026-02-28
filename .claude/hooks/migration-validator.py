@@ -29,9 +29,10 @@ def main():
         sys.exit(0)
 
     file_path = tool_input.get("file_path", "")
+    normalized_path = file_path.replace("\\", "/")
 
     # Check if this is a migration file
-    is_migration = any(pattern in file_path for pattern in [
+    is_migration = any(pattern in normalized_path for pattern in [
         "/migrations/",
         "/db/migrate/",
         "/migrate/",

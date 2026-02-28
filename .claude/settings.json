@@ -50,7 +50,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/security-scan.py",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/security-scan.py",
             "timeout": 30
           }
         ]
@@ -60,7 +60,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/migration-validator.py",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/migration-validator.py",
             "timeout": 10
           }
         ]
@@ -70,17 +70,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/dangerous-command-blocker.py",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/dangerous-command-blocker.py",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "python3 .claude/hooks/pre-commit-check.py",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/pre-commit-check.py",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "python3 .claude/hooks/deployment-gate.py",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/deployment-gate.py",
             "timeout": 10
           }
         ]
@@ -92,12 +92,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/auto-format.sh",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/auto-format.py",
             "timeout": 30
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/test-runner.sh",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/test-runner.py",
             "timeout": 10
           },
           {
@@ -126,16 +126,14 @@
             "timeout": 10
           },
           {
-            "type": "agent",
-            "prompt": "Check the file that was just edited for web accessibility violations per accessibility.md. ONLY check .tsx and .jsx files under web/**, next/**, or frontend/**. Skip all other files immediately with no output. For matching files, check: 1) <div onClick> or <span onClick> that should be <button> — warn: 'WARNING: Non-semantic clickable element. Use <button> for actions per accessibility.md.' 2) <img> or <Image> (next/image) without alt attribute — warn: 'WARNING: Image missing alt text per accessibility.md.' 3) <input> without associated <label> (htmlFor/id pairing or wrapping label) — warn: 'WARNING: Input without associated label per accessibility.md.' 4) outline:none or outline:0 in style/className without a visible focus replacement — warn: 'WARNING: Focus indicator removed without replacement per accessibility.md.' 5) aria-hidden=\"true\" on elements with onClick handlers — warn: 'WARNING: Interactive element hidden from assistive technology per accessibility.md.' Only warn, do not block.",
-            "model": "claude-haiku-4-5-20251001",
-            "timeout": 20
+            "type": "command",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/accessibility-checker.py",
+            "timeout": 10
           },
           {
-            "type": "agent",
-            "prompt": "Check the file that was just edited for API design violations per api-design.md. ONLY check files matching app/controllers/**, src/api/**, web/src/api/**, or next/src/actions/**. Skip all other files immediately with no output. For matching files, check: 1) Route definitions with verbs in URLs (getUser, createOrder, deleteItem) — warn: 'WARNING: Verb in URL path. Use plural nouns for resources per api-design.md.' 2) JSON responses returning arrays not wrapped in a data key — warn: 'WARNING: Collection response not wrapped in data key per api-design.md.' 3) Error responses missing code or requestId fields — warn: 'WARNING: Error response missing code/requestId per api-design.md.' 4) POST actions returning 200 instead of 201 — warn: 'WARNING: POST should return 201 Created, not 200 per api-design.md.' Only warn, do not block.",
-            "model": "claude-haiku-4-5-20251001",
-            "timeout": 20
+            "type": "command",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/api-design-checker.py",
+            "timeout": 10
           },
           {
             "type": "prompt",
@@ -149,7 +147,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/audit-logger.py",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/audit-logger.py",
             "timeout": 10
           }
         ]
@@ -185,7 +183,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/vague-request-detector.py",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/vague-request-detector.py",
             "timeout": 10
           }
         ]
