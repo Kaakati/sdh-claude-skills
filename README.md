@@ -6,14 +6,14 @@ A complete, audited system of rules, agents, skills, and hooks that transforms C
 
 ## What This Is
 
-This repository contains a production-ready `.claude/` configuration that enforces enterprise development standards across the entire software development lifecycle. It is designed for teams building **Rails API + React Native mobile + ReactJS Vite SPA + Next.js App Router** applications deployed on **AWS** and **Vercel**.
+This repository contains a production-ready `.claude/` configuration that enforces enterprise development standards across the entire software development lifecycle. It is designed for teams building **Rails API (Phlex views) + React Native mobile + ReactJS Vite SPA + Next.js App Router** applications deployed on **AWS** and **Vercel**.
 
 Instead of relying on ad-hoc prompting, this system provides:
 
-- **16 rules** that are automatically loaded based on file paths being edited
-- **8 specialized agents** that handle complex tasks with constrained tool access
-- **24 slash-command skills** that provide repeatable, templated workflows
-- **9 hook scripts + 8 prompt hooks** that enforce quality gates on every action
+- **17 rules** that are automatically loaded based on file paths being edited
+- **10 specialized agents** that handle complex tasks with constrained tool access
+- **27 slash-command skills** that provide repeatable, templated workflows
+- **10 hook scripts + 8 prompt hooks** that enforce quality gates on every action
 
 ## Project Directory Convention
 
@@ -23,7 +23,7 @@ Instead of relying on ad-hoc prompting, this system provides:
 
 | Framework | Required Directory | Contents | Example |
 |-----------|-------------------|----------|---------|
-| **Rails API** | `backend/` | `app/`, `lib/`, `config/`, `db/`, `spec/` | `backend/app/models/user.rb` |
+| **Rails API** | `backend/` | `app/` (models, controllers, services, components, views), `lib/`, `config/`, `db/`, `spec/` | `backend/app/models/user.rb` |
 | **React Native** | `mobile/` | `src/` (screens, hooks, stores, components) | `mobile/src/screens/HomeScreen.tsx` |
 | **ReactJS (Vite SPA)** | `web/` | `src/` (pages, hooks, components, api) | `web/src/pages/Dashboard.tsx` |
 | **Next.js (App Router)** | `next/` | `app/`, `src/` (components, hooks, actions) | `next/app/page.tsx` |
@@ -40,6 +40,8 @@ Here is exactly which rules activate for which paths:
 File you edit                              Rules that auto-load
 ──────────────────────────────────────     ──────────────────────────────────────
 backend/app/**/*.rb                      → rails-conventions, clean-architecture
+backend/app/components/**/*.rb           → phlex-conventions
+backend/app/views/**/*.rb                → phlex-conventions
 backend/config/**/*.rb                   → rails-conventions
 mobile/src/**/*.tsx                      → react-native, clean-architecture
 web/**                                   → reactjs, accessibility, clean-architecture
@@ -62,6 +64,7 @@ The PostToolUse prompt hooks also use these paths for domain-aware limits:
 | `mobile/src/screens/**`, `mobile/src/components/**` | 200 lines | React Native components |
 | `web/src/components/**`, `web/src/pages/**` | 200 lines | Vite SPA components per reactjs.md |
 | `next/src/components/**`, `next/app/**` | 200 lines | Next.js components per nextjs.md |
+| `backend/app/components/**`, `backend/app/views/**` | 200 lines | Phlex components per phlex-conventions.md |
 | All other source files | 300 lines | General limit per code-standards.md |
 
 ### Recommended Monorepo Structure
@@ -76,7 +79,16 @@ your-project/
 │   │   ├── models/
 │   │   ├── serializers/
 │   │   ├── services/
-│   │   └── jobs/
+│   │   ├── jobs/
+│   │   ├── components/              # Phlex components (Atomic Design)
+│   │   │   ├── base.rb              # Components::Base < Phlex::HTML
+│   │   │   ├── atoms/               # Indivisible primitives
+│   │   │   ├── molecules/           # Atom compositions
+│   │   │   ├── organisms/           # UI sections (data-aware)
+│   │   │   └── templates/           # Layout skeletons
+│   │   └── views/                   # Phlex pages (data-bound)
+│   │       ├── base.rb              # Views::Base < Phlex::HTML
+│   │       └── articles/            # Views::Articles::Index, Show
 │   ├── config/
 │   │   └── locales/                  # i18n YAML locales
 │   ├── db/
@@ -126,6 +138,7 @@ your-project/
 | Layer | Technology | Role |
 |-------|-----------|------|
 | Backend | Ruby on Rails (API-only) | Server-side logic, shared REST APIs |
+| View Layer | Phlex + `class_variants` | Object-oriented Ruby views (~1.4 Gbps rendering) |
 | Serialization | Panko Serializer | High-performance JSON serialization |
 | Database | PostgreSQL + PostGIS | Relational + geospatial data |
 | Mobile | React Native | Cross-platform iOS/Android |
@@ -153,12 +166,13 @@ your-project/
 
 ```
 CLAUDE.md                          ← Master configuration (loaded every session)
-├── .claude/rules/                 ← 16 auto-loaded rules (path-scoped)
+├── .claude/rules/                 ← 17 auto-loaded rules (path-scoped)
 │   ├── code-standards.md
 │   ├── security.md
 │   ├── testing.md
 │   ├── clean-architecture.md
 │   ├── rails-conventions.md
+│   ├── phlex-conventions.md          (backend/app/components/**, backend/app/views/**)
 │   ├── react-native.md
 │   ├── reactjs.md                    (web/**, frontend/**)
 │   ├── nextjs.md                     (next/**)
@@ -170,7 +184,7 @@ CLAUDE.md                          ← Master configuration (loaded every sessio
 │   ├── infrastructure.md
 │   ├── monitoring.md
 │   └── i18n.md
-├── .claude/agents/                ← 8 specialized agents
+├── .claude/agents/                ← 10 specialized agents
 │   ├── requirements-consultant.md    (Opus, discovery)
 │   ├── architecture-advisor.md       (Opus, plan mode)
 │   ├── clean-architecture.md         (Opus, plan mode)
@@ -178,9 +192,12 @@ CLAUDE.md                          ← Master configuration (loaded every sessio
 │   ├── security-auditor.md           (Sonnet, audit)
 │   ├── test-generator.md             (Sonnet, testing)
 │   ├── devops-engineer.md            (Sonnet, infra)
-│   └── refactor-specialist.md        (Opus, refactoring)
-├── .claude/skills/                ← 24 slash-command skills
+│   ├── refactor-specialist.md        (Opus, refactoring)
+│   ├── incident-responder.md         (Opus, operations)
+│   └── phlex-developer.md            (Sonnet, Phlex + Atomic Design)
+├── .claude/skills/                ← 27 slash-command skills
 │   ├── api-designer/
+│   ├── atomic-design/                (Atomic Design methodology, 10 rules)
 │   ├── clean-architecture/
 │   ├── code-reviewer/
 │   ├── compliance-auditor/
@@ -193,6 +210,7 @@ CLAUDE.md                          ← Master configuration (loaded every sessio
 │   ├── nextjs-dev/
 │   ├── onboarding/
 │   ├── performance-profiler/
+│   ├── phlex-dev/                    (Phlex view components, patterns, examples)
 │   ├── rails-architect/
 │   ├── react-best-practices/         (57 React/Next.js perf rules)
 │   ├── react-native-best-practices/  (35+ React Native perf rules)
@@ -203,8 +221,9 @@ CLAUDE.md                          ← Master configuration (loaded every sessio
 │   ├── sprint-planner/
 │   ├── technical-rfc/
 │   ├── test-generator/
+│   ├── theming/                      (Design tokens, dark mode, presets)
 │   └── web-design-guidelines/        (100+ accessibility/UX rules)
-├── .claude/hooks/                 ← 9 automation scripts
+├── .claude/hooks/                 ← 10 automation scripts
 │   ├── security-scan.py              (PreToolUse: blocks secrets)
 │   ├── dangerous-command-blocker.py  (PreToolUse: blocks destructive cmds)
 │   ├── pre-commit-check.py           (PreToolUse: validates commits)
@@ -213,6 +232,7 @@ CLAUDE.md                          ← Master configuration (loaded every sessio
 │   ├── run-python.sh                 (Cross-platform Python 3 launcher)
 │   ├── auto-format.py                (PostToolUse: formats code)
 │   ├── test-runner.py                (PostToolUse: reminds to test)
+│   ├── atomic-design-checker.py      (PostToolUse: validates component hierarchy)
 │   ├── audit-logger.py               (PostToolUse: compliance logging)
 │   ├── vague-request-detector.py     (UserPromptSubmit: catches ambiguity)
 │   └── tests/
@@ -238,6 +258,7 @@ Every action Claude takes passes through deterministic quality gates:
 | **After editing files** | Test coverage prompt | Missing test file detection |
 | **After editing files** | Clean architecture prompt | Layer boundary violation detection |
 | **After editing files** | i18n prompt | Hardcoded user-facing string detection |
+| **After editing files** | `atomic-design-checker.py` | Validates component hierarchy, composition rules, naming |
 | **After any tool use** | `audit-logger.py` | Logs execution to JSON-lines for compliance |
 | **Before processing input** | `vague-request-detector.py` | Suggests requirements-consultant for ambiguous requests |
 | **On session start** | Environment check prompt | Git repo, branch, working tree status |
@@ -255,6 +276,7 @@ Rules are loaded automatically when you edit files matching their `paths` globs:
 | `testing.md` | Test/spec files + web source | AAA pattern, 80% coverage target, Vitest + RTL |
 | `clean-architecture.md` | `backend/app/**`, `mobile/src/**`, `web/**`, `next/**` | Dependency direction, layer boundaries, violation detection |
 | `rails-conventions.md` | `backend/app/**/*.rb` | Models, controllers, services, Panko, Sidekiq patterns |
+| `phlex-conventions.md` | `backend/app/components/**/*.rb`, `backend/app/views/**/*.rb` | Phlex components, Atomic Design, `class_variants`, Stimulus/Turbo |
 | `react-native.md` | `mobile/src/**/*.{ts,tsx}` | Zustand, TanStack Query, Centrifugo, component patterns |
 | `reactjs.md` | `web/**`, `frontend/**` | React Router, Tailwind CSS, Framer Motion, ApexCharts |
 | `nextjs.md` | `next/**` | Server Components, server actions, ISR/SSG, Vercel |
@@ -281,6 +303,8 @@ Agents are specialized Claude instances with constrained tools and focused exper
 | `test-generator` | Sonnet | Interactive | Test generation, AAA pattern, coverage analysis, mocking |
 | `devops-engineer` | Sonnet | Interactive | CI/CD, Terraform, Docker, deployment automation, GitOps |
 | `refactor-specialist` | Opus | Interactive | Code smells, Fowler's patterns, incremental refactoring |
+| `incident-responder` | Opus | Interactive | Production incident diagnosis, mitigation, post-mortem |
+| `phlex-developer` | Sonnet | Interactive | Phlex view components, Atomic Design, Tailwind tokens |
 
 ### Skills (Slash Commands)
 
@@ -311,6 +335,9 @@ Invoke with `/skill-name` for templated, repeatable workflows:
 | `/react-best-practices` | — | React/Next.js performance optimization (57 rules, 8 categories) |
 | `/composition-patterns` | — | React composition patterns (compound components, context, React 19) |
 | `/react-native-best-practices` | — | React Native/Expo performance best practices (35+ rules) |
+| `/atomic-design` | — | Atomic Design methodology (10 rules, composition hierarchy) |
+| `/phlex-dev` | phlex-developer | Phlex view components with Atomic Design and Tailwind |
+| `/theming` | — | Cross-platform design tokens, dark/light mode, presets |
 | `/web-design-guidelines` | — | Web interface design review (100+ accessibility/UX rules) |
 
 ## Getting Started
@@ -372,8 +399,11 @@ python .claude/hooks/tests/run-all.py
 ```
 /code-reviewer          # Review your latest changes
 /security-auditor       # Run OWASP security audit
+/phlex-dev              # Build a Phlex view component
 /reactjs-dev            # Build a Vite SPA feature
 /nextjs-dev             # Build a Next.js feature
+/atomic-design          # Check component hierarchy
+/theming                # Design token system
 /deploy                 # Start deployment workflow
 /sprint-planner         # Plan your next sprint
 /incident-response      # Diagnose a production issue
@@ -428,10 +458,10 @@ The `audit-logger.py` hook logs every tool execution in JSON-lines format, provi
 └── .claude/
     ├── settings.json                  # Permissions + hooks
     ├── managed-settings.template.json # IT admin template
-    ├── agents/          (8 agents)
-    ├── skills/          (24 skills, each with SKILL.md + references/)
-    ├── rules/           (16 rule files)
-    └── hooks/           (9 automation scripts + test harness)
+    ├── agents/          (10 agents)
+    ├── skills/          (27 skills, each with SKILL.md + references/)
+    ├── rules/           (17 rule files)
+    └── hooks/           (10 automation scripts + test harness)
 ```
 
 ## Contributing
@@ -443,4 +473,4 @@ The `audit-logger.py` hook logs every tool execution in JSON-lines format, provi
 
 ## License
 
-This configuration is provided as-is for teams using Claude Code with Rails + React Native + ReactJS + Next.js projects. Adapt the rules, agents, and skills to match your tech stack and standards.
+This configuration is provided as-is for teams using Claude Code with Rails (Phlex) + React Native + ReactJS + Next.js projects. Adapt the rules, agents, and skills to match your tech stack and standards.
