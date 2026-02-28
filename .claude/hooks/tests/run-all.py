@@ -31,6 +31,19 @@ def run_hook(hook_script, tool_name, tool_input):
     return result.returncode, result.stdout.strip()
 
 
+def run_prompt_hook(hook_script, prompt):
+    """Run a UserPromptSubmit hook with simulated prompt and return (exit_code, stdout)."""
+    data = json.dumps({"prompt": prompt})
+    result = subprocess.run(
+        [sys.executable, os.path.join(HOOKS_DIR, hook_script)],
+        input=data,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    return result.returncode, result.stdout.strip()
+
+
 def assert_allowed(name, hook_script, tool_name, tool_input):
     """Assert the hook allows the action (exit 0, no deny output)."""
     global PASS, FAIL
@@ -315,6 +328,81 @@ def test_api_design_checker():
     shutil.rmtree(tmpdir, ignore_errors=True)
 
 
+def test_vague_request_detector():
+    print("\n[vague-request-detector.py]")
+    global PASS, FAIL
+
+    # --- Vague requests should trigger interactive prompt ---
+    def assert_interactive(name, prompt, expected_substring):
+        global PASS, FAIL
+        code, stdout = run_prompt_hook("vague-request-detector.py", prompt)
+        if code == 0 and expected_substring.lower() in stdout.lower():
+            PASS += 1
+            print(f"  PASS: {name}")
+        else:
+            FAIL += 1
+            print(f"  FAIL: {name} — expected '{expected_substring}' in output, got exit={code}, output={stdout[:200]}")
+
+    def assert_no_trigger(name, prompt):
+        global PASS, FAIL
+        code, stdout = run_prompt_hook("vague-request-detector.py", prompt)
+        if code == 0 and stdout == "":
+            PASS += 1
+            print(f"  PASS: {name}")
+        else:
+            FAIL += 1
+            print(f"  FAIL: {name} — expected silent exit, got exit={code}, output={stdout[:200]}")
+
+    # Vague requests that should trigger
+    assert_interactive(
+        "triggers on 'we need a feature'",
+        "we need a notification feature",
+        "AskUserQuestion",
+    )
+    assert_interactive(
+        "triggers on 'make it better'",
+        "make it better and faster",
+        "AskUserQuestion",
+    )
+    assert_interactive(
+        "triggers on 'like uber app'",
+        "build something like uber app",
+        "AskUserQuestion",
+    )
+    assert_interactive(
+        "triggers on one-word feature",
+        "add notifications",
+        "AskUserQuestion",
+    )
+    assert_interactive(
+        "includes requirements-consultant routing",
+        "we want a chat system module",
+        "requirements-consultant",
+    )
+
+    # Clear requests that should NOT trigger
+    assert_no_trigger(
+        "skips short prompts",
+        "fix bug",
+    )
+    assert_no_trigger(
+        "skips slash commands",
+        "/code-reviewer check my PR",
+    )
+    assert_no_trigger(
+        "skips explicit requirements work",
+        "help me clarify requirements for the auth system",
+    )
+    assert_no_trigger(
+        "skips user stories request",
+        "write user stories for the checkout flow",
+    )
+    assert_no_trigger(
+        "skips specific implementation request",
+        "Add a created_at index to the orders table in the backend migration",
+    )
+
+
 def main():
     print("=" * 60)
     print("Hook Test Harness")
@@ -326,6 +414,7 @@ def main():
     test_pre_commit_check()
     test_accessibility_checker()
     test_api_design_checker()
+    test_vague_request_detector()
 
     print("\n" + "=" * 60)
     print(f"Results: {PASS} passed, {FAIL} failed")
