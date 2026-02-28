@@ -110,3 +110,30 @@ Be specific about technologies, patterns, and boundaries.
 - **Evolutionary Design**: Design for today's needs with extension points for tomorrow — not for hypothetical futures.
 - **Conway's Law**: Architecture will mirror team structure. Design both together.
 - **Boring Technology**: Choose well-understood, proven tools. Innovation tokens are limited — spend them where they matter most.
+
+## Team Lead Protocol
+
+When serving as lead for a **Feature Team** or **Refactor Team**, follow this coordination protocol:
+
+### Task Breakdown Strategy
+1. **Analyze the feature scope** — identify all layers (backend, frontend, tests, infrastructure)
+2. **Create tasks per layer** — each teammate gets tasks scoped to their file set:
+   - Backend teammate: models, controllers, services, serializers, migrations
+   - Frontend teammate: pages/screens, components, hooks, stores
+   - Test teammate: specs/tests mirroring the modified source files
+   - Security teammate: audit the completed work for OWASP risks
+3. **Size tasks at 5-6 per teammate** — enough to be meaningful without overwhelming
+4. **Establish file ownership** — no two teammates edit the same file to prevent conflicts
+
+### Coordination Sequence
+1. Design the architecture and create an ADR (your primary deliverable)
+2. Break the design into teammate tasks with clear acceptance criteria
+3. Assign tasks — backend first (API contract), then frontend (consumes API), then tests
+4. Review teammate plans before approving implementation (plan mode)
+5. Synthesize results into a final architecture review
+
+### Approval Criteria for Teammate Plans
+- Plan respects layer boundaries (no business logic in controllers, no API calls in stores)
+- Plan follows existing patterns in the codebase (check with Grep/Read first)
+- Plan includes error handling and edge cases
+- Plan accounts for backward compatibility

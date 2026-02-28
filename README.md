@@ -10,10 +10,11 @@ This repository contains a production-ready `.claude/` configuration that enforc
 
 Instead of relying on ad-hoc prompting, this system provides:
 
-- **17 rules** that are automatically loaded based on file paths being edited
-- **10 specialized agents** that handle complex tasks with constrained tool access
-- **27 slash-command skills** that provide repeatable, templated workflows
-- **10 hook scripts + 8 prompt hooks** that enforce quality gates on every action
+- **19 rules** that are automatically loaded based on file paths being edited
+- **10 specialized agents** (3 with team lead protocols) that handle complex tasks with constrained tool access
+- **5 pre-defined agent team templates** for coordinated multi-agent work
+- **30 slash-command skills** that provide repeatable, templated workflows
+- **14 hook scripts + 8 prompt hooks** that enforce quality gates on every action
 
 ## Project Directory Convention
 
@@ -50,7 +51,7 @@ next/**                                  → nextjs, accessibility, clean-archit
 next/src/i18n/**                         → i18n
 backend/config/locales/**                → i18n
 **/migrations/**                         → database
-terraform/**                             → infrastructure, monitoring
+terraform/**                             → infrastructure, terraform-conventions, monitoring
 **/*.test.*, **/*.spec.*                 → testing
 ```
 
@@ -166,7 +167,7 @@ your-project/
 
 ```
 CLAUDE.md                          ← Master configuration (loaded every session)
-├── .claude/rules/                 ← 17 auto-loaded rules (path-scoped)
+├── .claude/rules/                 ← 19 auto-loaded rules (path-scoped)
 │   ├── code-standards.md
 │   ├── security.md
 │   ├── testing.md
@@ -182,8 +183,10 @@ CLAUDE.md                          ← Master configuration (loaded every sessio
 │   ├── error-handling.md
 │   ├── git-workflow.md
 │   ├── infrastructure.md
+│   ├── terraform-conventions.md      (terraform/**/*.tf, terraform/**/*.tfvars)
 │   ├── monitoring.md
-│   └── i18n.md
+│   ├── i18n.md
+│   └── agent-teams.md                (always loaded — no path glob)
 ├── .claude/agents/                ← 10 specialized agents
 │   ├── requirements-consultant.md    (Opus, discovery)
 │   ├── architecture-advisor.md       (Opus, plan mode)
@@ -195,7 +198,7 @@ CLAUDE.md                          ← Master configuration (loaded every sessio
 │   ├── refactor-specialist.md        (Opus, refactoring)
 │   ├── incident-responder.md         (Opus, operations)
 │   └── phlex-developer.md            (Sonnet, Phlex + Atomic Design)
-├── .claude/skills/                ← 27 slash-command skills
+├── .claude/skills/                ← 28 slash-command skills
 │   ├── api-designer/
 │   ├── atomic-design/                (Atomic Design methodology, 10 rules)
 │   ├── clean-architecture/
@@ -220,10 +223,11 @@ CLAUDE.md                          ← Master configuration (loaded every sessio
 │   ├── security-auditor/
 │   ├── sprint-planner/
 │   ├── technical-rfc/
+│   ├── terraform/                    (47 Terraform IaC rules, 9 categories)
 │   ├── test-generator/
 │   ├── theming/                      (Design tokens, dark mode, presets)
 │   └── web-design-guidelines/        (100+ accessibility/UX rules)
-├── .claude/hooks/                 ← 10 automation scripts
+├── .claude/hooks/                 ← 14 automation scripts
 │   ├── security-scan.py              (PreToolUse: blocks secrets)
 │   ├── dangerous-command-blocker.py  (PreToolUse: blocks destructive cmds)
 │   ├── pre-commit-check.py           (PreToolUse: validates commits)
@@ -233,8 +237,12 @@ CLAUDE.md                          ← Master configuration (loaded every sessio
 │   ├── auto-format.py                (PostToolUse: formats code)
 │   ├── test-runner.py                (PostToolUse: reminds to test)
 │   ├── atomic-design-checker.py      (PostToolUse: validates component hierarchy)
+│   ├── terraform-checker.py          (PostToolUse: validates .tf conventions)
 │   ├── audit-logger.py               (PostToolUse: compliance logging)
 │   ├── vague-request-detector.py     (UserPromptSubmit: catches ambiguity)
+│   ├── teammate-idle-checker.py      (TeammateIdle: validates deliverables)
+│   ├── task-completed-checker.py     (TaskCompleted: validates completion)
+│   ├── team-task-validator.py        (TaskCompleted: lint/format check)
 │   └── tests/
 │       └── run-all.py                (Hook test harness)
 └── .claude/settings.json          ← Permissions, hooks, deny/allow lists
@@ -259,11 +267,52 @@ Every action Claude takes passes through deterministic quality gates:
 | **After editing files** | Clean architecture prompt | Layer boundary violation detection |
 | **After editing files** | i18n prompt | Hardcoded user-facing string detection |
 | **After editing files** | `atomic-design-checker.py` | Validates component hierarchy, composition rules, naming |
+| **After editing files** | `terraform-checker.py` | Validates .tf file conventions (secrets, naming, tags, providers) |
 | **After any tool use** | `audit-logger.py` | Logs execution to JSON-lines for compliance |
 | **Before processing input** | `vague-request-detector.py` | Suggests requirements-consultant for ambiguous requests |
 | **On session start** | Environment check prompt | Git repo, branch, working tree status |
-| **When subagent starts** | Tech stack prompt | Injects full tech stack context |
+| **When subagent starts** | Tech stack prompt | Injects full tech stack and team context |
+| **When teammate idles** | `teammate-idle-checker.py` | Validates actual deliverables, checks test coverage |
+| **When task completes** | `task-completed-checker.py` | Validates deliverables match description, PR-ready state |
+| **When task completes** | `team-task-validator.py` | Validates modified files pass linting/formatting |
 | **When session ends** | Completion prompt | Validates task completion |
+
+### Agent Teams
+
+Agent teams coordinate multiple Claude Code instances for parallel work on complex tasks.
+
+#### When to Use What
+
+| Approach | Best For | Example |
+|----------|----------|---------|
+| Single Session | Sequential tasks, simple features, bug fixes | "Fix the login timeout" |
+| Subagents | Focused research, parallel reads, independent queries | "Search for all usages of UserService" |
+| Agent Teams | Cross-layer features, parallel review, competing hypotheses | "Build user dashboard (API + web + mobile)" |
+
+#### Pre-defined Team Templates
+
+| Template | Lead | Teammates | Use When |
+|----------|------|-----------|----------|
+| **Feature Team** | architecture-advisor (Opus) | rails-architect, reactjs-dev/react-native-dev, test-generator, security-auditor | Full-stack features spanning backend + frontend + tests |
+| **Review Team** | code-reviewer | security-auditor, clean-architecture, test-generator | Large PRs, release reviews, audit preparation |
+| **Incident Team** | incident-responder (Opus) | devops-engineer, rails-architect, security-auditor | Production outages, performance degradation |
+| **Refactor Team** | architecture-advisor (Opus) | refactor-specialist, test-generator, code-reviewer | Module extraction, pattern migration, dependency upgrades |
+| **Infrastructure Team** | devops-engineer | security-auditor, architecture-advisor | Terraform modules, CI/CD pipelines, cloud migrations |
+
+#### Quality Gate Hooks
+
+Teams are protected by two dedicated hooks:
+- **`teammate-idle-checker.py`** (TeammateIdle) — ensures teammates produce deliverables, not just research
+- **`task-completed-checker.py`** (TaskCompleted) — validates deliverables match task description, checks PR-readiness
+- **`team-task-validator.py`** (TaskCompleted) — validates modified files pass linting/formatting
+
+#### Dynamic Spawning
+
+Claude automatically suggests creating a team when:
+1. Task involves 3+ layers (backend, frontend, tests, infrastructure)
+2. User asks to "review", "audit", or "investigate" across multiple dimensions
+3. Task description includes multiple independent deliverables
+4. User explicitly asks for parallel work
 
 ### Rules (Auto-Loaded by File Path)
 
@@ -286,8 +335,10 @@ Rules are loaded automatically when you edit files matching their `paths` globs:
 | `error-handling.md` | All source files | Rails rescue patterns, React Native error boundaries |
 | `git-workflow.md` | Git operations | Conventional commits, branch naming, PR requirements |
 | `infrastructure.md` | Terraform, Docker, CI | AWS, Vercel, Docker, cost optimization |
+| `terraform-conventions.md` | `terraform/**/*.tf`, `terraform/**/*.tfvars` | HCL structure, provider pins, resource naming, required tags, security |
 | `monitoring.md` | Logging, health checks | Structured logging, CloudWatch, Sentry, correlation IDs |
 | `i18n.md` | Locale/translation files | Key naming, pluralization, RTL support, CI validation |
+| `agent-teams.md` | All files (no glob) | Team coordination, file ownership, task sizing, worktree isolation |
 
 ### Agents
 
@@ -337,6 +388,7 @@ Invoke with `/skill-name` for templated, repeatable workflows:
 | `/react-native-best-practices` | — | React Native/Expo performance best practices (35+ rules) |
 | `/atomic-design` | — | Atomic Design methodology (10 rules, composition hierarchy) |
 | `/phlex-dev` | phlex-developer | Phlex view components with Atomic Design and Tailwind |
+| `/terraform` | — | Terraform IaC best practices (47 rules, 9 categories) |
 | `/theming` | — | Cross-platform design tokens, dark/light mode, presets |
 | `/web-design-guidelines` | — | Web interface design review (100+ accessibility/UX rules) |
 
@@ -458,10 +510,10 @@ The `audit-logger.py` hook logs every tool execution in JSON-lines format, provi
 └── .claude/
     ├── settings.json                  # Permissions + hooks
     ├── managed-settings.template.json # IT admin template
-    ├── agents/          (10 agents)
-    ├── skills/          (27 skills, each with SKILL.md + references/)
-    ├── rules/           (17 rule files)
-    └── hooks/           (10 automation scripts + test harness)
+    ├── agents/          (10 agents, 3 with team lead protocols)
+    ├── skills/          (30 skills, each with SKILL.md + references/)
+    ├── rules/           (19 rule files)
+    └── hooks/           (14 automation scripts + test harness)
 ```
 
 ## Contributing

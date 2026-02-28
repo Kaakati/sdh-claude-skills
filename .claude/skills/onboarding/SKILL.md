@@ -260,6 +260,35 @@ next/                         # Next.js App Router (SSR/SSG)
 - **Tailwind CSS** for web styling (not used in React Native).
 - **Vitest** for web testing (not Jest).
 
+### Step 10: Agent Teams
+
+Agent teams let multiple Claude Code instances work in parallel on complex tasks. They are useful for full-stack feature development, comprehensive code reviews, and incident response.
+
+#### Using Team Templates
+Ask Claude to use a pre-defined team template:
+- `"Use the Feature Team to build a user profile feature"` — spawns architecture-advisor (lead), rails-architect, reactjs-dev, test-generator, security-auditor
+- `"Use the Review Team to review this PR"` — spawns code-reviewer (lead), security-auditor, clean-architecture, test-generator
+- `"Use the Incident Team"` — spawns incident-responder (lead), devops-engineer, rails-architect
+- `"Use the Refactor Team to extract the payment module"` — spawns architecture-advisor (lead), refactor-specialist, test-generator, code-reviewer
+- `"Use the Infrastructure Team for the Terraform migration"` — spawns devops-engineer (lead), security-auditor, architecture-advisor
+
+#### Working with Teammates
+- Each teammate works on a distinct set of files — no two teammates edit the same file
+- Communicate via messages (the system handles delivery automatically)
+- Check the task list (`TaskList`) to see available work and progress
+- Mark tasks completed when done — quality gate hooks will validate your work
+
+#### Quality Gates
+Two hooks enforce team quality automatically:
+- **TeammateIdle** — checks that you produced actual deliverables (not just research)
+- **TaskCompleted** — validates your work matches the task description and passes basic linting
+
+#### When Teams Are Suggested
+Claude will suggest a team when:
+- The task spans 3+ layers (backend, frontend, tests, infrastructure)
+- You ask to review or audit across multiple dimensions
+- The work contains multiple independent deliverables
+
 ## First Week Plan
 
 | Day | Focus | Goal |

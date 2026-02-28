@@ -1,4 +1,7 @@
 {
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
   "permissions": {
     "deny": [
       "Read(**/.env)",
@@ -35,6 +38,12 @@
       "Bash(docker-compose logs:*)",
       "Bash(terraform plan:*)",
       "Bash(terraform validate)",
+      "Bash(terraform fmt:*)",
+      "Bash(terraform init:*)",
+      "Bash(terraform output:*)",
+      "Bash(terraform state list:*)",
+      "Bash(terraform state show:*)",
+      "Bash(terraform providers:*)",
       "Bash(npm run dev:*)",
       "Bash(npm run build:*)",
       "Bash(npx vite:*)",
@@ -144,6 +153,11 @@
             "type": "command",
             "command": "bash .claude/hooks/run-python.sh .claude/hooks/atomic-design-checker.py",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/terraform-checker.py",
+            "timeout": 10
           }
         ]
       },
@@ -202,6 +216,35 @@
             "type": "command",
             "command": "bash .claude/hooks/run-python.sh .claude/hooks/subagent-context.py",
             "timeout": 10
+          }
+        ]
+      }
+    ],
+    "TeammateIdle": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/teammate-idle-checker.py",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/task-completed-checker.py",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/team-task-validator.py",
+            "timeout": 15
           }
         ]
       }

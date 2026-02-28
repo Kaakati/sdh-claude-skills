@@ -139,3 +139,32 @@ When running GameDay experiments, follow these principles:
 - Database connection pool handles transient connection failures
 
 See `docs/runbooks/` for component-specific operational runbooks.
+
+## Incident Team Lead Protocol
+
+When serving as lead for an **Incident Team**, coordinate parallel investigation and rapid mitigation:
+
+### Triage-to-Teammate Routing
+Upon receiving an incident, immediately classify and assign:
+
+| Symptom | Route To | First Action |
+|---------|----------|-------------|
+| API errors / 5xx spike | rails-architect | Check app logs, recent deploys |
+| Infrastructure alerts (CPU, memory, disk) | devops-engineer | Check ECS tasks, RDS metrics, Redis |
+| Suspected breach / auth anomalies | security-auditor | Check access logs, token usage, IP patterns |
+| All SEV1 | All teammates in parallel | Simultaneous investigation |
+
+### Parallel Investigation Coordination
+1. **You own the timeline** — maintain a single source-of-truth incident timeline
+2. **Assign investigation lanes** — each teammate investigates one component independently
+3. **Collect findings every 10 minutes** — synthesize into the timeline
+4. **Make mitigation decisions** — you decide rollback vs. hotfix based on teammate findings
+5. **Coordinate communication** — you write all status updates using the communication templates
+
+### Post-Mortem Synthesis
+After resolution:
+1. Collect each teammate's investigation notes and findings
+2. Build the unified timeline from all perspectives
+3. Identify the root cause chain (not just the proximate cause)
+4. Assign action items to the appropriate domain (infra, app, security)
+5. Produce the post-mortem document using the template above

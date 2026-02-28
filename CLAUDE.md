@@ -127,6 +127,8 @@ Detailed domain-specific rules are maintained in `.claude/rules/`:
 - `i18n.md` — Internationalization conventions, locale files, RTL support, key naming
 - `accessibility.md` — WCAG 2.1 AA, semantic HTML, keyboard navigation, color contrast, ARIA
 - `phlex-conventions.md` — Phlex component conventions, Atomic Design structure, `class_variants`, Stimulus/Turbo
+- `terraform-conventions.md` — Terraform HCL file structure, provider constraints, resource naming, required tags, security minimums
+- `agent-teams.md` — Agent team coordination, file ownership, task sizing, worktree isolation, dynamic spawning conventions
 
 ## Agents
 
@@ -174,6 +176,7 @@ On-demand skills available via slash commands:
 - `/atomic-design` — Atomic Design methodology for component hierarchy across all frontend platforms
 - `/phlex-dev` — Phlex view components with Atomic Design, Tailwind, Stimulus, Turbo (routes to phlex-developer agent)
 - `/theming` — Cross-platform design tokens, dark/light mode, WCAG AA contrast
+- `/terraform` — Terraform IaC best practices (47 rules, 9 categories: state, security, modules, resources, variables, networking, data, compute, cost)
 
 ## Hooks (Deterministic Automation)
 
@@ -198,6 +201,7 @@ Active hooks in `.claude/settings.json` enforce quality at every lifecycle point
 - **API design agent hook** — Enforces api-design.md (URL nouns, data wrapper, error format, HTTP status codes) — Haiku agent with Read/Grep/Glob tools, scoped to controllers and API routes
 - **Monitoring prompt** — Enforces monitoring.md (request_id in logs, sensitive data logging) — scoped to .rb under backend/app/controllers and backend/app/jobs
 - `atomic-design-checker.py` — Validates Atomic Design hierarchy (atom independence, molecule composition, organism boundaries, naming) across Phlex, ReactJS, Next.js, React Native
+- `terraform-checker.py` — Validates Terraform .tf files (hardcoded secrets, snake_case naming, required tags, backend config, provider versions)
 - `audit-logger.py` — Logs all tool executions for compliance (JSON-lines)
 
 **SessionStart** (when session begins):
@@ -210,7 +214,73 @@ Active hooks in `.claude/settings.json` enforce quality at every lifecycle point
 - `vague-request-detector.py` — Suggests requirements-consultant for ambiguous inputs
 
 **SubagentStart** (when subagent spawns):
-- Prompt hook injects tech stack context into all subagents
+- Prompt hook injects tech stack context and team context into all subagents
+
+**TeammateIdle** (when a teammate goes idle):
+- `teammate-idle-checker.py` — Validates teammate completed actual work, checks for uncommitted changes, verifies test coverage
+
+**TaskCompleted** (when a task is marked complete):
+- `task-completed-checker.py` — Validates deliverables match description, checks for linting errors, ensures PR-ready state
+- `team-task-validator.py` — Validates modified files pass linting/formatting before allowing task completion
+
+## Agent Teams
+
+Agent teams coordinate multiple Claude Code instances for parallel work. Use them for complex tasks that benefit from simultaneous exploration, cross-layer implementation, or multi-dimensional review.
+
+### When to Use What
+
+| Approach | Best For | Example |
+|----------|----------|---------|
+| Single Session | Sequential tasks, simple features, bug fixes | "Fix the login timeout" |
+| Subagents | Focused research, parallel reads, independent queries | "Search for all usages of UserService" |
+| Agent Teams | Cross-layer features, parallel review, competing hypotheses | "Build user dashboard (API + web + mobile)" |
+
+**Decision tree**: Use a team when the task involves 3+ layers, requires multi-dimensional review, or contains multiple independent deliverables that can be parallelized.
+
+### Pre-defined Team Templates
+
+Tell Claude to "use the [Template Name]" to spawn a coordinated team:
+
+#### Feature Team (full-stack feature development)
+- **Lead**: architecture-advisor (Opus, plan mode) — designs, coordinates, reviews
+- **Teammates**: rails-architect (backend), reactjs-dev or react-native-dev (frontend), test-generator (tests), security-auditor (security review)
+- **When**: New feature spanning backend + frontend + tests
+
+#### Review Team (comprehensive code review)
+- **Lead**: code-reviewer — coordinates review dimensions
+- **Teammates**: security-auditor (security lens), clean-architecture (architecture lens), test-generator (coverage lens)
+- **When**: Large PRs, release reviews, audit preparation
+
+#### Incident Team (production incident response)
+- **Lead**: incident-responder (Opus) — triage, coordinate, post-mortem
+- **Teammates**: devops-engineer (infrastructure), rails-architect (app layer), security-auditor (if breach suspected)
+- **When**: Production outages, performance degradation, security incidents
+
+#### Refactor Team (large-scale refactoring)
+- **Lead**: architecture-advisor (Opus, plan mode) — design target architecture
+- **Teammates**: refactor-specialist (Opus, implementation), test-generator (safety net), code-reviewer (quality gate)
+- **When**: Module extraction, pattern migration, dependency upgrades
+
+#### Infrastructure Team (IaC and deployment)
+- **Lead**: devops-engineer — infrastructure coordination
+- **Teammates**: security-auditor (compliance), architecture-advisor (design review)
+- **When**: Terraform module creation, CI/CD pipeline changes, cloud migrations
+
+### Dynamic Spawning
+
+Claude will automatically suggest creating a team when:
+1. The task involves 3+ layers (backend, frontend, tests, infrastructure)
+2. The user asks to "review", "audit", or "investigate" across multiple dimensions
+3. The task description includes multiple independent deliverables
+4. The user explicitly asks for parallel work
+
+### Team Coordination Conventions
+
+- **File ownership**: Each teammate owns a distinct set of files — no two teammates edit the same file
+- **Task sizing**: 5-6 tasks per teammate maximum for a single team session
+- **Worktree isolation**: Use worktree isolation for teammates making parallel edits to avoid conflicts
+- **Quality gates**: `TeammateIdle` and `TaskCompleted` hooks enforce deliverable quality automatically
+- See `.claude/rules/agent-teams.md` for full coordination conventions
 
 ## Enterprise Governance
 
