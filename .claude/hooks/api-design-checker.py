@@ -3,7 +3,7 @@
 PostToolUse hook: API design checker for controller and API route files.
 
 Replaces the agent-based API design hook with a deterministic command hook.
-Checks files under app/controllers/, src/api/, web/src/api/, next/src/actions/
+Checks files under backend/app/controllers/, mobile/src/api/, web/src/api/, next/src/actions/
 for common API design violations per api-design.md.
 Exits silently (exit 0, no output) for non-matching files.
 """
@@ -15,8 +15,8 @@ import sys
 
 # Only check files under these directory prefixes (forward-slash normalized)
 ALLOWED_PREFIXES = (
-    "app/controllers/",
-    "src/api/",
+    "backend/app/controllers/",
+    "mobile/src/api/",
     "web/src/api/",
     "next/src/actions/",
 )

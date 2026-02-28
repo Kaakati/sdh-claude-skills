@@ -34,7 +34,7 @@ def main():
     # Check if this is a migration file
     is_migration = any(pattern in normalized_path for pattern in [
         "/migrations/",
-        "/db/migrate/",
+        "/backend/db/migrate/",
         "/migrate/",
     ])
 

@@ -1,6 +1,6 @@
 ---
 paths:
-  - "src/api/**"
+  - "mobile/src/api/**"
   - "**/routes/**"
   - "**/controllers/**"
   - "**/endpoints/**"

@@ -34,13 +34,13 @@ Design and implement backend features following Rails conventions with our speci
 - Consistent error responses: `{ error: String, code: Integer, details: Object? }`
 
 ### 4. Service Layer
-- Extract business logic to `app/services/`
+- Extract business logic to `backend/app/services/`
 - Single responsibility: `CreateOrder`, `ProcessPayment`, `GeofenceCheck`
 - Return result objects for success/failure handling
 - Inject dependencies for testability
 
 ### 5. Background Processing
-- Sidekiq jobs in `app/jobs/` for anything > 100ms
+- Sidekiq jobs in `backend/app/jobs/` for anything > 100ms
 - Idempotent jobs — safe to retry
 - Separate queues: `default`, `critical`, `mailers`, `low_priority`
 - Pass IDs, not objects
@@ -60,7 +60,7 @@ Design and implement backend features following Rails conventions with our speci
 ## Reference Architecture
 
 ```
-app/
+backend/app/
 ├── controllers/
 │   └── api/v1/           # Versioned API controllers
 ├── models/               # ActiveRecord models with validations

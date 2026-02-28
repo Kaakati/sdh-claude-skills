@@ -1,9 +1,9 @@
 ---
 paths:
-  - "app/**/*.rb"
-  - "lib/**/*.rb"
-  - "config/**/*.rb"
-  - "db/**/*.rb"
+  - "backend/app/**/*.rb"
+  - "backend/lib/**/*.rb"
+  - "backend/config/**/*.rb"
+  - "backend/db/**/*.rb"
 ---
 
 # Ruby on Rails Conventions
@@ -43,7 +43,7 @@ paths:
   ```
 
 ## Service Objects
-- Place in `app/services/` with clear naming: `CreateUser`, `ProcessPayment`
+- Place in `backend/app/services/` with clear naming: `CreateUser`, `ProcessPayment`
 - Single public method: `call` or `execute`
 - Return result objects, not bare values — consider using `dry-monads` or similar
 - Keep services testable with dependency injection

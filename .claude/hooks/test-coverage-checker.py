@@ -2,7 +2,7 @@
 """
 PostToolUse hook: Test coverage checker.
 
-Checks if source files under app/, src/, web/src/, or next/src/ have
+Checks if source files under backend/app/, mobile/src/, web/src/, or next/src/ have
 corresponding test files per testing.md conventions.
 Exits silently for non-source files, test files, and files outside source dirs.
 """
@@ -13,7 +13,7 @@ import sys
 
 SOURCE_EXTENSIONS = (".rb", ".py", ".ts", ".tsx", ".js", ".jsx")
 SKIP_PATTERNS = (".test.", ".spec.", "__tests__", "_test.", "_spec.")
-SOURCE_PREFIXES = ("app/", "src/", "web/src/", "next/src/")
+SOURCE_PREFIXES = ("backend/app/", "mobile/src/", "web/src/", "next/src/")
 
 
 def normalize(path):
@@ -51,9 +51,9 @@ def main():
     candidates = []
 
     if ext == ".rb":
-        # Rails: app/services/foo.rb → spec/services/foo_spec.rb
-        if "app/" in normalized:
-            spec_path = normalized.replace("app/", "spec/", 1)
+        # Rails: backend/app/services/foo.rb → backend/spec/services/foo_spec.rb
+        if "backend/app/" in normalized:
+            spec_path = normalized.replace("backend/app/", "backend/spec/", 1)
             spec_path = spec_path.replace(f"{basename}.rb", f"{basename}_spec.rb")
             candidates.append(spec_path)
     else:

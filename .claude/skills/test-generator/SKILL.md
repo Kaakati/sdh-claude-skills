@@ -165,11 +165,11 @@ Skip testing:
 ## Test File Organization
 
 ```
-src/
+mobile/src/
   services/
     user-service.ts
     user-service.test.ts          # Unit tests colocated
-tests/
+mobile/tests/
   integration/
     user-service.integration.ts   # Integration tests separate
   e2e/

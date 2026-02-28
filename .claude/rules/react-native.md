@@ -1,9 +1,9 @@
 ---
 paths:
-  - "src/**/*.tsx"
-  - "src/**/*.ts"
-  - "app/**/*.tsx"
-  - "app/**/*.ts"
+  - "mobile/src/**/*.tsx"
+  - "mobile/src/**/*.ts"
+  - "mobile/app/**/*.tsx"
+  - "mobile/app/**/*.ts"
   - "mobile/**/*.tsx"
   - "mobile/**/*.ts"
 ---

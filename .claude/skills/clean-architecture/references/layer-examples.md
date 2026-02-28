@@ -6,7 +6,7 @@ Full code examples for each architecture layer across all frameworks.
 
 ### Rails — Model (Domain Logic Only)
 ```ruby
-# app/models/order.rb
+# backend/app/models/order.rb
 class Order < ApplicationRecord
   belongs_to :user
   has_many :order_items, dependent: :destroy
@@ -26,7 +26,7 @@ end
 
 ### Rails — Value Object
 ```ruby
-# app/values/money.rb
+# backend/app/values/money.rb
 class Money
   attr_reader :amount, :currency
 
@@ -44,7 +44,7 @@ end
 
 ### React Native — Domain Types
 ```typescript
-// src/domain/order.ts — Pure TypeScript, no React imports
+// mobile/src/domain/order.ts — Pure TypeScript, no React imports
 export interface Order {
   id: string;
   userId: string;
@@ -81,7 +81,7 @@ export function isCancellable(order: Order): boolean {
 
 ### Rails — Service Object with Result Pattern
 ```ruby
-# app/services/orders/create_order_service.rb
+# backend/app/services/orders/create_order_service.rb
 module Orders
   class CreateOrderService
     def initialize(user:, cart_items:, payment_method:)
@@ -119,7 +119,7 @@ module Orders
   end
 end
 
-# app/services/result.rb
+# backend/app/services/result.rb
 class Result
   attr_reader :value, :error_type, :error_message
 
@@ -141,7 +141,7 @@ end
 
 ### React Native — Custom Hook (Use Case)
 ```typescript
-// src/hooks/useCreateOrder.ts
+// mobile/src/hooks/useCreateOrder.ts
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ordersApi } from '../api/orders';
 import type { CreateOrderPayload } from '../domain/order';
@@ -197,7 +197,7 @@ export async function createOrder(prevState: unknown, formData: FormData) {
 
 ### Rails — Thin Controller
 ```ruby
-# app/controllers/api/v1/orders_controller.rb
+# backend/app/controllers/api/v1/orders_controller.rb
 class Api::V1::OrdersController < ApplicationController
   def create
     authorize Order
@@ -231,7 +231,7 @@ end
 
 ### Rails — Panko Serializer
 ```ruby
-# app/serializers/order_serializer.rb
+# backend/app/serializers/order_serializer.rb
 class OrderSerializer < Panko::Serializer
   attributes :id, :status, :total_amount, :created_at
   has_many :order_items, serializer: OrderItemSerializer
@@ -240,7 +240,7 @@ end
 
 ### React Native — Thin Screen
 ```tsx
-// src/screens/CreateOrderScreen.tsx
+// mobile/src/screens/CreateOrderScreen.tsx
 import { useCreateOrder } from '../hooks/useCreateOrder';
 import { useCart } from '../hooks/useCart';
 import { OrderForm } from '../components/OrderForm';

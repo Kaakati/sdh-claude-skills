@@ -15,15 +15,15 @@ See `references/layer-examples.md` for full code examples across all frameworks.
 
 ### Layer 1: Entities (Domain Core)
 The innermost layer. Pure business logic with zero framework dependencies.
-- **Rails**: Models with domain logic only (`app/models/`), value objects (`app/values/`)
-- **React Native**: Pure TypeScript interfaces and domain functions (`src/domain/`)
+- **Rails**: Models with domain logic only (`backend/app/models/`), value objects (`backend/app/values/`)
+- **React Native**: Pure TypeScript interfaces and domain functions (`mobile/src/domain/`)
 - **Vite SPA**: Pure TypeScript types (`web/src/domain/`)
 - **Next.js**: Shared TypeScript types (`next/src/domain/`)
 
 ### Layer 2: Use Cases (Application Logic)
 Orchestrate business workflows. Depend on entities, return Result objects.
-- **Rails**: Service objects with single `call` method (`app/services/`)
-- **React Native**: Custom hooks wrapping TanStack Query (`src/hooks/`)
+- **Rails**: Service objects with single `call` method (`backend/app/services/`)
+- **React Native**: Custom hooks wrapping TanStack Query (`mobile/src/hooks/`)
 - **Vite SPA**: TanStack Query hooks (`web/src/hooks/`, `web/src/api/`)
 - **Next.js (Server)**: Server actions with zod validation (`next/src/actions/`)
 - **Next.js (Client)**: Custom hooks (`next/src/hooks/`)
@@ -31,7 +31,7 @@ Orchestrate business workflows. Depend on entities, return Result objects.
 ### Layer 3: Interface Adapters
 Translate between application core and external concerns.
 - **Rails**: Thin controllers (authorize → service → serialize), Panko serializers
-- **React Native**: Thin screens composing hooks + components (`src/screens/`)
+- **React Native**: Thin screens composing hooks + components (`mobile/src/screens/`)
 - **Vite SPA**: Thin pages composing hooks + components (`web/src/pages/`)
 - **Next.js**: Server Component pages, layouts (`next/app/`), client components (`next/src/components/`)
 

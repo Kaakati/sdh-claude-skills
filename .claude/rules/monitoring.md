@@ -2,9 +2,9 @@
 paths:
   - "terraform/**"
   - "docker-compose*.yml"
-  - "config/initializers/**"
+  - "backend/config/initializers/**"
   - ".github/workflows/**"
-  - "app/jobs/**"
+  - "backend/app/jobs/**"
 ---
 
 # Monitoring & Observability Standards

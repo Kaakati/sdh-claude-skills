@@ -15,7 +15,7 @@ Implement and maintain internationalization across the full stack: Rails API bac
 Use Rails built-in i18n framework. No additional gems needed for basic i18n.
 
 ```ruby
-# config/application.rb
+# backend/config/application.rb
 config.i18n.default_locale = :en
 config.i18n.available_locales = [:en, :ar, :fr, :es, :de]
 config.i18n.fallbacks = true
@@ -25,7 +25,7 @@ config.i18n.enforce_available_locales = true
 ### Locale File Organization
 
 ```
-config/locales/
+backend/config/locales/
 ├── en/
 │   ├── models.en.yml        # ActiveRecord model names and attributes
 │   ├── errors.en.yml        # Error messages
@@ -45,7 +45,7 @@ config/locales/
 Follow dot-separated hierarchical keys matching the domain structure:
 
 ```yaml
-# config/locales/en/errors.en.yml
+# backend/config/locales/en/errors.en.yml
 en:
   errors:
     not_found: "%{resource} not found"
@@ -55,7 +55,7 @@ en:
       too_short: "%{field} is too short (minimum %{count} characters)"
       taken: "%{field} is already taken"
 
-# config/locales/en/models.en.yml
+# backend/config/locales/en/models.en.yml
 en:
   activerecord:
     models:
@@ -72,7 +72,7 @@ en:
 Use lazy lookup in controllers and mailers to keep keys DRY:
 
 ```ruby
-# app/controllers/api/v1/orders_controller.rb
+# backend/app/controllers/api/v1/orders_controller.rb
 class Api::V1::OrdersController < ApplicationController
   def create
     # Looks up: en.api.v1.orders.create.success
@@ -109,7 +109,7 @@ ar:
 Set locale from request header in the base controller:
 
 ```ruby
-# app/controllers/application_controller.rb
+# backend/app/controllers/application_controller.rb
 class ApplicationController < ActionController::API
   before_action :set_locale
 
@@ -155,7 +155,7 @@ npm install i18next react-i18next react-native-localize
 ### Setup
 
 ```typescript
-// src/i18n/index.ts
+// mobile/src/i18n/index.ts
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { getLocales } from 'react-native-localize';
@@ -177,7 +177,7 @@ export default i18n;
 ### Locale File Structure
 
 ```
-src/i18n/
+mobile/src/i18n/
 ├── index.ts           # i18n initialization
 ├── locales/
 │   ├── en.json        # English translations
@@ -231,7 +231,7 @@ function OrderList() {
 ### Type-Safe Translation Keys
 
 ```typescript
-// src/i18n/types.ts
+// mobile/src/i18n/types.ts
 import en from './locales/en.json';
 
 type NestedKeyOf<T, K extends string = ''> = T extends object
@@ -244,7 +244,7 @@ export type TranslationKey = NestedKeyOf<typeof en>;
 ### RTL (Right-to-Left) Support
 
 ```typescript
-// src/i18n/rtl.ts
+// mobile/src/i18n/rtl.ts
 import { I18nManager } from 'react-native';
 import RNRestart from 'react-native-restart';
 
@@ -280,8 +280,8 @@ const styles = StyleSheet.create({
 
 ### Adding a New Locale
 
-1. **Rails**: Create locale directory under `config/locales/{code}/`, copy English files, translate.
-2. **React Native**: Create `src/i18n/locales/{code}.json`, copy English file, translate.
+1. **Rails**: Create locale directory under `backend/config/locales/{code}/`, copy English files, translate.
+2. **React Native**: Create `mobile/src/i18n/locales/{code}.json`, copy English file, translate.
 3. **Add to available locales**: Update `config.i18n.available_locales` (Rails) and `i18n.init` resources (React Native).
 4. **Pluralization rules**: Add CLDR pluralization rules for the locale if non-standard.
 5. **RTL check**: If the locale is RTL (Arabic, Hebrew, Persian, Urdu), enable RTL layout handling.

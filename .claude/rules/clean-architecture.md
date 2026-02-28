@@ -1,8 +1,8 @@
 ---
 paths:
-  - "app/**"
-  - "src/**"
-  - "lib/**"
+  - "backend/app/**"
+  - "mobile/src/**"
+  - "backend/lib/**"
   - "web/**"
   - "next/**"
 ---
@@ -36,9 +36,9 @@ Enforce Clean Architecture principles across all application code. The core rule
 
 | Clean Architecture Layer | Rails Component | Directory |
 |--------------------------|-----------------|-----------|
-| Entities | Models, Value Objects | `app/models/`, `app/values/` |
-| Use Cases | Service Objects | `app/services/` |
-| Interface Adapters | Controllers, Serializers, Form Objects | `app/controllers/`, `app/serializers/`, `app/forms/` |
+| Entities | Models, Value Objects | `backend/app/models/`, `backend/app/values/` |
+| Use Cases | Service Objects | `backend/app/services/` |
+| Interface Adapters | Controllers, Serializers, Form Objects | `backend/app/controllers/`, `backend/app/serializers/`, `backend/app/forms/` |
 | Frameworks | Rails itself, ActiveRecord, Sidekiq | Framework code |
 
 ### Rules for Rails
@@ -52,9 +52,9 @@ Enforce Clean Architecture principles across all application code. The core rule
 
 | Clean Architecture Layer | React Native Component | Directory |
 |--------------------------|------------------------|-----------|
-| Entities | TypeScript types/interfaces, domain utils | `src/domain/`, `src/types/` |
-| Use Cases | Custom hooks (business logic) | `src/hooks/` |
-| Interface Adapters | Screens, API client, navigation | `src/screens/`, `src/api/`, `src/navigation/` |
+| Entities | TypeScript types/interfaces, domain utils | `mobile/src/domain/`, `mobile/src/types/` |
+| Use Cases | Custom hooks (business logic) | `mobile/src/hooks/` |
+| Interface Adapters | Screens, API client, navigation | `mobile/src/screens/`, `mobile/src/api/`, `mobile/src/navigation/` |
 | Frameworks | React Native, TanStack Query, Zustand | Framework code |
 
 ### Rules for React Native

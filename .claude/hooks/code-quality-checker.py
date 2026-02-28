@@ -14,9 +14,9 @@ import sys
 SOURCE_EXTENSIONS = (".rb", ".py", ".ts", ".tsx", ".js", ".jsx")
 
 # Domain-aware file limits (normalized forward-slash paths)
-MODEL_PREFIXES = ("app/models/",)
+MODEL_PREFIXES = ("backend/app/models/",)
 COMPONENT_PREFIXES = (
-    "src/screens/", "src/components/",
+    "mobile/src/screens/", "mobile/src/components/",
     "web/src/components/", "web/src/pages/",
     "next/src/components/", "next/app/",
 )

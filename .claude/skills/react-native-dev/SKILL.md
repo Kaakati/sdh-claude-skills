@@ -20,7 +20,7 @@ Build mobile features using our React Native stack: Zustand for state, TanStack 
 
 ### 2. API Layer (TanStack Query)
 - Define query keys: `['orders', orderId]`, `['orders', { status, page }]`
-- Create custom hooks in `src/hooks/queries/`:
+- Create custom hooks in `mobile/src/hooks/queries/`:
   ```typescript
   export const useOrders = (filter: OrderFilter) =>
     useQuery({
@@ -41,7 +41,7 @@ Build mobile features using our React Native stack: Zustand for state, TanStack 
 ### 3. State Management (Zustand)
 - Only for CLIENT state — auth, UI preferences, offline queues, navigation state
 - Never duplicate server data in Zustand (that's TanStack Query's job)
-- Create stores in `src/stores/`:
+- Create stores in `mobile/src/stores/`:
   ```typescript
   export const useAuthStore = create<AuthStore>()(
     persist(
@@ -58,7 +58,7 @@ Build mobile features using our React Native stack: Zustand for state, TanStack 
 
 ### 4. Component Structure
 ```
-src/
+mobile/src/
 ├── screens/           # Full screen components (connected to navigation)
 ├── components/
 │   ├── common/        # Reusable: Button, Input, Card, Avatar

@@ -163,6 +163,10 @@ On-demand skills available via slash commands:
 - `/sprint-planner` — Sprint planning, effort estimation, capacity planning, backlog grooming
 - `/architecture-advisor` — Architectural decisions, ADRs, tech evaluation, system design (routes to architecture-advisor agent, Opus)
 - `/refactor` — Safe incremental refactoring with Fowler's patterns, test-first methodology (routes to refactor-specialist agent, Opus)
+- `/react-best-practices` — React/Next.js performance optimization (57 rules, 8 categories)
+- `/composition-patterns` — React composition patterns (compound components, context, React 19)
+- `/react-native-best-practices` — React Native/Expo performance best practices (35+ rules)
+- `/web-design-guidelines` — Web interface design review (100+ accessibility/UX rules)
 
 ## Hooks (Deterministic Automation)
 
@@ -185,7 +189,7 @@ Active hooks in `.claude/settings.json` enforce quality at every lifecycle point
 - **i18n prompt** — Enforces i18n.md (hardcoded user-facing strings in .tsx/.jsx/.erb files)
 - **Accessibility agent hook** — Enforces accessibility.md (semantic HTML, alt text, label associations, focus indicators, ARIA misuse) — Haiku agent with Read/Grep/Glob tools, scoped to .tsx/.jsx under web/next/frontend
 - **API design agent hook** — Enforces api-design.md (URL nouns, data wrapper, error format, HTTP status codes) — Haiku agent with Read/Grep/Glob tools, scoped to controllers and API routes
-- **Monitoring prompt** — Enforces monitoring.md (request_id in logs, sensitive data logging) — scoped to .rb under app/controllers and app/jobs
+- **Monitoring prompt** — Enforces monitoring.md (request_id in logs, sensitive data logging) — scoped to .rb under backend/app/controllers and backend/app/jobs
 - `audit-logger.py` — Logs all tool executions for compliance (JSON-lines)
 
 **SessionStart** (when session begins):

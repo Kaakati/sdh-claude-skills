@@ -13,7 +13,7 @@ import sys
 
 
 ALLOWED_EXTENSIONS = (".tsx", ".jsx", ".erb")
-SOURCE_PREFIXES = ("app/views/", "src/", "web/src/", "next/")
+SOURCE_PREFIXES = ("backend/app/views/", "mobile/src/", "web/src/", "next/")
 SKIP_PATTERNS = (".test.", ".spec.", "__tests__", ".config.", ".d.ts")
 
 

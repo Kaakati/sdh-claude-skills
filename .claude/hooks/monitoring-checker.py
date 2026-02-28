@@ -2,7 +2,7 @@
 """
 PostToolUse hook: Monitoring standards checker.
 
-Checks .rb files under app/controllers/ and app/jobs/ for:
+Checks .rb files under backend/app/controllers/ and backend/app/jobs/ for:
 - Log statements missing request_id
 - Sensitive data in log statements
 Per monitoring.md. Exits silently for non-matching files.
@@ -13,7 +13,7 @@ import re
 import sys
 
 
-ALLOWED_PREFIXES = ("app/controllers/", "app/jobs/")
+ALLOWED_PREFIXES = ("backend/app/controllers/", "backend/app/jobs/")
 SENSITIVE_WORDS = ("password", "token", "secret", "ssn", "credit_card")
 
 

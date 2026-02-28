@@ -8,7 +8,7 @@
 - **Authentication**: Devise + devise-jwt for token-based auth
 - **Authorization**: Pundit policies — one policy per model
 - **Serialization**: Panko::Serializer — always define explicit attributes
-- **Background Jobs**: Sidekiq with Redis — jobs in `app/jobs/`
+- **Background Jobs**: Sidekiq with Redis — jobs in `backend/app/jobs/`
 - **Pagination**: Pagy gem — fastest pagination in Ruby
 
 ### PostgreSQL + PostGIS

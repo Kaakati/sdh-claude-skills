@@ -2,7 +2,7 @@
 
 ## Screen Component Pattern
 ```typescript
-// src/screens/OrdersScreen.tsx
+// mobile/src/screens/OrdersScreen.tsx
 import React, { useCallback } from 'react';
 import { FlatList, RefreshControl, View } from 'react-native';
 import { useOrders } from '@/hooks/queries/useOrders';
@@ -46,7 +46,7 @@ export const OrdersScreen = () => {
 
 ## Zustand Store with MMKV Persistence
 ```typescript
-// src/stores/useAuthStore.ts
+// mobile/src/stores/useAuthStore.ts
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { MMKV } from 'react-native-mmkv';
@@ -111,7 +111,7 @@ export const useAuthStore = create<AuthStore>()(
 
 ## TanStack Query Hook with Pagination
 ```typescript
-// src/hooks/queries/useOrders.ts
+// mobile/src/hooks/queries/useOrders.ts
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/services/api';
 
@@ -156,7 +156,7 @@ export const useCreateOrder = () => {
 
 ## Centrifugo Real-time Hook
 ```typescript
-// src/hooks/realtime/useLiveLocation.ts
+// mobile/src/hooks/realtime/useLiveLocation.ts
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { centrifuge } from '@/services/centrifugo';
@@ -196,7 +196,7 @@ export const useLiveLocation = (vehicleId: string) => {
 
 ## API Client with Auth Interceptor
 ```typescript
-// src/services/api.ts
+// mobile/src/services/api.ts
 import axios from 'axios';
 import { useAuthStore } from '@/stores/useAuthStore';
 import Config from 'react-native-config';
@@ -242,7 +242,7 @@ export const api = {
 
 ## Map with PostGIS Spatial Query
 ```typescript
-// src/screens/MapScreen.tsx
+// mobile/src/screens/MapScreen.tsx
 import React, { useCallback, useRef, useState } from 'react';
 import MapView, { Marker, Region } from 'react-native-maps';
 import { useNearbyLocations } from '@/hooks/queries/useNearbyLocations';
@@ -286,7 +286,7 @@ export const MapScreen = () => {
 
 ## Form with react-hook-form + Zod
 ```typescript
-// src/screens/CreateOrderScreen.tsx
+// mobile/src/screens/CreateOrderScreen.tsx
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';

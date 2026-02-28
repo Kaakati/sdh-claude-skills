@@ -2,7 +2,7 @@
 
 ## Service Object Pattern
 ```ruby
-# app/services/create_order.rb
+# backend/app/services/create_order.rb
 class CreateOrder
   def initialize(user:, items:, location: nil)
     @user = user
@@ -54,7 +54,7 @@ end
 
 ## Result Object Pattern
 ```ruby
-# app/lib/result.rb
+# backend/app/lib/result.rb
 class Result
   attr_reader :value, :error
 
@@ -81,7 +81,7 @@ end
 
 ## Query Object Pattern
 ```ruby
-# app/queries/nearby_locations_query.rb
+# backend/app/queries/nearby_locations_query.rb
 class NearbyLocationsQuery
   def initialize(lat:, lng:, radius_km: 10, limit: 50)
     @lat = lat
@@ -107,7 +107,7 @@ end
 
 ## Controller Pattern with Panko
 ```ruby
-# app/controllers/api/v1/orders_controller.rb
+# backend/app/controllers/api/v1/orders_controller.rb
 module Api
   module V1
     class OrdersController < ApplicationController
@@ -190,7 +190,7 @@ end
 
 ## Centrifugo Publisher
 ```ruby
-# app/lib/centrifugo_publisher.rb
+# backend/app/lib/centrifugo_publisher.rb
 class CentrifugoPublisher
   def self.publish(channel, data)
     connection = Faraday.new(url: ENV["CENTRIFUGO_API_URL"]) do |f|
@@ -265,7 +265,7 @@ end
 
 ## Pundit Policy Pattern
 ```ruby
-# app/policies/order_policy.rb
+# backend/app/policies/order_policy.rb
 class OrderPolicy < ApplicationPolicy
   def show?
     owner? || admin?

@@ -28,7 +28,7 @@ def read_file(path):
 
 def check_rails_model_imports(content, normalized):
     """Models should not import from controllers or serializers."""
-    if "app/models/" not in normalized:
+    if "backend/app/models/" not in normalized:
         return []
     warnings = []
     if re.search(r"require.*controllers/", content) or re.search(
@@ -43,7 +43,7 @@ def check_rails_model_imports(content, normalized):
 
 def check_service_http_concepts(content, normalized):
     """Services should not return HTTP status codes or use render."""
-    if "app/services/" not in normalized:
+    if "backend/app/services/" not in normalized:
         return []
     warnings = []
     if re.search(r"\bstatus:\s*:\w+", content) or re.search(
@@ -58,7 +58,7 @@ def check_service_http_concepts(content, normalized):
 
 def check_domain_framework_imports(content, normalized):
     """Domain types should not import framework modules."""
-    domain_prefixes = ("src/domain/", "web/src/domain/", "next/src/domain/")
+    domain_prefixes = ("mobile/src/domain/", "web/src/domain/", "next/src/domain/")
     if not any(p in normalized for p in domain_prefixes):
         return []
     warnings = []
@@ -75,7 +75,7 @@ def check_domain_framework_imports(content, normalized):
 
 def check_screen_direct_api_import(content, normalized):
     """Screens/pages should not import API clients directly."""
-    screen_prefixes = ("src/screens/", "web/src/pages/", "next/app/")
+    screen_prefixes = ("mobile/src/screens/", "web/src/pages/", "next/app/")
     if not any(p in normalized for p in screen_prefixes):
         return []
     warnings = []

@@ -112,23 +112,23 @@ def test_dangerous_command_blocker():
 def test_migration_validator():
     print("\n[migration-validator.py]")
     assert_warns("warns on up without down", "migration-validator.py", "Write", {
-        "file_path": "db/migrate/20240101_add_column.rb",
+        "file_path": "backend/db/migrate/20240101_add_column.rb",
         "content": "class AddColumn < ActiveRecord::Migration\n  def up\n    add_column :users, :age, :integer\n  end\nend"
     })
     assert_warns("warns on remove_column in change", "migration-validator.py", "Write", {
-        "file_path": "db/migrate/20240102_remove_field.rb",
+        "file_path": "backend/db/migrate/20240102_remove_field.rb",
         "content": "class RemoveField < ActiveRecord::Migration\n  def change\n    remove_column :users, :legacy_field\n  end\nend"
     })
     assert_warns("warns on SQL interpolation", "migration-validator.py", "Write", {
-        "file_path": "db/migrate/20240103_custom.rb",
+        "file_path": "backend/db/migrate/20240103_custom.rb",
         "content": 'class Custom < ActiveRecord::Migration\n  def up\n    execute "UPDATE users SET name = \'#{value}\'"\n  end\nend'
     })
     assert_allowed("allows safe migration", "migration-validator.py", "Write", {
-        "file_path": "db/migrate/20240104_safe.rb",
+        "file_path": "backend/db/migrate/20240104_safe.rb",
         "content": "class Safe < ActiveRecord::Migration\n  def change\n    add_column :users, :nickname, :string\n  end\nend"
     })
     assert_allowed("skips non-migration files", "migration-validator.py", "Write", {
-        "file_path": "app/models/user.rb",
+        "file_path": "backend/app/models/user.rb",
         "content": "class User < ApplicationRecord\nend"
     })
 
@@ -167,11 +167,11 @@ def test_accessibility_checker():
     assert_silent("skips JSON config", "accessibility-checker.py", "Edit",
                   {"file_path": ".claude/settings.json"})
     assert_silent("skips Ruby files", "accessibility-checker.py", "Edit",
-                  {"file_path": "app/models/user.rb"})
+                  {"file_path": "backend/app/models/user.rb"})
     assert_silent("skips Python files", "accessibility-checker.py", "Edit",
                   {"file_path": ".claude/hooks/test-runner.py"})
     assert_silent("skips tsx outside web/next/frontend", "accessibility-checker.py", "Edit",
-                  {"file_path": "src/components/Button.tsx"})
+                  {"file_path": "mobile/src/components/Button.tsx"})
     assert_silent("skips empty input", "accessibility-checker.py", "Edit",
                   {"file_path": ""})
 
@@ -254,7 +254,7 @@ def test_api_design_checker():
     assert_silent("skips settings JSON", "api-design-checker.py", "Edit",
                   {"file_path": ".claude/settings.json"})
     assert_silent("skips model files", "api-design-checker.py", "Edit",
-                  {"file_path": "app/models/user.rb"})
+                  {"file_path": "backend/app/models/user.rb"})
     assert_silent("skips view files", "api-design-checker.py", "Edit",
                   {"file_path": "web/src/components/Button.tsx"})
     assert_silent("skips empty input", "api-design-checker.py", "Edit",
@@ -263,7 +263,7 @@ def test_api_design_checker():
     # --- Warnings on matching files ---
     import tempfile, os
     tmpdir = tempfile.mkdtemp()
-    ctrl_dir = os.path.join(tmpdir, "app", "controllers")
+    ctrl_dir = os.path.join(tmpdir, "backend", "app", "controllers")
     os.makedirs(ctrl_dir)
 
     # Test: verb in route path
@@ -295,7 +295,7 @@ def test_api_design_checker():
                            {"file_path": post_file}, "201")
 
     # Test: JS API unwrapped array
-    api_dir = os.path.join(tmpdir, "src", "api")
+    api_dir = os.path.join(tmpdir, "mobile", "src", "api")
     os.makedirs(api_dir)
     js_array_file = os.path.join(api_dir, "users.ts")
     with open(js_array_file, "w") as f:
