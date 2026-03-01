@@ -2,6 +2,7 @@
 name: clean-architecture
 description: Validate and implement Clean Architecture patterns including entity/use-case/adapter/framework layer separation, dependency direction enforcement, and architectural conformance checking. Use this skill whenever someone asks about architecture validation, layer boundaries, dependency direction, or says things like "check architecture", "validate clean architecture", "are my layers correct", "dependency direction", "refactor to clean architecture", "layer violation", or "architectural conformance". Also trigger for discussions about service object patterns, controller responsibilities, or domain model isolation.
 agent: clean-architecture
+context: fork
 model: sonnet
 ---
 

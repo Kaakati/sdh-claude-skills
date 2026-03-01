@@ -7,6 +7,7 @@ description: >-
   "scope this feature", "break this down", "write user stories", "acceptance criteria",
   "requirements gathering", "feasibility check", or mentions unclear specifications.
 agent: requirements-consultant
+context: fork
 model: opus
 ---
 

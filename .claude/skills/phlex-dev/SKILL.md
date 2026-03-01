@@ -6,6 +6,8 @@ description: |
   Triggers on "Phlex component", "Phlex view", "Ruby view component",
   "build a Phlex", "Rails component", or "view_template".
 model: sonnet
+agent: phlex-developer
+context: fork
 ---
 
 # Phlex Development

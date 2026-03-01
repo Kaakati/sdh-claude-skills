@@ -7,6 +7,7 @@ description: |
   "heuristic review", "design quality", or "visual quality audit".
 model: opus
 agent: design-critique
+context: fork
 ---
 
 # Design Critique Partner

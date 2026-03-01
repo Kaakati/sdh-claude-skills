@@ -9,6 +9,7 @@ description: |
   or "convert design to code".
 model: sonnet
 agent: design-system-architect
+context: fork
 ---
 
 # Design-to-Code Translator
