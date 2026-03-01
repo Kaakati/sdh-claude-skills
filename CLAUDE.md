@@ -125,7 +125,8 @@ Detailed domain-specific rules are maintained in `.claude/rules/`:
 - `monitoring.md` — Structured logging, health checks, CloudWatch alarms, Sentry
 - `clean-architecture.md` — Layer separation, dependency direction, boundary violations
 - `i18n.md` — Internationalization conventions, locale files, RTL support, key naming
-- `accessibility.md` — WCAG 2.1 AA, semantic HTML, keyboard navigation, color contrast, ARIA
+- `accessibility.md` — WCAG 2.2 AA, semantic HTML, keyboard navigation, color contrast, ARIA, focus appearance, target size
+- `design-system.md` — Design token conventions, color/typography/spacing/motion rules, component styling, cross-platform consistency
 - `phlex-conventions.md` — Phlex component conventions, Atomic Design structure, `class_variants`, Stimulus/Turbo
 - `terraform-conventions.md` — Terraform HCL file structure, provider constraints, resource naming, required tags, security minimums
 - `agent-teams.md` — Agent team coordination, file ownership, task sizing, worktree isolation, dynamic spawning conventions
@@ -143,6 +144,8 @@ Custom agents are available in `.claude/agents/` for specialized tasks:
 - `clean-architecture` — Clean Architecture conformance, layer boundary validation, dependency direction enforcement (Opus, plan mode)
 - `incident-responder` — Production incident diagnosis, mitigation, post-mortem, chaos engineering (Opus)
 - `phlex-developer` — Phlex view components with Atomic Design, Tailwind tokens, Stimulus, Turbo
+- `design-system-architect` — Design system specification, token architecture, component matrices (Opus, plan mode)
+- `design-critique` — Visual quality review, Nielsen's heuristics, design token compliance (Opus, plan mode)
 
 ## Skills
 
@@ -177,6 +180,13 @@ On-demand skills available via slash commands:
 - `/phlex-dev` — Phlex view components with Atomic Design, Tailwind, Stimulus, Turbo (routes to phlex-developer agent)
 - `/theming` — Cross-platform design tokens, dark/light mode, WCAG AA contrast
 - `/terraform` — Terraform IaC best practices (47 rules, 9 categories: state, security, modules, resources, variables, networking, data, compute, cost)
+- `/brand-identity` — Brand archetype selection, color system, typography pairing, brand book generation (Opus)
+- `/ui-ux-patterns` — Screen pattern library, Nielsen's heuristic evaluation, visual hierarchy checklist
+- `/marketing-assets` — Platform ad specs (Google/Meta/TikTok/LinkedIn), email templates, landing page architecture
+- `/figma-handoff` — Figma Auto Layout to CSS/Tailwind mapping, component extraction, responsive strategy
+- `/design-critique` — Visual quality review with heuristic scoring (routes to design-critique agent, Opus)
+- `/design-to-code` — Design specification to production code translation (routes to design-system-architect agent)
+- `/accessibility-auditor` — WCAG 2.2 AA audit with POUR framework, automated checks, ARIA patterns
 
 ## Hooks (Deterministic Automation)
 
@@ -202,6 +212,7 @@ Active hooks in `.claude/settings.json` enforce quality at every lifecycle point
 - **Monitoring prompt** — Enforces monitoring.md (request_id in logs, sensitive data logging) — scoped to .rb under backend/app/controllers and backend/app/jobs
 - `atomic-design-checker.py` — Validates Atomic Design hierarchy (atom independence, molecule composition, organism boundaries, naming) across Phlex, ReactJS, Next.js, React Native
 - `terraform-checker.py` — Validates Terraform .tf files (hardcoded secrets, snake_case naming, required tags, backend config, provider versions)
+- `design-token-checker.py` — Validates design token usage (hardcoded colors, arbitrary spacing, missing focus-visible, missing prefers-reduced-motion) in component/style files
 - `audit-logger.py` — Logs all tool executions for compliance (JSON-lines)
 
 **SessionStart** (when session begins):
@@ -265,6 +276,11 @@ Tell Claude to "use the [Template Name]" to spawn a coordinated team:
 - **Lead**: devops-engineer — infrastructure coordination
 - **Teammates**: security-auditor (compliance), architecture-advisor (design review)
 - **When**: Terraform module creation, CI/CD pipeline changes, cloud migrations
+
+#### Design Team (design system and visual quality)
+- **Lead**: design-system-architect (Opus, plan mode) — token architecture, component specs
+- **Teammates**: phlex-developer (Phlex components), design-critique (visual quality review)
+- **When**: Design system creation, cross-platform visual consistency, component library builds
 
 ### Dynamic Spawning
 
