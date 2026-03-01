@@ -10,11 +10,11 @@ This repository contains a production-ready `.claude/` configuration that enforc
 
 Instead of relying on ad-hoc prompting, this system provides:
 
-- **19 rules** that are automatically loaded based on file paths being edited
-- **10 specialized agents** (3 with team lead protocols) that handle complex tasks with constrained tool access
-- **5 pre-defined agent team templates** for coordinated multi-agent work
-- **30 slash-command skills** that provide repeatable, templated workflows
-- **14 hook scripts + 8 prompt hooks** that enforce quality gates on every action
+- **20 rules** that are automatically loaded based on file paths being edited
+- **12 specialized agents** (4 with team lead protocols) that handle complex tasks with constrained tool access
+- **6 pre-defined agent team templates** for coordinated multi-agent work
+- **37 slash-command skills** that provide repeatable, templated workflows
+- **15 hook scripts + 8 prompt hooks** that enforce quality gates on every action
 
 ## Project Directory Convention
 
@@ -167,7 +167,7 @@ your-project/
 
 ```
 CLAUDE.md                          ← Master configuration (loaded every session)
-├── .claude/rules/                 ← 19 auto-loaded rules (path-scoped)
+├── .claude/rules/                 ← 20 auto-loaded rules (path-scoped)
 │   ├── code-standards.md
 │   ├── security.md
 │   ├── testing.md
@@ -177,7 +177,8 @@ CLAUDE.md                          ← Master configuration (loaded every sessio
 │   ├── react-native.md
 │   ├── reactjs.md                    (web/**, frontend/**)
 │   ├── nextjs.md                     (next/**)
-│   ├── accessibility.md              (web/**, next/**, frontend/**)
+│   ├── accessibility.md              (web/**, next/**, frontend/**, mobile/**)
+│   ├── design-system.md              (web/src/styles/**, components/ui/**, tailwind.config.*)
 │   ├── api-design.md
 │   ├── database.md
 │   ├── error-handling.md
@@ -187,7 +188,7 @@ CLAUDE.md                          ← Master configuration (loaded every sessio
 │   ├── monitoring.md
 │   ├── i18n.md
 │   └── agent-teams.md                (always loaded — no path glob)
-├── .claude/agents/                ← 10 specialized agents
+├── .claude/agents/                ← 12 specialized agents
 │   ├── requirements-consultant.md    (Opus, discovery)
 │   ├── architecture-advisor.md       (Opus, plan mode)
 │   ├── clean-architecture.md         (Opus, plan mode)
@@ -197,8 +198,10 @@ CLAUDE.md                          ← Master configuration (loaded every sessio
 │   ├── devops-engineer.md            (Sonnet, infra)
 │   ├── refactor-specialist.md        (Opus, refactoring)
 │   ├── incident-responder.md         (Opus, operations)
-│   └── phlex-developer.md            (Sonnet, Phlex + Atomic Design)
-├── .claude/skills/                ← 30 slash-command skills
+│   ├── phlex-developer.md            (Sonnet, Phlex + Atomic Design)
+│   ├── design-system-architect.md    (Opus, plan mode, design tokens + components)
+│   └── design-critique.md            (Opus, plan mode, visual quality review)
+├── .claude/skills/                ← 37 slash-command skills
 │   ├── api-designer/
 │   ├── atomic-design/                (Atomic Design methodology, 10 rules)
 │   ├── clean-architecture/
@@ -226,8 +229,15 @@ CLAUDE.md                          ← Master configuration (loaded every sessio
 │   ├── terraform/                    (47 Terraform IaC rules, 9 categories)
 │   ├── test-generator/
 │   ├── theming/                      (Design tokens, dark mode, presets)
-│   └── web-design-guidelines/        (100+ accessibility/UX rules)
-├── .claude/hooks/                 ← 14 automation scripts
+│   ├── web-design-guidelines/        (100+ accessibility/UX rules)
+│   ├── brand-identity/               (Brand archetypes, color system, brand book)
+│   ├── ui-ux-patterns/               (Screen patterns, heuristic evaluation)
+│   ├── marketing-assets/             (Ad specs, email templates, landing pages)
+│   ├── figma-handoff/                (Auto Layout mapping, design-to-code)
+│   ├── design-critique/              (Visual quality review → agent)
+│   ├── design-to-code/               (Design translation → agent)
+│   └── accessibility-auditor/        (WCAG 2.2 AA audit, ARIA patterns)
+├── .claude/hooks/                 ← 15 automation scripts
 │   ├── security-scan.py              (PreToolUse: blocks secrets)
 │   ├── dangerous-command-blocker.py  (PreToolUse: blocks destructive cmds)
 │   ├── pre-commit-check.py           (PreToolUse: validates commits)
@@ -238,6 +248,7 @@ CLAUDE.md                          ← Master configuration (loaded every sessio
 │   ├── test-runner.py                (PostToolUse: reminds to test)
 │   ├── atomic-design-checker.py      (PostToolUse: validates component hierarchy)
 │   ├── terraform-checker.py          (PostToolUse: validates .tf conventions)
+│   ├── design-token-checker.py       (PostToolUse: validates design token usage)
 │   ├── audit-logger.py               (PostToolUse: compliance logging)
 │   ├── vague-request-detector.py     (UserPromptSubmit: catches ambiguity)
 │   ├── teammate-idle-checker.py      (TeammateIdle: validates deliverables)
@@ -268,6 +279,7 @@ Every action Claude takes passes through deterministic quality gates:
 | **After editing files** | i18n prompt | Hardcoded user-facing string detection |
 | **After editing files** | `atomic-design-checker.py` | Validates component hierarchy, composition rules, naming |
 | **After editing files** | `terraform-checker.py` | Validates .tf file conventions (secrets, naming, tags, providers) |
+| **After editing files** | `design-token-checker.py` | Validates design token usage (colors, spacing, focus, motion) |
 | **After any tool use** | `audit-logger.py` | Logs execution to JSON-lines for compliance |
 | **Before processing input** | `vague-request-detector.py` | Suggests requirements-consultant for ambiguous requests |
 | **On session start** | Environment check prompt | Git repo, branch, working tree status |
@@ -298,6 +310,7 @@ Agent teams coordinate multiple Claude Code instances for parallel work on compl
 | **Incident Team** | incident-responder (Opus) | devops-engineer, rails-architect, security-auditor | Production outages, performance degradation |
 | **Refactor Team** | architecture-advisor (Opus) | refactor-specialist, test-generator, code-reviewer | Module extraction, pattern migration, dependency upgrades |
 | **Infrastructure Team** | devops-engineer | security-auditor, architecture-advisor | Terraform modules, CI/CD pipelines, cloud migrations |
+| **Design Team** | design-system-architect (Opus) | phlex-developer, design-critique | Design system creation, component libraries, visual consistency |
 
 #### Quality Gate Hooks
 
@@ -329,7 +342,8 @@ Rules are loaded automatically when you edit files matching their `paths` globs:
 | `react-native.md` | `mobile/src/**/*.{ts,tsx}` | Zustand, TanStack Query, Centrifugo, component patterns |
 | `reactjs.md` | `web/**`, `frontend/**` | React Router, Tailwind CSS, Framer Motion, ApexCharts |
 | `nextjs.md` | `next/**` | Server Components, server actions, ISR/SSG, Vercel |
-| `accessibility.md` | `web/**`, `next/**`, `frontend/**` | WCAG 2.1 AA, semantic HTML, keyboard navigation |
+| `accessibility.md` | `web/**`, `next/**`, `frontend/**`, `mobile/**` | WCAG 2.2 AA, semantic HTML, keyboard navigation, focus appearance, target size |
+| `design-system.md` | `web/src/styles/**`, `web/src/components/ui/**`, `next/src/components/ui/**`, `mobile/src/theme/**`, `backend/app/components/**`, `**/tailwind.config.*` | Design tokens, color/typography/spacing/motion rules, component styling |
 | `api-design.md` | API controllers/routes | REST conventions, error formats, pagination, versioning |
 | `database.md` | Migrations, schema | Safe migrations, indexing strategy, N+1 prevention |
 | `error-handling.md` | All source files | Rails rescue patterns, React Native error boundaries |
@@ -356,6 +370,8 @@ Agents are specialized Claude instances with constrained tools and focused exper
 | `refactor-specialist` | Opus | Interactive | Code smells, Fowler's patterns, incremental refactoring |
 | `incident-responder` | Opus | Interactive | Production incident diagnosis, mitigation, post-mortem |
 | `phlex-developer` | Sonnet | Interactive | Phlex view components, Atomic Design, Tailwind tokens |
+| `design-system-architect` | Opus | Plan | Design tokens, component spec matrices, grid systems |
+| `design-critique` | Opus | Plan | Nielsen's heuristics, visual hierarchy, token compliance |
 
 ### Skills (Slash Commands)
 
@@ -393,6 +409,13 @@ Invoke with `/skill-name` for templated, repeatable workflows:
 | `/terraform` | — | Terraform IaC best practices (47 rules, 9 categories) |
 | `/theming` | — | Cross-platform design tokens, dark/light mode, presets |
 | `/web-design-guidelines` | — | Web interface design review (100+ accessibility/UX rules) |
+| `/brand-identity` | — | Brand archetypes, color system, typography, brand book (Opus) |
+| `/ui-ux-patterns` | — | Screen patterns, heuristic evaluation, visual hierarchy |
+| `/marketing-assets` | — | Ad specs (Google/Meta/TikTok/LinkedIn), email, landing pages |
+| `/figma-handoff` | — | Figma Auto Layout to CSS/Tailwind, component extraction |
+| `/design-critique` | design-critique | Visual quality review, heuristic scoring (Opus) |
+| `/design-to-code` | design-system-architect | Design-to-code translation |
+| `/accessibility-auditor` | — | WCAG 2.2 AA audit, POUR framework, ARIA patterns |
 
 ## Getting Started
 
@@ -512,10 +535,10 @@ The `audit-logger.py` hook logs every tool execution in JSON-lines format, provi
 └── .claude/
     ├── settings.json                  # Permissions + hooks
     ├── managed-settings.template.json # IT admin template
-    ├── agents/          (10 agents, 3 with team lead protocols)
-    ├── skills/          (30 skills, each with SKILL.md + references/)
-    ├── rules/           (19 rule files)
-    └── hooks/           (14 automation scripts + test harness)
+    ├── agents/          (12 agents, 4 with team lead protocols)
+    ├── skills/          (37 skills, each with SKILL.md + references/)
+    ├── rules/           (20 rule files)
+    └── hooks/           (15 automation scripts + test harness)
 ```
 
 ## Contributing

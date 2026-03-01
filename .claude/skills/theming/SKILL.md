@@ -5,7 +5,8 @@ description: |
   Next.js App Router, and React Native. Covers CSS custom properties, Tailwind v4 @theme,
   dark/light mode, WCAG AA contrast, and per-platform token consumption.
   Triggers on "design tokens", "theming", "dark mode", "color system",
-  "theme provider", "CSS variables", or "design system".
+  "theme provider", "CSS variables", "design system", "grid system",
+  "design system architect", "spacing system", or "token architecture".
 model: sonnet
 ---
 
