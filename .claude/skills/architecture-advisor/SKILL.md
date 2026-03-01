@@ -2,6 +2,7 @@
 name: architecture-advisor
 description: Evaluate architectural decisions, design system components, produce ADRs, and assess technical debt. Use this skill whenever someone asks to design a system, evaluate architecture, create an ADR, plan a large refactor, choose between technologies, or says things like "how should we architect X", "write an ADR", "evaluate this design", "what are the tradeoffs", "review the architecture", or "should we use X or Y". Also trigger for bounded context design, scalability planning, or migration strategy.
 agent: architecture-advisor
+context: fork
 model: opus
 ---
 

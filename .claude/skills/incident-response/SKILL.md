@@ -2,6 +2,8 @@
 name: incident-response
 description: Guide incident response for production issues including diagnosis, mitigation, communication, and post-mortem analysis. Use this skill whenever someone reports an outage, performance degradation, production error, or says things like "production is down", "users are reporting errors", "the API is slow", "we have an incident", "something broke in prod", "check the logs for errors", or "we need a post-mortem". Also trigger when someone mentions SEV1/SEV2 classification, incident communication, root cause analysis, or wants to write a post-mortem document.
 agent: incident-responder
+context: fork
+argument-hint: "incident description or error message"
 model: opus
 ---
 

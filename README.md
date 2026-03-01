@@ -272,11 +272,11 @@ Every action Claude takes passes through deterministic quality gates:
 | **Before git commits** | `pre-commit-check.py` | Validates conventional commit format, blocks force pushes |
 | **After editing files** | `auto-format.py` | Runs rubocop, prettier, terraform fmt |
 | **After editing files** | `test-runner.py` | Reminds to run corresponding tests |
-| **After editing files** | Code quality prompt | 30-line functions, 4-param max, 3-level nesting, domain-aware file limits |
-| **After editing files** | Error handling prompt | Empty catch blocks, `rescue Exception` detection |
-| **After editing files** | Test coverage prompt | Missing test file detection |
-| **After editing files** | Clean architecture prompt | Layer boundary violation detection |
-| **After editing files** | i18n prompt | Hardcoded user-facing string detection |
+| **After editing files** | Code quality checker | 30-line functions, 4-param max, 3-level nesting, domain-aware file limits |
+| **After editing files** | Error handling checker | Empty catch blocks, `rescue Exception` detection |
+| **After editing files** | Test coverage checker | Missing test file detection |
+| **After editing files** | Clean architecture checker | Layer boundary violation detection |
+| **After editing files** | i18n checker | Hardcoded user-facing string detection |
 | **After editing files** | `atomic-design-checker.py` | Validates component hierarchy, composition rules, naming |
 | **After editing files** | `terraform-checker.py` | Validates .tf file conventions (secrets, naming, tags, providers) |
 | **After editing files** | `design-token-checker.py` | Validates design token usage (colors, spacing, focus, motion) |
@@ -391,7 +391,7 @@ Invoke with `/skill-name` for templated, repeatable workflows:
 | `/nextjs-dev` | — | Next.js App Router features (Server Components, server actions) |
 | `/db-migration` | — | Schema design and safe migrations |
 | `/performance-profiler` | — | Performance investigation and optimization |
-| `/deploy` | — | Deployment with pre-flight checks, canary/blue-green |
+| `/deploy` | devops-engineer | Deployment with pre-flight checks, canary/blue-green (user-invoked only) |
 | `/doc-generator` | — | ADRs, runbooks, specs, retrospectives, change management |
 | `/i18n` | — | Rails + React Native + Vite SPA + Next.js internationalization |
 | `/compliance-auditor` | — | SOC2, HIPAA, PCI-DSS, GDPR auditing |

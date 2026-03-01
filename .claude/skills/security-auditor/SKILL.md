@@ -2,6 +2,7 @@
 name: security-auditor
 description: Audit code for security vulnerabilities, OWASP Top 10 issues, exposed secrets, and compliance gaps. Use this skill whenever someone asks to check security, scan for vulnerabilities, audit authentication, review access control, or says things like "is this secure", "check for secrets", "security review", "audit this for OWASP", "scan for vulnerabilities", or "check our auth flow". Also trigger when someone mentions penetration testing prep, dependency CVE scanning, or security hardening.
 agent: security-auditor
+context: fork
 model: sonnet
 ---
 

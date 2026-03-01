@@ -2,6 +2,8 @@
 name: code-reviewer
 description: Review code and pull requests for quality, security, test coverage, and adherence to team conventions. Use this skill whenever someone asks to review a PR, check code quality, audit a diff, evaluate a changeset, or says things like "review my code", "check this PR", "look at my changes", "is this code good", "audit this module", or "what do you think of this diff". Also trigger when someone mentions code quality concerns, technical debt assessment, or asks for feedback on implementation approach.
 agent: code-reviewer
+context: fork
+argument-hint: "PR number or file path"
 model: sonnet
 ---
 

@@ -160,7 +160,7 @@ On-demand skills available via slash commands:
 - `/nextjs-dev` — Next.js App Router features with Server Components, server actions, Vercel deployment
 - `/db-migration` — Schema design and safe database migration creation
 - `/performance-profiler` — Performance investigation and optimization
-- `/deploy` — Deployment workflow with pre-flight checks, canary/blue-green strategies (routes to devops-engineer agent)
+- `/deploy` — Deployment workflow with pre-flight checks, canary/blue-green strategies (user-invoked only, routes to devops-engineer agent)
 - `/onboarding` — Developer onboarding guides, setup docs, knowledge transfer
 - `/doc-generator` — Technical documentation, ADRs, retrospectives, change management procedures (fork context)
 - `/technical-rfc` — Technical RFC proposals for significant changes requiring team consensus
@@ -202,11 +202,11 @@ Active hooks in `.claude/settings.json` enforce quality at every lifecycle point
 **PostToolUse** (after tool completes):
 - `auto-format.py` — Auto-formats edited files (rubocop, prettier, terraform fmt)
 - `test-runner.py` — Reminds to run tests for modified code
-- **Code quality prompt** — Enforces code-standards.md (30-line functions, 4-param max, 3-level nesting, domain-aware file limits: 200 lines for Rails models/.tsx components, 300 lines elsewhere)
-- **Error handling prompt** — Enforces error-handling.md (empty catch blocks, rescue Exception)
-- **Test coverage prompt** — Enforces testing.md (warns when source files lack corresponding test files)
-- **Clean architecture prompt** — Enforces clean-architecture.md (layer boundary violations, dependency direction)
-- **i18n prompt** — Enforces i18n.md (hardcoded user-facing strings in .tsx/.jsx/.erb files)
+- **Code quality checker** — Enforces code-standards.md (30-line functions, 4-param max, 3-level nesting, domain-aware file limits: 200 lines for Rails models/.tsx components, 300 lines elsewhere)
+- **Error handling checker** — Enforces error-handling.md (empty catch blocks, rescue Exception)
+- **Test coverage checker** — Enforces testing.md (warns when source files lack corresponding test files)
+- **Clean architecture checker** — Enforces clean-architecture.md (layer boundary violations, dependency direction)
+- **i18n checker** — Enforces i18n.md (hardcoded user-facing strings in .tsx/.jsx/.erb files)
 - **Accessibility agent hook** — Enforces accessibility.md (semantic HTML, alt text, label associations, focus indicators, ARIA misuse) — Haiku agent with Read/Grep/Glob tools, scoped to .tsx/.jsx under web/next/frontend
 - **API design agent hook** — Enforces api-design.md (URL nouns, data wrapper, error format, HTTP status codes) — Haiku agent with Read/Grep/Glob tools, scoped to controllers and API routes
 - **Monitoring prompt** — Enforces monitoring.md (request_id in logs, sensitive data logging) — scoped to .rb under backend/app/controllers and backend/app/jobs

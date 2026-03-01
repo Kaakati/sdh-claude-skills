@@ -2,6 +2,8 @@
 name: test-generator
 description: Generate comprehensive test suites including unit, integration, and E2E tests following AAA pattern. Use this skill whenever someone asks to write tests, generate specs, improve coverage, add test cases, or says things like "write tests for this", "add test coverage", "generate specs", "I need tests for X", "create a test suite", or "help me test this function". Also trigger when someone mentions flaky test investigation, test infrastructure setup, or mock strategy questions.
 agent: test-generator
+context: fork
+argument-hint: "file path or module name"
 model: sonnet
 ---
 

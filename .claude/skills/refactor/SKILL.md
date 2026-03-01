@@ -2,6 +2,8 @@
 name: refactor
 description: Safely refactor code using Fowler's patterns with test-first methodology and incremental steps. Use this skill whenever someone asks to refactor code, reduce technical debt, extract patterns, restructure modules, or says things like "refactor this", "clean up this code", "extract this into a service", "this code smells", "reduce duplication", "decompose this function", or "restructure this module". Also trigger for code smell identification, large-scale codebase transformations, or safe migration of legacy code.
 agent: refactor-specialist
+context: fork
+argument-hint: "file path or pattern name"
 model: opus
 ---
 
