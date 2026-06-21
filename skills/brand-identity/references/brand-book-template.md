@@ -160,6 +160,44 @@ All tokens have dark mode overrides defined in the `.dark` class scope.
 | Empty states | "No projects yet. Create your first one!" | "No data found." |
 | Success | "Changes saved!" | "Operation completed successfully." |
 
+### 5.4 Narrative & Protagonist Voice
+
+The **user is the hero; the brand is the guide** (StoryBrand SB7). Every headline,
+onboarding step, and campaign casts the user as the protagonist and the brand as the
+mentor that hands them a plan and a tool — never the hero who saves the day. See the
+canonical framework at `../ui-ux-patterns/references/storytelling-ui.md`.
+
+**Guide role (from our archetype):** [One line — the kind of guide our archetype makes us,
+e.g. "Sage: we share what we've learned and let the user decide."]
+
+#### Brand Narrative Arc (SB7)
+| Beat | Our brand |
+|------|-----------|
+| Character + want | [The user and what they're trying to achieve] |
+| Problem | [External blocker + the internal frustration it creates] |
+| Guide (empathy + authority) | [We understand: …] / [We're competent: …] |
+| Plan | [Step 1] → [Step 2] → [Step 3] |
+| Call to action | Direct: [e.g. "Start free"] · Transitional: [e.g. "See how it works"] |
+| Stakes (failure avoided) | [What the user loses by not acting — used sparingly] |
+| Success (transformation) | [Who the hero becomes once the want is met] |
+
+#### User Transformation Story
+> **Before:** [Who the user is at the start — frustrated, stuck, overwhelmed]
+> **After:** [Who they become — confident, in control, recognized]
+> **Our role:** [The guide that made the shift possible]
+
+#### Hero-Framed vs. Company-Centered
+| Company-centered ❌ (brand as hero) | Hero-framed ✅ (user as hero, brand as guide) |
+|-------------------------------------|------------------------------------------------|
+| "We built the most powerful [X]." | "[Outcome] — in one glance." |
+| "Our platform supports [feature]." | "[User goal]; we handle the rest." |
+| "We're the industry leader in [Y]." | "Sleep easy — [user benefit]." |
+| "Welcome to [Brand]." | "Welcome back — here's what changed since you left." |
+
+**Restraint rule:** narrative voice serves the user's goal; it never overrides clarity,
+speed, or accessibility. No false stakes, no withholding critical info for drama, always
+keep skip paths, and honor `prefers-reduced-motion` for story-bearing motion.
+
 ---
 
 ## 6. Design Tokens (CSS Output)

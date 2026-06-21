@@ -5,7 +5,8 @@ description: |
   architecture, and social content planning. Covers Google, Meta, TikTok, LinkedIn
   ad formats and copy frameworks.
   Triggers on "marketing assets", "ad copy", "landing page", "email template",
-  "social media content", "ad campaign", "marketing material", or "content calendar".
+  "social media content", "ad campaign", "marketing material", "content calendar",
+  "storytelling", "narrative UX", or "StoryBrand".
 model: sonnet
 ---
 
@@ -141,6 +142,82 @@ Generate 3 variants for each ad:
 - **Load time**: Under 3 seconds (optimize images, defer scripts)
 - **Mobile-first**: Responsive design, thumb-friendly CTAs
 - **Trust signals**: Security badges, review scores, customer logos
+
+## Storytelling Landing Pages (StoryBrand SB7)
+
+A landing page is the most literal storytelling application: it walks one reader through a
+narrative from headline to final CTA. Where the architecture above defines the *structural*
+sections, this layer defines the *narrative* purpose of each one. The user is the **hero**;
+the product is the **guide**. Copy is about the user's goal and obstacle, not the feature set.
+
+> Canonical framework: `skills/ui-ux-patterns/references/storytelling-ui.md` (single source of
+> truth for narrative arc, StoryBrand SB7, emotional beats, pacing, and the scored review
+> checklist). Read it before designing a story-driven page.
+
+### SB7 beats mapped to landing-page sections
+
+Map Donald Miller's StoryBrand (SB7) beats onto the existing section sequence:
+
+| SB7 beat | Landing-page section | What the section must do |
+|----------|---------------------|--------------------------|
+| 1. **Character** (a want) | Hero headline | Name the user's goal in their words ("Ship to any region in minutes"), not the product's spec sheet |
+| 2. **Problem** (external + internal + philosophical) | Hero subheadline + Problem section | Name the pain they *feel* ("Manual deploys eat your Fridays"), not just the technical gap |
+| 3. **Guide** (empathy + authority) | Solution intro | Show you understand ("We've shipped to 30 regions too") **and** are competent (results, credentials) |
+| 4. **Plan** | "How it works" — a **3-step plan** | Reduce perceived effort to three simple steps; make the path feel inevitable |
+| 5. **Call to Action** | Primary CTA (+ secondary) | One **direct** CTA (Start free) + one **transitional** CTA (See how it works / Read the guide) |
+| 6. **Avoid Failure** (stakes) | Stakes line near CTA | Make tangible what they lose by not acting — used *sparingly*, one line, never fear-mongering |
+| 7. **Success** (transformation) | Proof + Success-vision section | Proof (testimonials, logos, metrics) backs the promise; success vision paints life *after* |
+
+### Narrative arc for scroll order
+
+The scroll itself is the arc — *hook → middle → resolution*, no dead ends. Annotate the
+section sequence (from Landing Page Architecture above) with its narrative role:
+
+| Scroll order | Section | Narrative role |
+|--------------|---------|----------------|
+| 1 | Hero | **Hook / setup** — names want + problem, hero (user) and guide (product) established |
+| 2 | Problem | **Rising tension** — make the pain vivid and shared |
+| 3 | Solution | **The guide steps in** — empathy + authority |
+| 4 | Social proof | **Proof the guide can be trusted** — early authority before the plan |
+| 5 | Features | **The plan in detail** — capabilities framed as steps toward the user's goal |
+| 6 | Pricing | **Lowering the cost of action** |
+| 7 | FAQ | **Removing the last obstacles** — objection handling |
+| 8 | Final CTA | **Resolution + success vision** — repeat the direct CTA, paint the transformed after |
+
+Keep the single-CTA rule from Landing Page Architecture: every direct CTA points to the same
+action; transitional CTAs (See how it works) may differ but never compete with the direct one.
+
+### Scrollytelling pacing
+
+For product walkthroughs and data-story pages, pace the reveal so understanding is *earned*
+section by section rather than dumped at once (progressive disclosure applied to scroll):
+
+- **Scroll-driven reveals** — sections animate in as they enter the viewport. Web: Framer
+  Motion `whileInView` (Next.js/Vite + Tailwind) backed by `IntersectionObserver`.
+- **Continuity / shared-element** — carry a visual thread between beats (a product shot that
+  travels and reframes from hero to feature) with Framer Motion `layoutId`. Mobile equivalents
+  use React Native + Reanimated.
+- **One idea per beat** — each scroll stop delivers a single point; don't stack three claims.
+- **Restraint** — never withhold critical info (price, what it does) for drama, always keep a
+  skip path to the CTA, and gate all non-essential motion behind `prefers-reduced-motion`.
+  Microcopy and CTA labels are i18n-keyed.
+
+### Story-driven vs feature-led copy
+
+Lead with the user's transformation, not the capability. This complements the AIDA copy
+variants above (the **problem-led** and **benefit-led** variants are the story-driven framings):
+
+| Feature-led ❌ | Story-driven (user as hero) ✅ |
+|----------------|-------------------------------|
+| "Multi-region deployment support." | "Ship to your users anywhere — we handle the regions." |
+| "Automated reporting engine with 40+ integrations." | "Get your Fridays back — reports build themselves." |
+| "Enterprise-grade SSO and RBAC." | "Onboard your whole team in one click, lock down access in another." |
+| "Real-time analytics dashboard." | "Know what changed the moment it changes." |
+| Hero: "The all-in-one platform for X." | Hero: "Stop wrestling with X. Start shipping." |
+
+Run the page through the **Storytelling review checklist** (0–2 each, /16: arc, hero framing,
+pacing, first-value speed, emotional beats, continuity, resolution, restraint) from the
+canonical reference. Aim for ≥13.
 
 ## Social Content Calendar
 

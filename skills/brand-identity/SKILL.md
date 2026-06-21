@@ -2,10 +2,12 @@
 name: brand-identity
 description: |
   Brand identity creation with design tokens, color psychology, typography pairing,
-  and brand book generation. Covers brand archetypes, voice matrix, trend-aware
-  positioning, and token output for Tailwind CSS and React Native.
+  and brand book generation. Covers brand archetypes, voice matrix, narrative &
+  protagonist voice (user-as-hero / StoryBrand), trend-aware positioning, and token
+  output for Tailwind CSS and React Native.
   Triggers on "brand identity", "brand guidelines", "brand book", "logo usage",
-  "brand colors", "brand voice", "brand archetype", or "brand system".
+  "brand colors", "brand voice", "brand archetype", "brand narrative", "storytelling",
+  "narrative UX", "StoryBrand", or "brand system".
 model: opus
 ---
 
@@ -118,6 +120,95 @@ Include writing guidelines:
 - Vocabulary level (accessible vs. technical)
 - Point of view (we/our vs. the company/the product)
 - CTA style (action-oriented, benefit-driven)
+
+### Step 6b: Narrative & Protagonist Voice
+
+The voice matrix (Step 6) defines *how* the brand sounds. This step defines *who the
+story is about*. The answer must always be: the **user is the hero, the brand is the
+guide**. The brand never casts itself as the protagonist who saves the day — it is the
+mentor that hands the hero a plan and a tool ("you're Luke, we're Yoda"). This is the
+StoryBrand (SB7) discipline applied to brand voice, and it should reinforce — not
+contradict — the chosen archetype from Step 2.
+
+For the canonical framework, see
+`../ui-ux-patterns/references/storytelling-ui.md` (single source of truth for narrative
+UI, SB7 mapping, emotional beats, and the scored review checklist). The notes below adapt
+it specifically to brand voice and the brand book.
+
+#### Archetype → guide role
+
+The archetype shapes *what kind of guide* the brand is. The hero is always the user.
+
+| Archetype | The brand as guide says, in effect… |
+|-----------|-------------------------------------|
+| Sage | "Here's what we've learned — now you decide." (knowledge, not gatekeeping) |
+| Hero | "You've got this. Here's the training and the gear." (the brand equips, the user wins) |
+| Caregiver | "We've got your back. Here's the safe path." |
+| Magician | "Here's the shortcut to the transformation you want." |
+| Creator | "Here are the tools — the masterpiece is yours." |
+| Everyman | "We're in this with you. Here's the simple next step." |
+
+> **Common mistake:** brands with the **Hero** archetype often write themselves as the
+> protagonist ("We slay your problems"). Resist this. Even a Hero-archetype brand is the
+> hero's *coach and equipment*, not the hero. The user must remain the one who wins.
+
+#### Define the brand narrative arc
+
+Write the brand's one-paragraph story using the SB7 beats. This is the spine that every
+headline, onboarding flow, and campaign hangs from:
+
+1. **Character (the user) + want** — Who they are and what they're trying to achieve.
+2. **Problem** — The external blocker, the internal frustration it creates, and (if
+   relevant) why it's wrong that they should have to put up with it.
+3. **Guide (the brand) — empathy + authority** — One line showing you understand the
+   pain, one line showing you're competent to fix it (proof, track record).
+4. **Plan** — The simple 3-step path you offer.
+5. **Call to action** — The direct ask (e.g. "Start free") + a transitional ask (e.g.
+   "See how it works").
+6. **Stakes (failure avoided)** — What the user loses by not acting — used sparingly.
+7. **Success (transformation)** — The "after": who the hero becomes once the want is met.
+
+#### The user's transformation story
+
+State, in one line each, the before → after the brand delivers. This is the most reusable
+artifact for marketing, onboarding, and landing copy:
+
+- **Before (identity):** who the user is at the start (frustrated, stuck, overwhelmed).
+- **After (identity):** who they become (confident, in control, recognized).
+- **Brand's role:** the guide that made the shift possible.
+
+> Example — "Before: a founder drowning in spreadsheets. After: a founder who runs the
+> numbers in minutes and gets back to building. We're the tool that hands them the time."
+
+#### Hero-framed vs. company-centered voice matrix
+
+Extend the Step 6 "We Are / We Are Not" matrix with a protagonist axis. Every piece of
+copy should be rewritable from the left column to the right:
+
+| Company-centered ❌ (brand as hero) | Hero-framed ✅ (user as hero, brand as guide) |
+|-------------------------------------|------------------------------------------------|
+| "We built the most powerful analytics engine." | "See what's driving your growth — in one glance." |
+| "Our platform supports multi-region deploys." | "Ship to your users anywhere; we handle the regions." |
+| "We're the industry leader in security." | "Sleep easy — your data's locked down." |
+| "Sign up for our newsletter." | "Get the playbook that keeps you ahead." |
+| "Our award-winning support team." | "Stuck? You'll have an answer in minutes." |
+| "Welcome to [Brand]." | "Welcome back — here's what changed since you left." |
+
+Rules of thumb for the writing guidelines (Step 6.2):
+- **Second person, user's goal first.** Lead with "you" and the outcome, not "we" and the
+  feature.
+- **Features earn their place by serving the want** — name the transformation, then the
+  capability that enables it.
+- **Reserve "we/our" for the guide's empathy and authority** ("We've been there", "Trusted
+  by 4,000 teams"), not for claiming the win.
+- **Emotional beats carry the arc** — empty states are invitations, errors are calm and
+  blameless, success states name what the hero achieved. (See the emotional beats
+  catalogue in the canonical reference.)
+
+> **Restraint rule (inherited from the canonical framework).** Narrative voice serves the
+> user's goal — it never overrides clarity, speed, or accessibility. Don't manufacture
+> false stakes, don't bury critical information for "drama," keep skip paths in onboarding,
+> and honor `prefers-reduced-motion` for any motion that carries the story.
 
 ### Step 7: Trend-Aware Positioning
 

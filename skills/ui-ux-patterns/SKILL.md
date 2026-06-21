@@ -2,9 +2,11 @@
 name: ui-ux-patterns
 description: |
   UI/UX pattern library with screen archetypes, Nielsen's heuristics evaluation,
-  visual hierarchy principles, and platform-specific adaptations.
+  visual hierarchy principles, storytelling/narrative UX, and platform-specific adaptations.
   Triggers on "UI patterns", "UX patterns", "screen patterns", "heuristic evaluation",
-  "visual hierarchy", "interaction design", "UX review", or "UI best practices".
+  "visual hierarchy", "interaction design", "UX review", "UI best practices",
+  "storytelling UI", "narrative design", "user journey arc", "StoryBrand",
+  "emotional beats", or "scrollytelling".
 model: sonnet
 ---
 
@@ -20,6 +22,7 @@ Use this skill when:
 - Choosing between interaction patterns for a feature
 - Evaluating visual hierarchy and information architecture
 - Adapting a pattern across platforms (web SPA, SSR, mobile)
+- Shaping a flow as a narrative — onboarding, landing pages, feature tours, checkout (see **Storytelling UI** below)
 
 ## 8 Core Screen Patterns
 
@@ -79,6 +82,51 @@ When reviewing any screen, verify:
 6. **Alignment**: All elements snap to a grid; no orphaned alignments
 7. **Contrast**: Key content has the highest contrast ratio against its background
 8. **Focal point**: Each screen has exactly one primary focal point (the thing the user should do first)
+
+## Storytelling UI
+
+Structure flows as a **narrative** — beginning, middle, end — rather than a flat set of
+screens. People engage with and retain a story far better than a feature list, so guide the
+user along a deliberate arc. Reference `references/storytelling-ui.md` for the full framework
+(StoryBrand SB7 mapping, per-pattern roles, emotional-beats catalogue, pacing techniques,
+motion/continuity, microcopy voice, and the scored checklist).
+
+### The five dimensions
+
+| Dimension | Apply by |
+|-----------|----------|
+| **Narrative arc** | Give each flow a hook (setup) → middle (core value) → resolution (payoff + CTA). No dead ends. |
+| **Sequence & pacing** | Release information deliberately — progressive disclosure, step flows, scroll-driven reveals. |
+| **Protagonist** | The **user is the hero**, the product is the **guide**. Write copy around their goal and obstacle. |
+| **Emotional beats** | Empty/loading/error/success states carry intentional tone, not just function. |
+| **Continuity & motion** | Transitions maintain a thread between states (shared-element, scroll-linked) so it's one journey. |
+
+### Narrative role of each screen pattern
+
+| Pattern | Narrative role |
+|---------|----------------|
+| Onboarding | Act I — promise the payoff, show progress, reach first value fast |
+| Dashboard | Home base — lead with "what changed", surface the next best action |
+| List / Detail | Journey → destination; preserve context on the way back |
+| Forms | The ordeal — pace with sections; inline validation is a guide that catches you |
+| Search | The quest — zero-results is a fork with a suggested path, not a wall |
+| Empty states | The invitation — most emotional weight per pixel; setup + first action |
+
+### Storytelling review checklist (score 0–2 each, /16)
+
+1. **Arc** — clear hook → value → payoff, no dead ends
+2. **Hero framing** — copy centers the user's goal/obstacle; product is the guide
+3. **Pacing** — information released deliberately, not dumped
+4. **First value** — reaches the "aha"/first success quickly
+5. **Emotional beats** — empty/loading/error/success carry intentional tone
+6. **Continuity** — transitions maintain a thread between states
+7. **Resolution** — satisfying success state with an obvious next step
+8. **Restraint** — narrative never blocks clarity, speed, accessibility, or skip paths
+
+> **≥13** strong narrative · **8–12** functional but flat · **<8** a disconnected set of screens.
+
+**Restraint rule:** storytelling serves the user's goal — keep skip paths, never withhold
+critical information for "drama," keep durations short, and honor `prefers-reduced-motion`.
 
 ## Interaction Principles
 
@@ -142,3 +190,4 @@ Current design trends to consider in pattern selection:
 
 - `references/screen-patterns.md` — Detailed specifications for all 8 screen patterns
 - `references/heuristic-evaluation.md` — Complete Nielsen's heuristic scoring rubric
+- `references/storytelling-ui.md` — Storytelling UI framework (narrative arc, StoryBrand SB7, pacing, emotional beats, motion/continuity, microcopy, scored checklist)
