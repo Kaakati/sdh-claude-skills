@@ -52,8 +52,6 @@ We are a Software Development House building production systems for clients. Qua
 - **Merge Strategy**: Squash merge to main, rebase feature branches on target before merge
 - **Protected Branches**: No direct pushes to `main`, `master`, or `develop`
 
-@docs/git-instructions.md
-
 ## Code Standards
 
 - **SOLID Principles**: Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion
@@ -72,8 +70,6 @@ We are a Software Development House building production systems for clients. Qua
 - **Clean Architecture**: Controllers → Services → Models (Rails) | Screens → Hooks → API Client (React Native) | Pages → Hooks → API Client (Vite) | Server Components → Server Actions → API Client (Next.js)
 - **Dependency Injection**: Depend on abstractions, not concretions. Use DI containers where appropriate
 - **Domain-Driven Design**: Use bounded contexts, aggregates, and value objects for complex business domains
-
-@docs/architecture-guide.md
 
 ## Testing
 
