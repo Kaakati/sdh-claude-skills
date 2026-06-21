@@ -5,8 +5,8 @@ can be named anything — `web/`, `frontend/`, `spa/` — detection is wrapper-a
 (`vite.config.*` / `index.html` / `src/pages/`). Layers on the root `CLAUDE.md`.
 
 ReactJS SPA: React Router, Zustand (client state), TanStack Query (server state),
-Tailwind CSS, Framer Motion, ApexCharts. Standards in the root `.claude/rules/`
-(`reactjs`, `accessibility`, `i18n`, `testing`, `clean-architecture`) auto-load.
+Tailwind CSS, Framer Motion, ApexCharts. Standards ship as the `sdh` plugin's path-scoped `std-*` skills
+(`std-reactjs`, `std-accessibility`, `std-i18n`, `std-testing`, `std-clean-architecture`) auto-load.
 
 ## Commands
 - Dev: `npm run dev`

@@ -8,9 +8,9 @@ adapted to this repo's stack and its **wrapper-directory-agnostic** detection.
 ## How this config fits the guide
 
 The Claude Code guide describes two ways to scope instructions: per-directory
-`CLAUDE.md` files, and **path-scoped rules in a central `.claude/`**. This repo
-uses the central model — all conventions live in `.claude/rules/` and auto-load
-by file path. The guide endorses this when "you want all conventions in one
+`CLAUDE.md` files, and **path-scoped rules/skills in a central `.claude/` or plugin**. This
+repo uses the central model — all conventions ship as the `sdh` plugin's `std-*` skills that
+auto-load by file path. The guide endorses this when "you want all conventions in one
 place, or the same rule applies to many scattered paths."
 
 Crucially, the rules and hooks here detect frameworks by **canonical structure
@@ -100,8 +100,8 @@ directory's CLAUDE.md/rules/skills. `--add-dir` loads skills, and loads CLAUDE.m
 
 ## 7. Worktrees for agent teams
 
-This config uses agent teams and worktree isolation heavily (see
-`.claude/rules/agent-teams.md`). For large repos, scope what each worktree checks
+This config uses agent teams and worktree isolation heavily (see the
+`std-agent-teams` skill). For large repos, scope what each worktree checks
 out so they start fast and don't duplicate deps:
 
 - `worktree.symlinkDirectories` — already set in `.claude/settings.json`

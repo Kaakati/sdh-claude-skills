@@ -6,9 +6,9 @@ This file loads automatically when Claude works in this package (or starts here)
 it layers on top of the repository-root `CLAUDE.md`.
 
 Rails API-only backend: Phlex views, Panko serializers, PostgreSQL + PostGIS,
-Redis/Sidekiq, Centrifugo. Full standards live in the root `.claude/rules/`
-(`rails-conventions`, `phlex-conventions`, `api-design`, `database`, `monitoring`,
-`clean-architecture`) and auto-load for matching files.
+Redis/Sidekiq, Centrifugo. Full standards ship as the `sdh` plugin's path-scoped `std-*` skills
+(`std-rails-conventions`, `std-phlex-conventions`, `std-api-design`, `std-database`, `std-monitoring`,
+`std-clean-architecture`) and auto-load for matching files.
 
 ## Commands
 - Tests: `bundle exec rspec`

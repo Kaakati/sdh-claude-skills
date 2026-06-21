@@ -6,8 +6,8 @@ wrapper-agnostic (metro.config / app.json / `react-native` in package.json).
 Layers on top of the repository-root `CLAUDE.md`.
 
 React Native: Zustand (client state), TanStack Query (server state), Centrifugo
-(real-time), MMKV (storage). Standards in the root `.claude/rules/`
-(`react-native`, `accessibility`, `i18n`, `clean-architecture`) auto-load.
+(real-time), MMKV (storage). Standards ship as the `sdh` plugin's path-scoped `std-*` skills
+(`std-react-native`, `std-accessibility`, `std-i18n`, `std-clean-architecture`) auto-load.
 
 ## Commands
 - Tests: `npm test`
