@@ -111,32 +111,32 @@ We are a Software Development House building production systems for clients. Qua
 
 ## Rule Reference
 
-Detailed domain-specific conventions ship as path-scoped `std-*` skills under `skills/` (auto-load by file path, wrapper-directory agnostic):
+Detailed domain-specific conventions ship as 20 path-scoped `std-*` skills under `skills/` (auto-load by file path, wrapper-directory agnostic):
 
-- `code-standards.md` — Naming, SOLID, function/file limits, error handling, logging
-- `security.md` — OWASP, auth, input validation, secret management
-- `testing.md` — Test patterns, mocking, coverage
-- `git-workflow.md` — Commits, branches, PRs
-- `api-design.md` — REST conventions, error formats, pagination
-- `database.md` — Migrations, indexing, query optimization
-- `rails-conventions.md` — Rails models, controllers, services, Panko, Sidekiq
-- `react-native.md` — React Native, Zustand, TanStack Query, Centrifugo
-- `reactjs.md` — ReactJS Vite SPA, React Router, Tailwind CSS, Framer Motion, ApexCharts
-- `nextjs.md` — Next.js App Router, Server Components, server actions, Vercel deployment
-- `infrastructure.md` — Terraform, Docker Compose, AWS, GCP, Vercel, CI/CD
-- `error-handling.md` — Error handling across Rails, React Native, Sidekiq, API responses
-- `monitoring.md` — Structured logging, health checks, CloudWatch alarms, Sentry
-- `clean-architecture.md` — Layer separation, dependency direction, boundary violations
-- `i18n.md` — Internationalization conventions, locale files, RTL support, key naming
-- `accessibility.md` — WCAG 2.2 AA, semantic HTML, keyboard navigation, color contrast, ARIA, focus appearance, target size
-- `design-system.md` — Design token conventions, color/typography/spacing/motion rules, component styling, cross-platform consistency
-- `phlex-conventions.md` — Phlex component conventions, Atomic Design structure, `class_variants`, Stimulus/Turbo
-- `terraform-conventions.md` — Terraform HCL file structure, provider constraints, resource naming, required tags, security minimums
-- `agent-teams.md` — Agent team coordination, file ownership, task sizing, worktree isolation, dynamic spawning conventions
+- `std-code-standards` — Naming, SOLID, function/file limits, error handling, logging
+- `std-security` — OWASP, auth, input validation, secret management
+- `std-testing` — Test patterns, mocking, coverage
+- `std-git-workflow` — Commits, branches, PRs
+- `std-api-design` — REST conventions, error formats, pagination
+- `std-database` — Migrations, indexing, query optimization
+- `std-rails-conventions` — Rails models, controllers, services, Panko, Sidekiq
+- `std-react-native` — React Native, Zustand, TanStack Query, Centrifugo
+- `std-reactjs` — ReactJS Vite SPA, React Router, Tailwind CSS, Framer Motion, ApexCharts
+- `std-nextjs` — Next.js App Router, Server Components, server actions, Vercel deployment
+- `std-infrastructure` — Terraform, Docker Compose, AWS, GCP, Vercel, CI/CD
+- `std-error-handling` — Error handling across Rails, React Native, Sidekiq, API responses
+- `std-monitoring` — Structured logging, health checks, CloudWatch alarms, Sentry
+- `std-clean-architecture` — Layer separation, dependency direction, boundary violations
+- `std-i18n` — Internationalization conventions, locale files, RTL support, key naming
+- `std-accessibility` — WCAG 2.2 AA, semantic HTML, keyboard navigation, color contrast, ARIA, focus appearance, target size
+- `std-design-system` — Design token conventions, color/typography/spacing/motion rules, component styling, cross-platform consistency
+- `std-phlex-conventions` — Phlex component conventions, Atomic Design structure, `class_variants`, Stimulus/Turbo
+- `std-terraform-conventions` — Terraform HCL file structure, provider constraints, resource naming, required tags, security minimums
+- `std-agent-teams` — Agent team coordination, file ownership, task sizing, worktree isolation, dynamic spawning conventions
 
 ## Agents
 
-Custom agents are available in `.claude/agents/` for specialized tasks:
+12 specialized agents are bundled in the plugin under `agents/` (plugin root):
 - `requirements-consultant` — Partner consultant for clarifying vague requirements (Opus)
 - `security-auditor` — Security vulnerability scanning and OWASP audit
 - `code-reviewer` — Comprehensive code quality and PR review
@@ -193,7 +193,7 @@ On-demand skills available via slash commands:
 
 ## Hooks (Deterministic Automation)
 
-Active hooks in `.claude/settings.json` enforce quality at every lifecycle point:
+Active hooks are configured in `hooks/hooks.json` (commands run via `${CLAUDE_PLUGIN_ROOT}`) and enforce quality at every lifecycle point:
 
 **PreToolUse** (before tool executes):
 - `security-scan.py` — Blocks writes to protected files, detects hardcoded secrets
@@ -205,14 +205,14 @@ Active hooks in `.claude/settings.json` enforce quality at every lifecycle point
 **PostToolUse** (after tool completes):
 - `auto-format.py` — Auto-formats edited files (rubocop, prettier, terraform fmt)
 - `test-runner.py` — Reminds to run tests for modified code
-- **Code quality checker** — Enforces code-standards.md (30-line functions, 4-param max, 3-level nesting, domain-aware file limits: 200 lines for Rails models/.tsx components, 300 lines elsewhere)
-- **Error handling checker** — Enforces error-handling.md (empty catch blocks, rescue Exception)
-- **Test coverage checker** — Enforces testing.md (warns when source files lack corresponding test files)
-- **Clean architecture checker** — Enforces clean-architecture.md (layer boundary violations, dependency direction)
-- **i18n checker** — Enforces i18n.md (hardcoded user-facing strings in .tsx/.jsx/.erb files)
-- **Accessibility agent hook** — Enforces accessibility.md (semantic HTML, alt text, label associations, focus indicators, ARIA misuse) — Haiku agent with Read/Grep/Glob tools, scoped to browser-React .tsx/.jsx (Vite/Next, detected by marker; React Native is skipped) under any wrapper dir
-- **API design agent hook** — Enforces api-design.md (URL nouns, data wrapper, error format, HTTP status codes) — Haiku agent with Read/Grep/Glob tools, scoped to `app/controllers` (.rb), `src/api`, and `src/actions` under any wrapper dir
-- **Monitoring prompt** — Enforces monitoring.md (request_id in logs, sensitive data logging) — scoped to .rb under `app/controllers` and `app/jobs` under any wrapper dir
+- **Code quality checker** — Enforces the `std-code-standards` skill (30-line functions, 4-param max, 3-level nesting, domain-aware file limits: 200 lines for Rails models/.tsx components, 300 lines elsewhere)
+- **Error handling checker** — Enforces the `std-error-handling` skill (empty catch blocks, rescue Exception)
+- **Test coverage checker** — Enforces the `std-testing` skill (warns when source files lack corresponding test files)
+- **Clean architecture checker** — Enforces the `std-clean-architecture` skill (layer boundary violations, dependency direction)
+- **i18n checker** — Enforces the `std-i18n` skill (hardcoded user-facing strings in .tsx/.jsx/.erb files)
+- **Accessibility agent hook** — Enforces the `std-accessibility` skill (semantic HTML, alt text, label associations, focus indicators, ARIA misuse) — Haiku agent with Read/Grep/Glob tools, scoped to browser-React .tsx/.jsx (Vite/Next, detected by marker; React Native is skipped) under any wrapper dir
+- **API design agent hook** — Enforces the `std-api-design` skill (URL nouns, data wrapper, error format, HTTP status codes) — Haiku agent with Read/Grep/Glob tools, scoped to `app/controllers` (.rb), `src/api`, and `src/actions` under any wrapper dir
+- **Monitoring prompt** — Enforces the `std-monitoring` skill (request_id in logs, sensitive data logging) — scoped to .rb under `app/controllers` and `app/jobs` under any wrapper dir
 - `atomic-design-checker.py` — Validates Atomic Design hierarchy (atom independence, molecule composition, organism boundaries, naming) across Phlex, ReactJS, Next.js, React Native
 - `terraform-checker.py` — Validates Terraform .tf files (hardcoded secrets, snake_case naming, required tags, backend config, provider versions)
 - `design-token-checker.py` — Validates design token usage (hardcoded colors, arbitrary spacing, missing focus-visible, missing prefers-reduced-motion) in component/style files
@@ -299,14 +299,17 @@ Claude will automatically suggest creating a team when:
 - **Task sizing**: 5-6 tasks per teammate maximum for a single team session
 - **Worktree isolation**: Use worktree isolation for teammates making parallel edits to avoid conflicts
 - **Quality gates**: `TeammateIdle` and `TaskCompleted` hooks enforce deliverable quality automatically
-- See `.claude/rules/agent-teams.md` for full coordination conventions
+- See the `std-agent-teams` skill for full coordination conventions
 
 ## Monorepo & Large Codebases
 
-This config scales to monorepos and large single-tree codebases. It uses the
-centralized model — path-scoped rules in `.claude/rules/` that auto-load by file
-path, with **wrapper-directory-agnostic** framework detection (your package dirs
-can be named anything). See `docs/monorepo-setup.md` for the full setup:
+This plugin scales to monorepos and large single-tree codebases. It uses the
+centralized model — path-scoped `std-*` skills under `skills/` that auto-load by
+file path, with **wrapper-directory-agnostic** framework detection (your package
+dirs can be named anything; detection uses canonical structure like `app/models`,
+`src/pages`, `src/screens` plus marker files like `Gemfile`, `next.config.*`,
+`vite.config.*`, `metro.config.js`). See `docs/monorepo-setup.md` for the full
+setup:
 
 - **Per-package `CLAUDE.md`** starter templates in `docs/templates/` (backend, mobile, web, next, shared) — copy into each package dir so its conventions layer on the root `CLAUDE.md`.
 - **`.claude/settings.local.json.template`** — per-developer overrides: `claudeMdExcludes` (skip packages you don't touch), `additionalDirectories` (cross-package access), `worktree.sparsePaths` (scope worktree checkouts).

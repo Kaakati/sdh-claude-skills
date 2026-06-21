@@ -10,7 +10,7 @@ This repository is a **Claude Code plugin** (`sdh`) that enforces enterprise dev
 
 Instead of relying on ad-hoc prompting, this plugin provides:
 
-- **57 skills** — 37 workflow skills (`/sdh:code-reviewer`, `/sdh:rails-architect`, …) plus **20 `std-*` convention skills** that auto-load by file path (e.g. `std-rails-conventions`, `std-accessibility`)
+- **58 skills** — 37 workflow skills (`/sdh:code-reviewer`, `/sdh:rails-architect`, …), **20 `std-*` convention skills** that auto-load by file path (e.g. `std-rails-conventions`, `std-accessibility`), plus the always-on `sdh-engineering-standards` skill
 - **12 specialized agents** (4 with team lead protocols) that handle complex tasks with constrained tool access
 - **6 pre-defined agent team templates** for coordinated multi-agent work
 - **Quality-gate hooks** (PreToolUse blockers + a single PostToolUse dispatcher) with **wrapper-agnostic framework detection**
@@ -65,21 +65,23 @@ Detection uses two wrapper-agnostic signals:
 So putting your Rails code in `api/` instead of `backend/` works fine — the Rails rules and
 hooks still activate.
 
-### What Rules Auto-Load (wrapper-agnostic globs)
+### What Convention Skills Auto-Load (wrapper-agnostic globs)
+
+The `std-*` convention skills are path-scoped — they auto-load when you edit files matching their globs:
 
 ```
-File you edit (under any wrapper)          Rules that auto-load
+File you edit (under any wrapper)          std-* skills that auto-load
 --------------------------------------     --------------------------------------
-**/app/**/*.rb                           -> rails-conventions, clean-architecture
-**/app/components/**/*.rb                 -> phlex-conventions
-**/app/views/**/*.rb                      -> phlex-conventions, i18n
-**/src/pages/**/*.tsx                     -> reactjs, accessibility
-**/src/screens/**/*.tsx                   -> react-native
-**/app/**/*.tsx + **/next.config.*        -> nextjs, accessibility
-**/i18n/**, **/config/locales/**          -> i18n
-**/migrations/**, **/migrate/**           -> database
-**/*.tf, **/*.tfvars                      -> terraform-conventions, infrastructure, monitoring
-**/*.test.*, **/*.spec.*                  -> testing
+**/app/**/*.rb                           -> std-rails-conventions, std-clean-architecture
+**/app/components/**/*.rb                 -> std-phlex-conventions
+**/app/views/**/*.rb                      -> std-phlex-conventions, std-i18n
+**/src/pages/**/*.tsx                     -> std-reactjs, std-accessibility
+**/src/screens/**/*.tsx                   -> std-react-native
+**/app/**/*.tsx + **/next.config.*        -> std-nextjs, std-accessibility
+**/i18n/**, **/config/locales/**          -> std-i18n
+**/migrations/**, **/migrate/**           -> std-database
+**/*.tf, **/*.tfvars                      -> std-terraform-conventions, std-infrastructure, std-monitoring
+**/*.test.*, **/*.spec.*                  -> std-testing
 ```
 
 ### Hook Domain-Aware Limits (wrapper-agnostic)
@@ -93,7 +95,7 @@ matched by canonical structure under any wrapper:
 | `**/src/screens/**`, `**/src/pages/**`, `**/src/components/**` | 200 lines | Frontend components |
 | `**/app/components/**/*.rb`, `**/app/views/**/*.rb` | 200 lines | Phlex components |
 | `**/app/**/*.tsx` (Next.js app router) | 200 lines | Next.js components |
-| All other source files | 300 lines | General limit per code-standards.md |
+| All other source files | 300 lines | General limit per the std-code-standards skill |
 
 ### Recommended Monorepo Structure
 
@@ -101,8 +103,8 @@ The structure below is the **recommended** convention, not a requirement — det
 
 ```
 your-project/
-├── CLAUDE.md                         # Master config (always loaded)
-├── .claude/                          # All Claude Code configuration
+├── CLAUDE.md                         # Your project's own config (optional)
+├── .claude/                          # Your project settings (permissions/env/worktree)
 ├── backend/                          # Rails API backend
 │   ├── app/
 │   │   ├── controllers/
@@ -208,29 +210,33 @@ assets) and symlinks `node_modules`/`vendor/bundle` into worktrees.
 ### Architecture Overview
 
 ```
-CLAUDE.md                          ← Master configuration (loaded every session)
-├── .claude/rules/                 ← 20 auto-loaded rules (path-scoped)
-│   ├── code-standards.md
-│   ├── security.md
-│   ├── testing.md
-│   ├── clean-architecture.md
-│   ├── rails-conventions.md
-│   ├── phlex-conventions.md          (backend/app/components/**, backend/app/views/**)
-│   ├── react-native.md
-│   ├── reactjs.md                    (web/**, frontend/**)
-│   ├── nextjs.md                     (next/**)
-│   ├── accessibility.md              (web/**, next/**, frontend/**, mobile/**)
-│   ├── design-system.md              (web/src/styles/**, components/ui/**, tailwind.config.*)
-│   ├── api-design.md
-│   ├── database.md
-│   ├── error-handling.md
-│   ├── git-workflow.md
-│   ├── infrastructure.md
-│   ├── terraform-conventions.md      (terraform/**/*.tf, terraform/**/*.tfvars)
-│   ├── monitoring.md
-│   ├── i18n.md
-│   └── agent-teams.md                (always loaded — no path glob)
-├── .claude/agents/                ← 12 specialized agents
+.claude-plugin/                    ← Plugin manifests
+│   ├── plugin.json                   (manifest: name "sdh", version 1.0.0)
+│   └── marketplace.json              (single-plugin marketplace, source "./")
+├── skills/                        ← 58 skills total (20 std-* convention skills below)
+│   ├── sdh-engineering-standards/    (always-on stack + library conventions)
+│   ├── std-code-standards/           (path-scoped: all source files)
+│   ├── std-security/                 (path-scoped: all source files)
+│   ├── std-testing/
+│   ├── std-clean-architecture/
+│   ├── std-rails-conventions/
+│   ├── std-phlex-conventions/        (**/app/components/**, **/app/views/**)
+│   ├── std-react-native/
+│   ├── std-reactjs/                  (**/src/pages/**)
+│   ├── std-nextjs/                   (**/app/**/*.tsx + next.config.*)
+│   ├── std-accessibility/            (web/next/frontend/mobile components)
+│   ├── std-design-system/            (styles/**, components/ui/**, tailwind.config.*)
+│   ├── std-api-design/
+│   ├── std-database/
+│   ├── std-error-handling/
+│   ├── std-git-workflow/
+│   ├── std-infrastructure/
+│   ├── std-terraform-conventions/    (**/*.tf, **/*.tfvars)
+│   ├── std-monitoring/
+│   ├── std-i18n/
+│   ├── std-agent-teams/              (always loaded — no path glob)
+│   └── … (37 workflow skills, see below)
+├── agents/                        ← 12 specialized agents (bundled in the plugin)
 │   ├── requirements-consultant.md    (Opus, discovery)
 │   ├── architecture-advisor.md       (Opus, plan mode)
 │   ├── clean-architecture.md         (Opus, plan mode)
@@ -243,7 +249,7 @@ CLAUDE.md                          ← Master configuration (loaded every sessio
 │   ├── phlex-developer.md            (Sonnet, Phlex + Atomic Design)
 │   ├── design-system-architect.md    (Opus, plan mode, design tokens + components)
 │   └── design-critique.md            (Opus, plan mode, visual quality review)
-├── .claude/skills/                ← 37 slash-command skills
+├── skills/                        ← 37 workflow slash-command skills (/sdh:<name>)
 │   ├── api-designer/
 │   ├── atomic-design/                (Atomic Design methodology, 10 rules)
 │   ├── clean-architecture/
@@ -279,7 +285,7 @@ CLAUDE.md                          ← Master configuration (loaded every sessio
 │   ├── design-critique/              (Visual quality review → agent)
 │   ├── design-to-code/               (Design translation → agent)
 │   └── accessibility-auditor/        (WCAG 2.2 AA audit, ARIA patterns)
-├── .claude/hooks/                 ← 15 automation scripts
+├── hooks/                         ← 15 automation scripts + hooks.json (wired via ${CLAUDE_PLUGIN_ROOT})
 │   ├── security-scan.py              (PreToolUse: blocks secrets)
 │   ├── dangerous-command-blocker.py  (PreToolUse: blocks destructive cmds)
 │   ├── pre-commit-check.py           (PreToolUse: validates commits)
@@ -296,9 +302,10 @@ CLAUDE.md                          ← Master configuration (loaded every sessio
 │   ├── teammate-idle-checker.py      (TeammateIdle: validates deliverables)
 │   ├── task-completed-checker.py     (TaskCompleted: validates completion)
 │   ├── team-task-validator.py        (TaskCompleted: lint/format check)
+│   ├── hooks.json                    (hook wiring — commands use ${CLAUDE_PLUGIN_ROOT})
 │   └── tests/
 │       └── run-all.py                (Hook test harness)
-└── .claude/settings.json          ← Permissions, hooks, deny/allow lists
+└── .claude/settings.json          ← Reference settings consumers copy (permissions/env/worktree)
 ```
 
 ### Lifecycle Hooks
@@ -369,32 +376,33 @@ Claude automatically suggests creating a team when:
 3. Task description includes multiple independent deliverables
 4. User explicitly asks for parallel work
 
-### Rules (Auto-Loaded by File Path)
+### Convention Skills (Auto-Loaded by File Path)
 
-Rules are loaded automatically when you edit files matching their `paths` globs:
+The 20 `std-*` convention skills (the former `.claude/rules/`, now path-scoped skills) load
+automatically when you edit files matching their globs:
 
-| Rule | Triggers On | Key Standards |
+| Skill | Triggers On | Key Standards |
 |------|------------|---------------|
-| `code-standards.md` | All source files | SOLID, 30-line functions, 4-param max, naming conventions |
-| `security.md` | All source files | OWASP Top 10, input validation, parameterized queries |
-| `testing.md` | Test/spec files + web source | AAA pattern, 80% coverage target, Vitest + RTL |
-| `clean-architecture.md` | `backend/app/**`, `mobile/src/**`, `web/**`, `next/**` | Dependency direction, layer boundaries, violation detection |
-| `rails-conventions.md` | `backend/app/**/*.rb` | Models, controllers, services, Panko, Sidekiq patterns |
-| `phlex-conventions.md` | `backend/app/components/**/*.rb`, `backend/app/views/**/*.rb` | Phlex components, Atomic Design, `class_variants`, Stimulus/Turbo |
-| `react-native.md` | `mobile/src/**/*.{ts,tsx}` | Zustand, TanStack Query, Centrifugo, component patterns |
-| `reactjs.md` | `web/**`, `frontend/**` | React Router, Tailwind CSS, Framer Motion, ApexCharts |
-| `nextjs.md` | `next/**` | Server Components, server actions, ISR/SSG, Vercel |
-| `accessibility.md` | `web/**`, `next/**`, `frontend/**`, `mobile/**` | WCAG 2.2 AA, semantic HTML, keyboard navigation, focus appearance, target size |
-| `design-system.md` | `web/src/styles/**`, `web/src/components/ui/**`, `next/src/components/ui/**`, `mobile/src/theme/**`, `backend/app/components/**`, `**/tailwind.config.*` | Design tokens, color/typography/spacing/motion rules, component styling |
-| `api-design.md` | API controllers/routes | REST conventions, error formats, pagination, versioning |
-| `database.md` | Migrations, schema | Safe migrations, indexing strategy, N+1 prevention |
-| `error-handling.md` | All source files | Rails rescue patterns, React Native error boundaries |
-| `git-workflow.md` | Git operations | Conventional commits, branch naming, PR requirements |
-| `infrastructure.md` | Terraform, Docker, CI | AWS, Vercel, Docker, cost optimization |
-| `terraform-conventions.md` | `terraform/**/*.tf`, `terraform/**/*.tfvars` | HCL structure, provider pins, resource naming, required tags, security |
-| `monitoring.md` | Logging, health checks | Structured logging, CloudWatch, Sentry, correlation IDs |
-| `i18n.md` | Locale/translation files | Key naming, pluralization, RTL support, CI validation |
-| `agent-teams.md` | All files (no glob) | Team coordination, file ownership, task sizing, worktree isolation |
+| `std-code-standards` | All source files | SOLID, 30-line functions, 4-param max, naming conventions |
+| `std-security` | All source files | OWASP Top 10, input validation, parameterized queries |
+| `std-testing` | Test/spec files + web source | AAA pattern, 80% coverage target, Vitest + RTL |
+| `std-clean-architecture` | `**/app/**`, `**/src/**` (Rails/RN/web/Next) | Dependency direction, layer boundaries, violation detection |
+| `std-rails-conventions` | `**/app/**/*.rb` | Models, controllers, services, Panko, Sidekiq patterns |
+| `std-phlex-conventions` | `**/app/components/**/*.rb`, `**/app/views/**/*.rb` | Phlex components, Atomic Design, `class_variants`, Stimulus/Turbo |
+| `std-react-native` | `**/src/screens/**`, `**/src/**/*.{ts,tsx}` (RN) | Zustand, TanStack Query, Centrifugo, component patterns |
+| `std-reactjs` | `**/src/pages/**` (Vite SPA) | React Router, Tailwind CSS, Framer Motion, ApexCharts |
+| `std-nextjs` | `**/app/**/*.tsx` + `next.config.*` | Server Components, server actions, ISR/SSG, Vercel |
+| `std-accessibility` | web/Next/Vite/RN component files | WCAG 2.2 AA, semantic HTML, keyboard navigation, focus appearance, target size |
+| `std-design-system` | `**/styles/**`, `**/components/ui/**`, `**/theme/**`, `**/app/components/**`, `**/tailwind.config.*` | Design tokens, color/typography/spacing/motion rules, component styling |
+| `std-api-design` | API controllers/routes | REST conventions, error formats, pagination, versioning |
+| `std-database` | Migrations, schema | Safe migrations, indexing strategy, N+1 prevention |
+| `std-error-handling` | All source files | Rails rescue patterns, React Native error boundaries |
+| `std-git-workflow` | Git operations | Conventional commits, branch naming, PR requirements |
+| `std-infrastructure` | Terraform, Docker, CI | AWS, Vercel, Docker, cost optimization |
+| `std-terraform-conventions` | `**/*.tf`, `**/*.tfvars` | HCL structure, provider pins, resource naming, required tags, security |
+| `std-monitoring` | Logging, health checks | Structured logging, CloudWatch, Sentry, correlation IDs |
+| `std-i18n` | Locale/translation files | Key naming, pluralization, RTL support, CI validation |
+| `std-agent-teams` | All files (no glob) | Team coordination, file ownership, task sizing, worktree isolation |
 
 ### Agents
 
@@ -417,7 +425,8 @@ Agents are specialized Claude instances with constrained tools and focused exper
 
 ### Skills (Slash Commands)
 
-Invoke with `/skill-name` for templated, repeatable workflows:
+Invoke with `/sdh:skill-name` (skills are namespaced under the plugin) for templated,
+repeatable workflows. The command column below omits the `sdh:` prefix for brevity:
 
 | Command | Routes To Agent | Description |
 |---------|----------------|-------------|
@@ -461,30 +470,31 @@ Invoke with `/skill-name` for templated, repeatable workflows:
 
 ## Getting Started
 
-### 1. Clone into your project
+### 1. Install the plugin
 
 ```bash
-# Clone this repo
-git clone git@github.com:Kaakati/sdh-claude-skills.git
+# Add this repo as a marketplace, then install the plugin
+/plugin marketplace add Kaakati/sdh-claude-skills
+/plugin install sdh@sdh-claude-skills
 
-# Copy .claude/ directory and CLAUDE.md into your project
-cp -r sdh-claude-skills/.claude/ your-project/.claude/
-cp sdh-claude-skills/CLAUDE.md your-project/CLAUDE.md
+# Or test locally without installing (from a checkout of this repo)
+claude --plugin-dir /path/to/sdh-claude-skills
 ```
 
-### 2. Set up your project directories
+Skills, agents, and hooks ship inside the plugin — there is nothing to copy into your
+project. Skills are namespaced under the plugin (`/sdh:code-reviewer`, etc.).
 
-Ensure your project follows the required directory naming convention:
+### 2. Copy the settings a plugin can't ship
 
-```bash
-# Your project must use these directory names:
-mkdir -p backend/app/  # Rails API backend
-mkdir -p mobile/src/   # React Native mobile
-mkdir -p web/src/      # ReactJS Vite SPA
-mkdir -p next/app/     # Next.js App Router
-```
+A plugin cannot ship `permissions`, `env`, or `worktree` settings. Copy those blocks from
+this repo's [`.claude/settings.json`](.claude/settings.json) into your own project's
+`.claude/settings.json` to get the secret/build-artifact `Read` denies, the agent-teams
+env flag, and worktree symlinks.
 
-Each directory name is a contract — path globs in rules, hooks, and skills depend on these exact names.
+Your project layout is up to you — detection is wrapper-agnostic (see
+[Project Directory Convention](#project-directory-convention)). Rails works under
+`backend/`, `api/`, or the repo root; the recommended monorepo tree above is a sensible
+default, not a requirement.
 
 ### 3. Customize for your project
 
@@ -505,10 +515,10 @@ The hooks require Python 3 and Bash. All Python hooks are launched via `run-pyth
 
 ```bash
 # Verify the launcher finds Python 3
-bash .claude/hooks/run-python.sh --version
+bash hooks/run-python.sh --version
 
 # Run the hook test harness to verify all hooks work
-python .claude/hooks/tests/run-all.py
+bash hooks/run-python.sh hooks/tests/run-all.py
 ```
 
 > **Windows note**: Git for Windows includes Bash. Ensure `python` is on your PATH (the Microsoft Store stub does not count — install from python.org or use conda/pyenv-win).
@@ -516,16 +526,16 @@ python .claude/hooks/tests/run-all.py
 ### 5. Use slash commands
 
 ```
-/code-reviewer          # Review your latest changes
-/security-auditor       # Run OWASP security audit
-/phlex-dev              # Build a Phlex view component
-/reactjs-dev            # Build a Vite SPA feature
-/nextjs-dev             # Build a Next.js feature
-/atomic-design          # Check component hierarchy
-/theming                # Design token system
-/deploy                 # Start deployment workflow
-/sprint-planner         # Plan your next sprint
-/incident-response      # Diagnose a production issue
+/sdh:code-reviewer          # Review your latest changes
+/sdh:security-auditor       # Run OWASP security audit
+/sdh:phlex-dev              # Build a Phlex view component
+/sdh:reactjs-dev            # Build a Vite SPA feature
+/sdh:nextjs-dev             # Build a Next.js feature
+/sdh:atomic-design          # Check component hierarchy
+/sdh:theming                # Design token system
+/sdh:deploy                 # Start deployment workflow
+/sdh:sprint-planner         # Plan your next sprint
+/sdh:incident-response      # Diagnose a production issue
 ```
 
 ## Enterprise Governance
@@ -554,7 +564,7 @@ The `audit-logger.py` hook logs every tool execution in JSON-lines format, provi
 
 ## Key Design Decisions
 
-1. **Rules over instructions** — Rules are scoped to file paths and auto-loaded. This means Rails conventions only apply when editing Ruby files, ReactJS patterns only for `web/` files, Next.js patterns only for `next/` files.
+1. **Convention skills over instructions** — The `std-*` skills are scoped to file paths and auto-loaded. This means Rails conventions only apply when editing Ruby files under `app/`, ReactJS patterns only for `src/pages/` files, Next.js patterns only for `app/**/*.tsx` files — regardless of the wrapper directory name.
 
 2. **Agents over prompts** — Complex tasks use agents with constrained tool access and specialized system prompts. A security auditor agent can't edit files. A code reviewer has read-only access.
 
@@ -564,23 +574,24 @@ The `audit-logger.py` hook logs every tool execution in JSON-lines format, provi
 
 5. **Community libraries over custom code** — The entire configuration assumes and enforces the use of established gems and npm packages (devise, pundit, pagy, react-hook-form, zod, etc.).
 
-6. **Directory naming is a contract** — `backend/` means Rails, `mobile/` means React Native, `web/` means Vite SPA, `next/` means Next.js. This is not arbitrary — path globs in rules, hooks, and skills depend on these exact directory names.
+6. **Wrapper-agnostic detection** — Framework detection does **not** depend on directory names. Rails activates from canonical structure (`app/models/`) plus marker files (`Gemfile`), whether the code lives under `backend/`, `api/`, or the repo root. The same holds for `src/pages/` (Vite SPA), `src/screens/` (React Native), and `app/**/*.tsx` + `next.config.*` (Next.js). Path globs in the convention skills and hooks match canonical sub-paths under any wrapper — directory names are recommended examples, not requirements.
 
 ## Repository Structure
 
 ```
 .
-├── CLAUDE.md                          # Master configuration
+├── .claude-plugin/
+│   ├── plugin.json                    # Plugin manifest (name "sdh", version 1.0.0)
+│   └── marketplace.json               # Single-plugin marketplace (source "./")
+├── skills/              (58 skills: 37 workflow + 20 std-* conventions + sdh-engineering-standards)
+├── agents/              (12 agents, 4 with team lead protocols)
+├── hooks/               (15 automation scripts + hooks.json + test harness)
 ├── CLAUDE.local.md.template           # Personal override template
 ├── AUDIT-REPORT.md                    # SDLC v2.0 audit report
 ├── .gitignore
 └── .claude/
-    ├── settings.json                  # Permissions + hooks
-    ├── managed-settings.template.json # IT admin template
-    ├── agents/          (12 agents, 4 with team lead protocols)
-    ├── skills/          (37 skills, each with SKILL.md + references/)
-    ├── rules/           (20 rule files)
-    └── hooks/           (15 automation scripts + test harness)
+    ├── settings.json                  # Reference settings (permissions/env/worktree) consumers copy
+    └── managed-settings.template.json # IT admin template
 ```
 
 ## Contributing

@@ -5,8 +5,8 @@ can be named anything — `next/`, `web/`, `site/` — detection is wrapper-agno
 (`next.config.*` / `app/*.tsx` / `src/app/`). Layers on the root `CLAUDE.md`.
 
 Next.js App Router: Server Components for data, server actions for mutations,
-Client Components for interactivity, ISR/SSG. Standards in the root `.claude/rules/`
-(`nextjs`, `accessibility`, `i18n`, `testing`, `clean-architecture`) auto-load.
+Client Components for interactivity, ISR/SSG. Standards ship as the `sdh` plugin's path-scoped `std-*` skills
+(`std-nextjs`, `std-accessibility`, `std-i18n`, `std-testing`, `std-clean-architecture`) auto-load.
 
 ## Commands
 - Dev: `npm run dev`
