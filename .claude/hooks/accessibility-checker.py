@@ -3,34 +3,18 @@
 PostToolUse hook: Accessibility checker for web UI files.
 
 Replaces the agent-based accessibility hook with a deterministic command hook.
-Checks .tsx/.jsx files under web/, next/, or frontend/ for common a11y violations
-per accessibility.md. Exits silently (exit 0, no output) for non-matching files.
+Checks .tsx/.jsx browser-React files (Vite/Next, any wrapper dir) for common a11y
+violations per accessibility.md. React Native files are skipped. Exits silently
+(exit 0, no output) for non-matching files.
 """
-import json
 import os
 import re
-import sys
+
+import _hooklib as hooklib
 
 
 # Only check these extensions
 ALLOWED_EXTENSIONS = (".tsx", ".jsx")
-
-# Only check files under these directory prefixes (forward-slash normalized)
-ALLOWED_PREFIXES = ("web/", "next/", "frontend/")
-
-
-def normalize_path(path):
-    """Normalize path separators to forward slashes for consistent matching."""
-    return path.replace("\\", "/")
-
-
-def read_file(path):
-    """Read file content, return empty string on failure."""
-    try:
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
-            return f.read()
-    except (OSError, IOError):
-        return ""
 
 
 def check_non_semantic_clickable(content):
@@ -125,31 +109,25 @@ def check_aria_hidden_interactive(content):
     return warnings
 
 
-def main():
-    try:
-        data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
-        sys.exit(0)
-
-    file_path = data.get("tool_input", {}).get("file_path", "")
+def check(event):
+    file_path = hooklib.get_file_path(event)
 
     if not file_path:
-        sys.exit(0)
+        return []
 
     # Check extension
     _, ext = os.path.splitext(file_path)
     if ext not in ALLOWED_EXTENSIONS:
-        sys.exit(0)
+        return []
 
-    # Check directory prefix
-    normalized = normalize_path(file_path)
-    if not any(prefix in normalized for prefix in ALLOWED_PREFIXES):
-        sys.exit(0)
+    # Skip React Native — these a11y rules are for browser React (Vite/Next)
+    if hooklib.is_react_native(file_path):
+        return []
 
     # Read and analyze file
-    content = read_file(file_path)
+    content = hooklib.read_file(file_path)
     if not content:
-        sys.exit(0)
+        return []
 
     warnings = []
     warnings.extend(check_non_semantic_clickable(content))
@@ -160,14 +138,16 @@ def main():
 
     if warnings:
         # Deduplicate similar warnings
+        result = []
         seen = set()
         for w in warnings:
             if w not in seen:
                 seen.add(w)
-                print(w)
+                result.append(w)
+        return result
 
-    sys.exit(0)
+    return []
 
 
 if __name__ == "__main__":
-    main()
+    hooklib.run_post_checker(check)

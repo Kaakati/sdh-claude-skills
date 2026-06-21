@@ -1,6 +1,8 @@
 ---
 paths:
-  - "mobile/src/api/**"
+  - "**/app/controllers/**/*.rb"
+  - "**/src/api/**"
+  - "**/src/actions/**"
   - "**/routes/**"
   - "**/controllers/**"
   - "**/endpoints/**"

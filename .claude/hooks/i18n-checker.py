@@ -6,27 +6,15 @@ Checks .tsx, .jsx, and .erb files for hardcoded user-facing strings
 that should use translation keys per i18n.md.
 Exits silently for non-matching files.
 """
-import json
 import os
 import re
-import sys
+
+import _hooklib as hooklib
 
 
 ALLOWED_EXTENSIONS = (".tsx", ".jsx", ".erb")
-SOURCE_PREFIXES = ("backend/app/views/", "mobile/src/", "web/src/", "next/")
+SOURCE_DIRS = ("app/views", "src", "app")
 SKIP_PATTERNS = (".test.", ".spec.", "__tests__", ".config.", ".d.ts")
-
-
-def normalize(path):
-    return path.replace("\\", "/")
-
-
-def read_file(path):
-    try:
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
-            return f.read()
-    except (OSError, IOError):
-        return ""
 
 
 def check_jsx_hardcoded_strings(content):
@@ -65,38 +53,33 @@ def check_erb_hardcoded_strings(content):
     return len(meaningful) > 0
 
 
-def main():
-    try:
-        data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
-        sys.exit(0)
-
-    file_path = data.get("tool_input", {}).get("file_path", "")
+def check(event):
+    file_path = hooklib.get_file_path(event)
     if not file_path:
-        sys.exit(0)
+        return []
 
     _, ext = os.path.splitext(file_path)
     if ext not in ALLOWED_EXTENSIONS:
-        sys.exit(0)
+        return []
 
-    normalized = normalize(file_path)
+    normalized = hooklib.normalize(file_path)
 
     # Skip test/config files
     if any(p in normalized for p in SKIP_PATTERNS):
-        sys.exit(0)
+        return []
 
     # Only check files under UI source directories
-    if not any(p in normalized for p in SOURCE_PREFIXES):
-        sys.exit(0)
+    if not hooklib.under_any(file_path, SOURCE_DIRS):
+        return []
 
-    content = read_file(file_path)
+    content = hooklib.read_file(file_path)
     if not content:
-        sys.exit(0)
+        return []
 
     # Check if file already uses i18n
     uses_i18n = bool(re.search(r"\bt\s*\(|useTranslation|I18n\.t", content))
     if uses_i18n:
-        sys.exit(0)
+        return []
 
     found = False
     if ext in (".tsx", ".jsx"):
@@ -104,14 +87,15 @@ def main():
     elif ext == ".erb":
         found = check_erb_hardcoded_strings(content)
 
+    warnings = []
     if found:
-        print(
+        warnings.append(
             "WARNING: Hardcoded user-facing string detected. "
             "Use translation keys per i18n.md — never hardcode user-facing strings."
         )
 
-    sys.exit(0)
+    return warnings
 
 
 if __name__ == "__main__":
-    main()
+    hooklib.run_post_checker(check)

@@ -1,7 +1,7 @@
 ---
 paths:
-  - "terraform/**/*.tf"
-  - "terraform/**/*.tfvars"
+  - "**/*.tf"
+  - "**/*.tfvars"
 ---
 
 # Terraform Conventions

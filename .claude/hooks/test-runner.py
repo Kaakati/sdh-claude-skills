@@ -3,9 +3,9 @@
 PostToolUse hook: Test reminder after code edits.
 Reads JSON from stdin, checks if the edited file has corresponding test files.
 """
-import json
 import os
-import sys
+
+import _hooklib as hooklib
 
 
 # Skip files matching these patterns (test files, configs, docs)
@@ -15,20 +15,15 @@ SKIP_PATTERNS = (
 )
 
 
-def main():
-    try:
-        data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
-        sys.exit(0)
-
-    file_path = data.get("tool_input", {}).get("file_path", "")
+def check(event):
+    file_path = hooklib.get_file_path(event)
 
     if not file_path:
-        sys.exit(0)
+        return []
 
     # Skip test files, configs, and docs
     if any(pattern in file_path for pattern in SKIP_PATTERNS):
-        sys.exit(0)
+        return []
 
     _, ext = os.path.splitext(file_path)
     ext = ext.lstrip(".")
@@ -49,11 +44,11 @@ def main():
 
     if found:
         # Normalize paths for display (backslash → forward slash)
-        display = [p.replace("\\", "/") for p in found]
-        print(f"Related test files found: {' '.join(display)}. Consider running tests to verify changes.")
+        display = [hooklib.normalize(p) for p in found]
+        return [f"Related test files found: {' '.join(display)}. Consider running tests to verify changes."]
 
-    sys.exit(0)
+    return []
 
 
 if __name__ == "__main__":
-    main()
+    hooklib.run_post_checker(check)

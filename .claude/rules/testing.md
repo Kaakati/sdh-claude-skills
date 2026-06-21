@@ -3,9 +3,8 @@ paths:
   - "**/*.test.*"
   - "**/*.spec.*"
   - "**/tests/**"
-  - "web/src/**"
-  - "next/src/**"
-  - "next/app/**"
+  - "**/spec/**"
+  - "**/__tests__/**"
 ---
 
 # Testing Standards

@@ -1,7 +1,11 @@
 ---
+# Wrapper-agnostic: Vite SPA detected by config marker + pages layout.
 paths:
-  - "web/**"
-  - "frontend/**"
+  - "**/vite.config.*"
+  - "**/index.html"
+  - "**/src/pages/**/*.ts"
+  - "**/src/pages/**/*.tsx"
+  - "**/src/pages/**/*.jsx"
 ---
 
 # ReactJS (Vite SPA) Conventions

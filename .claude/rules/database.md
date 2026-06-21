@@ -1,9 +1,11 @@
 ---
 paths:
   - "**/migrations/**"
+  - "**/migrate/**"
   - "**/models/**"
   - "**/schemas/**"
   - "**/repositories/**"
+  - "**/db/**/*.rb"
 ---
 
 # Database Standards

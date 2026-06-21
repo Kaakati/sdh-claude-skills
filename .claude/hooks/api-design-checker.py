@@ -7,18 +7,17 @@ Checks files under backend/app/controllers/, mobile/src/api/, web/src/api/, next
 for common API design violations per api-design.md.
 Exits silently (exit 0, no output) for non-matching files.
 """
-import json
-import os
 import re
-import sys
+
+import _hooklib as hooklib
 
 
-# Only check files under these directory prefixes (forward-slash normalized)
-ALLOWED_PREFIXES = (
-    "backend/app/controllers/",
-    "mobile/src/api/",
-    "web/src/api/",
-    "next/src/actions/",
+# Only check files under these canonical framework-internal directories
+# (wrapper-agnostic: matches under backend/, api/, mobile/, web/, next/, root, etc.)
+ALLOWED_DIRS = (
+    "app/controllers",
+    "src/api",
+    "src/actions",
 )
 
 # Common verbs that should not appear in URL route paths
@@ -26,20 +25,6 @@ ROUTE_VERBS = (
     "get", "create", "update", "delete", "remove", "fetch",
     "add", "edit", "list", "find", "search", "post", "put",
 )
-
-
-def normalize_path(path):
-    """Normalize path separators to forward slashes for consistent matching."""
-    return path.replace("\\", "/")
-
-
-def read_file(path):
-    """Read file content, return empty string on failure."""
-    try:
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
-            return f.read()
-    except (OSError, IOError):
-        return ""
 
 
 def check_verbs_in_routes(content):
@@ -139,26 +124,20 @@ def check_post_returns_200(content):
     return warnings
 
 
-def main():
-    try:
-        data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
-        sys.exit(0)
-
-    file_path = data.get("tool_input", {}).get("file_path", "")
+def check(event):
+    file_path = hooklib.get_file_path(event)
 
     if not file_path:
-        sys.exit(0)
+        return []
 
-    # Check directory prefix
-    normalized = normalize_path(file_path)
-    if not any(prefix in normalized for prefix in ALLOWED_PREFIXES):
-        sys.exit(0)
+    # Check canonical directory (wrapper-agnostic)
+    if not hooklib.under_any(file_path, ALLOWED_DIRS):
+        return []
 
     # Read and analyze file
-    content = read_file(file_path)
+    content = hooklib.read_file(file_path)
     if not content:
-        sys.exit(0)
+        return []
 
     warnings = []
     warnings.extend(check_verbs_in_routes(content))
@@ -166,15 +145,16 @@ def main():
     warnings.extend(check_error_response_format(content))
     warnings.extend(check_post_returns_200(content))
 
+    deduped = []
     if warnings:
         seen = set()
         for w in warnings:
             if w not in seen:
                 seen.add(w)
-                print(w)
+                deduped.append(w)
 
-    sys.exit(0)
+    return deduped
 
 
 if __name__ == "__main__":
-    main()
+    hooklib.run_post_checker(check)

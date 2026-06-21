@@ -1,5 +1,7 @@
 ---
-globs: backend/app/views/**/*.rb, backend/app/components/**/*.rb
+paths:
+  - "**/app/views/**/*.rb"
+  - "**/app/components/**/*.rb"
 ---
 
 # Phlex Component Conventions
