@@ -1,0 +1,23 @@
+# Normalize line endings across platforms.
+# Without this, a Windows clone with core.autocrlf=true rewrites shell scripts
+# to CRLF, and bash fails with "bad interpreter: /usr/bin/env bash^M".
+# eol=lf forces LF in the working tree on every OS, overriding autocrlf.
+
+# Default: auto-detect text vs binary, store text as LF in the repo.
+* text=auto eol=lf
+
+# Scripts and config that are executed/parsed must always be LF.
+*.sh   text eol=lf
+*.py   text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+
+# Binary assets: never touch.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.woff binary
+*.woff2 binary

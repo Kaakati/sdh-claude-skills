@@ -5,6 +5,13 @@
 
 set -euo pipefail
 
+# Force UTF-8 for stdin/stdout/stderr regardless of the host locale.
+# Claude Code reads hook output as UTF-8, but Python on Windows defaults to the
+# legacy codepage (e.g. cp1252), which mangles non-ASCII output into U+FFFD.
+# PYTHONUTF8=1 (PEP 540) makes every hook emit valid UTF-8 on all platforms.
+export PYTHONUTF8=1
+export PYTHONIOENCODING=utf-8
+
 PY=""
 for candidate in python3 python; do
   if command -v "$candidate" &>/dev/null; then

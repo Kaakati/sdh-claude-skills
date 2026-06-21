@@ -15,10 +15,20 @@ All hooks route through `run-python.sh`, a lightweight launcher that:
 
 1. Tries `python3` first (Linux/macOS default)
 2. Falls back to `python` (Windows, conda, pyenv)
-3. Validates the found interpreter is Python 3
-4. Passes through all arguments via `exec` (zero overhead)
+3. Validates the found interpreter is Python 3 (skips the broken Windows Microsoft Store stub)
+4. Forces UTF-8 I/O via `PYTHONUTF8=1` so non-ASCII output (em dashes, arrows) is emitted
+   as valid UTF-8 instead of the legacy Windows codepage (cp1252), which Claude Code would
+   otherwise render as `�`
+5. Passes through all arguments via `exec` (zero overhead)
 
 This eliminates the `python3` not-found error on Windows and works identically on all platforms.
+
+### Line endings
+
+`run-python.sh` **must** keep LF line endings — under bash, CRLF produces
+`bad interpreter: /usr/bin/env bash^M`. The repo's `.gitattributes` pins `*.sh` (and all
+text) to `eol=lf`, so every clone gets LF regardless of `core.autocrlf`. Do not re-save the
+launcher with CRLF.
 
 ## Debug Mode
 
