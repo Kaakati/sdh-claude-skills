@@ -6,10 +6,10 @@ Validates component hierarchy rules (atom independence, molecule composition,
 organism boundaries) and naming conventions across Phlex, ReactJS, Next.js,
 and React Native. Outputs warnings only — never blocks.
 """
-import json
 import os
 import re
-import sys
+
+import _hooklib as hooklib
 
 
 # Extensions to check per platform
@@ -20,10 +20,10 @@ ALL_EXTENSIONS = RUBY_EXTENSIONS + JS_EXTENSIONS
 # Atomic levels in hierarchy order
 ATOMIC_LEVELS = ("atoms", "molecules", "organisms", "templates")
 
-# Directories that contain atomic design components
-PHLEX_COMPONENT_PREFIX = "backend/app/components/"
-PHLEX_VIEW_PREFIX = "backend/app/views/"
-FRONTEND_PREFIXES = ("web/src/components/", "next/src/components/", "mobile/src/components/")
+# Canonical (wrapper-agnostic) directories that contain atomic design components
+PHLEX_COMPONENT_DIR = "app/components"
+PHLEX_VIEW_DIR = "app/views"
+FRONTEND_COMPONENT_DIR = "src/components"
 
 # Barrel file names (exempt from same-level import checks)
 BARREL_FILES = ("index.ts", "index.tsx", "index.js", "index.jsx")
@@ -40,20 +40,6 @@ JS_RELATIVE_IMPORT_PATTERN = re.compile(
 )
 
 
-def normalize(path):
-    """Normalize path separators to forward slashes."""
-    return path.replace("\\", "/")
-
-
-def read_file(path):
-    """Read file content safely."""
-    try:
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
-            return f.read()
-    except (OSError, IOError):
-        return ""
-
-
 def get_atomic_level(normalized_path):
     """Determine the atomic level of a file from its path.
 
@@ -62,21 +48,20 @@ def get_atomic_level(normalized_path):
     and platform is 'phlex' or 'frontend' or None.
     """
     # Check Phlex (Ruby) component directories
-    if PHLEX_COMPONENT_PREFIX in normalized_path:
-        after = normalized_path.split(PHLEX_COMPONENT_PREFIX, 1)[1]
+    if hooklib.under(normalized_path, PHLEX_COMPONENT_DIR):
+        after = normalized_path.split(PHLEX_COMPONENT_DIR + "/", 1)[1]
         for level in ATOMIC_LEVELS:
             if after.startswith(level + "/"):
                 return level, "phlex"
         return None, None
 
     # Check frontend component directories (web, next, mobile)
-    for prefix in FRONTEND_PREFIXES:
-        if prefix in normalized_path:
-            after = normalized_path.split(prefix, 1)[1]
-            for level in ATOMIC_LEVELS:
-                if after.startswith(level + "/"):
-                    return level, "frontend"
-            return None, None
+    if hooklib.under(normalized_path, FRONTEND_COMPONENT_DIR):
+        after = normalized_path.split(FRONTEND_COMPONENT_DIR + "/", 1)[1]
+        for level in ATOMIC_LEVELS:
+            if after.startswith(level + "/"):
+                return level, "frontend"
+        return None, None
 
     return None, None
 
@@ -89,9 +74,9 @@ def is_barrel_file(normalized_path):
 
 def get_display_path(normalized_path):
     """Extract a short display path for warning messages."""
-    for prefix in (PHLEX_COMPONENT_PREFIX,) + FRONTEND_PREFIXES:
-        if prefix in normalized_path:
-            return normalized_path.split(prefix, 1)[1]
+    for component_dir in (PHLEX_COMPONENT_DIR, FRONTEND_COMPONENT_DIR):
+        if hooklib.under(normalized_path, component_dir):
+            return normalized_path.split(component_dir + "/", 1)[1]
     return os.path.basename(normalized_path)
 
 
@@ -257,35 +242,30 @@ def check_hierarchy(level, platform, content, ext, display_path):
     return warnings
 
 
-def main():
-    try:
-        data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
-        sys.exit(0)
-
-    file_path = data.get("tool_input", {}).get("file_path", "")
+def check(event):
+    file_path = hooklib.get_file_path(event)
     if not file_path:
-        sys.exit(0)
+        return []
 
     _, ext = os.path.splitext(file_path)
     if ext not in ALL_EXTENSIONS:
-        sys.exit(0)
+        return []
 
-    normalized = normalize(file_path)
+    normalized = hooklib.normalize(file_path)
 
     # Determine atomic level and platform
     level, platform = get_atomic_level(normalized)
     if level is None:
-        sys.exit(0)
+        return []
 
     # Skip barrel files from import hierarchy checks
     barrel = is_barrel_file(normalized)
 
     display_path = get_display_path(normalized)
 
-    content = read_file(file_path)
+    content = hooklib.read_file(file_path)
     if not content:
-        sys.exit(0)
+        return []
 
     warnings = []
 
@@ -298,11 +278,8 @@ def main():
     if naming_warning:
         warnings.append(naming_warning)
 
-    for w in warnings:
-        print(w)
-
-    sys.exit(0)
+    return warnings
 
 
 if __name__ == "__main__":
-    main()
+    hooklib.run_post_checker(check)

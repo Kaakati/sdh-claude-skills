@@ -403,6 +403,108 @@ def test_vague_request_detector():
     )
 
 
+def test_hooklib_primitives():
+    """Unit-test the wrapper-agnostic matching primitives in _hooklib directly."""
+    print("\n[_hooklib primitives]")
+    global PASS, FAIL
+    sys.path.insert(0, HOOKS_DIR)
+    import _hooklib as h
+
+    def check(name, got, want):
+        global PASS, FAIL
+        if got == want:
+            PASS += 1
+            print(f"  PASS: {name}")
+        else:
+            FAIL += 1
+            print(f"  FAIL: {name} — got {got!r} want {want!r}")
+
+    check("under matches standard wrapper", h.under("backend/app/models/u.rb", "app/models"), True)
+    check("under matches non-standard wrapper", h.under("api/app/models/u.rb", "app/models"), True)
+    check("under matches repo root", h.under("app/models/u.rb", "app/models"), True)
+    check("under rejects partial segment", h.under("myapp/models/u.rb", "app/models"), False)
+    check("replace_first_segment preserves wrapper",
+          h.replace_first_segment("api/app/models/u.rb", "app", "spec"), "api/spec/models/u.rb")
+    check("replace_first_segment src->tests",
+          h.replace_first_segment("frontend/src/x.tsx", "src", "tests"), "frontend/tests/x.tsx")
+    check("detect_framework path fallback (rails)", h.detect_framework("zz/app/models/u.rb"), "rails")
+    check("detect_framework path fallback (react-native)", h.detect_framework("zz/src/screens/H.tsx"), "react-native")
+    check("detect_framework path fallback (vite)", h.detect_framework("zz/src/pages/D.tsx"), "vite")
+
+
+def test_wrapper_agnostic():
+    """Conventions must auto-load regardless of the wrapper directory name.
+    The SAME canonical structure under a NON-STANDARD wrapper (api/, server/,
+    frontend/, platform/, ...) must trigger the same checkers as the standard
+    layout. Each fixture is rooted at an isolated temp dir with a .git sentinel
+    so detect_framework's ancestor walk does not leak markers between cases."""
+    print("\n[wrapper-agnostic detection]")
+    import tempfile, os, shutil
+
+    def fixture(files):
+        """Create an isolated project root (.git sentinel) with the given
+        {relpath: content} files. Returns (root, {relpath: abs_forward_path})."""
+        root = tempfile.mkdtemp()
+        os.makedirs(os.path.join(root, ".git"))
+        paths = {}
+        for rel, content in files.items():
+            full = os.path.join(root, rel.replace("/", os.sep))
+            os.makedirs(os.path.dirname(full), exist_ok=True)
+            with open(full, "w", encoding="utf-8") as f:
+                f.write(content)
+            paths[rel] = full.replace("\\", "/")
+        return root, paths
+
+    LOG_RB = 'class XController\n  def show\n    Rails.logger.info "hi"\n  end\nend\n'
+    LONG_MODEL = "class User\n" + "\n".join("  # c%d" % i for i in range(205)) + "\nend\n"
+    IMG = '<img src="/logo.png" width={100} />\n'
+
+    # monitoring-checker: Rails controller under api/ (not backend/)
+    root, p = fixture({"api/app/controllers/x_controller.rb": LOG_RB})
+    assert_output_contains("monitoring warns under api/ wrapper", "monitoring-checker.py",
+                           "Write", {"file_path": p["api/app/controllers/x_controller.rb"]}, "request_id")
+    shutil.rmtree(root, ignore_errors=True)
+
+    # code-quality-checker: 201-line Rails model under server/ (200-line model limit)
+    root, p = fixture({"server/app/models/user.rb": LONG_MODEL})
+    assert_output_contains("code-quality warns on long model under server/", "code-quality-checker.py",
+                           "Write", {"file_path": p["server/app/models/user.rb"]}, "200-line")
+    shutil.rmtree(root, ignore_errors=True)
+
+    # api-design-checker: verb-in-path controller under api/
+    root, p = fixture({"api/app/controllers/users_controller.rb": "get '/api/getUsers', to: 'users#index'\n"})
+    assert_output_contains("api-design warns under api/ wrapper", "api-design-checker.py",
+                           "Write", {"file_path": p["api/app/controllers/users_controller.rb"]}, "verb")
+    shutil.rmtree(root, ignore_errors=True)
+
+    # accessibility-checker: Vite web (vite.config marker) under frontend/ IS checked
+    root, p = fixture({"frontend/vite.config.ts": "export default {}\n",
+                       "frontend/src/components/Hero.tsx": IMG})
+    assert_output_contains("accessibility warns for Vite under frontend/", "accessibility-checker.py",
+                           "Write", {"file_path": p["frontend/src/components/Hero.tsx"]}, "alt text")
+    shutil.rmtree(root, ignore_errors=True)
+
+    # accessibility-checker: React Native (react-native + metro markers) IS skipped
+    root, p = fixture({"client/package.json": '{"dependencies":{"react-native":"0.74.0"}}',
+                       "client/metro.config.js": "module.exports = {}\n",
+                       "client/src/components/Hero.tsx": IMG})
+    assert_silent("accessibility skips React Native (marker-detected)", "accessibility-checker.py",
+                  "Write", {"file_path": p["client/src/components/Hero.tsx"]})
+    shutil.rmtree(root, ignore_errors=True)
+
+    # test-coverage-checker: source under platform/ wrapper warns when no test exists
+    root, p = fixture({"platform/src/utils/helpers.ts": "export const f = () => 1;\n"})
+    assert_output_contains("test-coverage warns under platform/ wrapper", "test-coverage-checker.py",
+                           "Write", {"file_path": p["platform/src/utils/helpers.ts"]}, "No test file")
+    shutil.rmtree(root, ignore_errors=True)
+
+    # negative: a model (not controller/job) stays silent for monitoring under any wrapper
+    root, p = fixture({"api/app/models/user.rb": 'Rails.logger.info "x"\n'})
+    assert_silent("monitoring silent for non-controller under api/", "monitoring-checker.py",
+                  "Write", {"file_path": p["api/app/models/user.rb"]})
+    shutil.rmtree(root, ignore_errors=True)
+
+
 def main():
     print("=" * 60)
     print("Hook Test Harness")
@@ -414,6 +516,8 @@ def main():
     test_pre_commit_check()
     test_accessibility_checker()
     test_api_design_checker()
+    test_hooklib_primitives()
+    test_wrapper_agnostic()
     test_vague_request_detector()
 
     print("\n" + "=" * 60)

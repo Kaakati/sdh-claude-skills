@@ -1,9 +1,12 @@
 ---
+# Wrapper-agnostic: matches Rails layout under any root (backend/, api/, or repo root).
 paths:
-  - "backend/app/**/*.rb"
-  - "backend/lib/**/*.rb"
-  - "backend/config/**/*.rb"
-  - "backend/db/**/*.rb"
+  - "**/app/**/*.rb"
+  - "**/lib/**/*.rb"
+  - "**/config/**/*.rb"
+  - "**/db/**/*.rb"
+  - "**/Gemfile"
+  - "**/*.gemspec"
 ---
 
 # Ruby on Rails Conventions

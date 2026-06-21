@@ -1,50 +1,32 @@
 #!/usr/bin/env python3
-"""
-PreToolUse hook: Validates database migration files before they are written.
+"""PreToolUse hook: Validates database migration files before they are written.
 
 Checks:
 1. Migration files must have reversible/down methods
 2. No raw SQL string concatenation
 3. Warns about irreversible operations without expand/contract pattern
 
-Exit codes:
-  0 = allow (pass or not a migration file)
-  2 = block (dangerous migration pattern detected)
-"""
-import json
-import sys
+Emits an 'ask' (confirmation) decision when warnings are found. Fails open: a
+bug here must not block unrelated writes, so it uses the default run policy."""
+
 import re
 
-def main():
-    try:
-        data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
-        sys.exit(0)
+import _hooklib as hooklib
 
-    tool_name = data.get("tool_name", "")
-    tool_input = data.get("tool_input", {})
+MIGRATION_PATH_PATTERNS = ["/migrations/", "/backend/db/migrate/", "/migrate/"]
 
-    # Only check Write tool for migration files
-    if tool_name not in ("Write", "Edit"):
-        sys.exit(0)
 
-    file_path = tool_input.get("file_path", "")
-    normalized_path = file_path.replace("\\", "/")
+def check(event):
+    if hooklib.tool_name(event) not in ("Write", "Edit"):
+        return
 
-    # Check if this is a migration file
-    is_migration = any(pattern in normalized_path for pattern in [
-        "/migrations/",
-        "/backend/db/migrate/",
-        "/migrate/",
-    ])
+    file_path = hooklib.get_file_path(event)
+    normalized_path = hooklib.normalize(file_path)
 
-    if not is_migration:
-        sys.exit(0)
+    if not any(pattern in normalized_path for pattern in MIGRATION_PATH_PATTERNS):
+        return
 
-    content = tool_input.get("content", "")
-    if not content and tool_name == "Edit":
-        content = tool_input.get("new_string", "")
-
+    content = hooklib.get_content(event)
     warnings = []
 
     # Check 1: Ruby migration must have reversible pattern or down method
@@ -54,11 +36,9 @@ def main():
         has_change = bool(re.search(r'\bdef\s+change\b', content))
         has_up = bool(re.search(r'\bdef\s+up\b', content))
 
-        # If using up/down pattern, down must exist
         if has_up and not has_down:
             warnings.append("Migration has 'up' method but no 'down' method. Add a 'down' method for rollback safety.")
 
-        # Check for irreversible operations in change method (no auto-rollback)
         if has_change and not has_reversible:
             irreversible_ops = []
             if re.search(r'\bremove_column\b', content):
@@ -102,17 +82,11 @@ def main():
         )
 
     if warnings:
-        output = {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "ask",
-                "permissionDecisionReason": "Migration validation warnings:\n" + "\n".join(f"- {w}" for w in warnings)
-            }
-        }
-        print(json.dumps(output))
-        sys.exit(0)
+        hooklib.ask(
+            "Migration validation warnings:\n"
+            + "\n".join(f"- {w}" for w in warnings)
+        )
 
-    sys.exit(0)
 
 if __name__ == "__main__":
-    main()
+    hooklib.run_pre_blocker(check, fail_closed=False, gate_label="migration-validator")

@@ -1,9 +1,12 @@
 ---
+# Wrapper-agnostic: any browser/native React UI file, regardless of wrapper dir.
 paths:
-  - "web/**"
-  - "next/**"
-  - "frontend/**"
-  - "mobile/**"
+  - "**/src/**/*.tsx"
+  - "**/src/**/*.jsx"
+  - "**/app/**/*.tsx"
+  - "**/app/**/*.jsx"
+  - "**/components/**/*.tsx"
+  - "**/components/**/*.jsx"
 ---
 
 # Accessibility Standards (WCAG 2.2 AA)

@@ -7,10 +7,10 @@ values. Checks for hardcoded hex/rgb colors, arbitrary pixel spacing, Tailwind
 arbitrary values, missing focus-visible states, and missing prefers-reduced-motion.
 Outputs warnings only -- never blocks (exit 0).
 """
-import json
 import os
 import re
-import sys
+
+import _hooklib as hooklib
 
 
 # File extensions to check
@@ -18,23 +18,16 @@ STYLE_EXTENSIONS = (".css", ".scss")
 COMPONENT_EXTENSIONS = (".tsx", ".jsx", ".rb")
 ALL_EXTENSIONS = STYLE_EXTENSIONS + COMPONENT_EXTENSIONS
 
-# Directory prefixes where design token rules apply
+# Canonical framework-internal dirs where design token rules apply (wrapper-agnostic)
 COMPONENT_DIRS = (
-    "web/src/components/",
-    "web/src/styles/",
-    "next/src/components/",
-    "next/app/",
-    "mobile/src/theme/",
-    "mobile/src/components/",
-    "backend/app/components/",
-    "backend/app/views/",
+    "src/components",
+    "src/theme",
+    "app/components",
+    "app/views",
 )
 
 STYLE_DIRS = (
-    "web/src/styles/",
-    "next/src/styles/",
-    "web/src/",
-    "next/src/",
+    "src/styles",
 )
 
 # Patterns to detect hardcoded values
@@ -85,38 +78,44 @@ REDUCED_MOTION_PATTERN = re.compile(
 )
 
 
-def normalize(path):
-    """Normalize path separators to forward slashes."""
-    return path.replace("\\", "/")
+def is_component_scope(path, ext):
+    """Check if the file is in a component-style directory (wrapper-agnostic)."""
+    return hooklib.under_any(path, COMPONENT_DIRS) or (
+        ext in (".tsx", ".jsx") and hooklib.under(path, "app")
+    )
 
 
-def is_in_scope(normalized_path):
+def is_style_scope(path):
+    """Check if the file is in a style directory (wrapper-agnostic)."""
+    return hooklib.under_any(path, STYLE_DIRS) or hooklib.under(path, "src")
+
+
+def is_in_scope(path, ext):
     """Check if the file is in a directory where design token rules apply."""
-    for prefix in COMPONENT_DIRS + STYLE_DIRS:
-        if prefix in normalized_path:
-            return True
+    if is_component_scope(path, ext) or is_style_scope(path):
+        return True
     # Also check tailwind config and globals.css anywhere
-    basename = os.path.basename(normalized_path)
+    basename = os.path.basename(path)
     if basename in ("tailwind.config.ts", "tailwind.config.js", "globals.css"):
         return True
     return False
 
 
-def read_file(path):
-    """Read file content safely."""
-    try:
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
-            return f.read()
-    except (OSError, IOError):
-        return ""
-
-
-def get_display_path(normalized_path):
+def get_display_path(path):
     """Extract a short display path for warning messages."""
-    for prefix in COMPONENT_DIRS + STYLE_DIRS:
-        if prefix in normalized_path:
-            return normalized_path.split(prefix, 1)[1]
-    return os.path.basename(normalized_path)
+    for sub in COMPONENT_DIRS + STYLE_DIRS:
+        if hooklib.under(path, sub):
+            marker = sub + "/"
+            idx = path.find(marker)
+            if idx != -1:
+                return path[idx + len(marker):]
+    for sub in ("app", "src"):
+        if hooklib.under(path, sub):
+            marker = sub + "/"
+            idx = path.find(marker)
+            if idx != -1:
+                return path[idx + len(marker):]
+    return os.path.basename(path)
 
 
 def check_hardcoded_colors(content, ext, display_path):
@@ -221,32 +220,26 @@ def check_reduced_motion(content, ext, display_path):
     return warnings
 
 
-def main():
-    try:
-        data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
-        sys.exit(0)
+def check(event):
+    if hooklib.tool_name(event) not in ("Edit", "Write"):
+        return []
 
-    tool_name = data.get("tool_name", "")
-    if tool_name not in ("Edit", "Write"):
-        sys.exit(0)
-
-    file_path = data.get("tool_input", {}).get("file_path", "")
+    file_path = hooklib.get_file_path(event)
     if not file_path:
-        sys.exit(0)
+        return []
 
     _, ext = os.path.splitext(file_path)
     if ext not in ALL_EXTENSIONS:
-        sys.exit(0)
+        return []
 
-    normalized = normalize(file_path)
+    normalized = hooklib.normalize(file_path)
 
-    if not is_in_scope(normalized):
-        sys.exit(0)
+    if not is_in_scope(normalized, ext):
+        return []
 
-    content = read_file(file_path)
+    content = hooklib.read_file(file_path)
     if not content:
-        sys.exit(0)
+        return []
 
     display_path = get_display_path(normalized)
 
@@ -257,12 +250,8 @@ def main():
     warnings.extend(check_focus_visible(content, ext, display_path))
     warnings.extend(check_reduced_motion(content, ext, display_path))
 
-    for w in warnings:
-        print(w)
-
-    # Warning-only: always exit 0
-    sys.exit(0)
+    return warnings
 
 
 if __name__ == "__main__":
-    main()
+    hooklib.run_post_checker(check)

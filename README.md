@@ -18,57 +18,65 @@ Instead of relying on ad-hoc prompting, this system provides:
 
 ## Project Directory Convention
 
-**This is critical.** Rules, hooks, and skills use path-scoped globs to auto-load the correct conventions for each framework. Your project directories **must** follow these naming conventions for the system to work correctly:
+The system **auto-detects each framework** — your wrapper directory can be named
+anything (`backend/`, `api/`, `server/`, `web/`, `frontend/`, `next/`, `mobile/`, or even
+the repository root). Conventions load from each framework's own layout and marker files,
+**not** from a forced top-level folder name.
 
-### Required Directory Names
+### How Detection Works
 
-| Framework | Required Directory | Contents | Example |
-|-----------|-------------------|----------|---------|
-| **Rails API** | `backend/` | `app/` (models, controllers, services, components, views), `lib/`, `config/`, `db/`, `spec/` | `backend/app/models/user.rb` |
-| **React Native** | `mobile/` | `src/` (screens, hooks, stores, components) | `mobile/src/screens/HomeScreen.tsx` |
-| **ReactJS (Vite SPA)** | `web/` | `src/` (pages, hooks, components, api) | `web/src/pages/Dashboard.tsx` |
-| **Next.js (App Router)** | `next/` | `app/`, `src/` (components, hooks, actions) | `next/app/page.tsx` |
+Detection uses two wrapper-agnostic signals:
 
-### Why This Matters
+1. **Canonical internal structure** — each framework's own conventional sub-paths, matched
+   anywhere in the tree. `app/models/*.rb` is Rails whether it lives in `backend/app/models/`,
+   `api/app/models/`, or `app/models/`. `src/pages/` is a Vite SPA; `src/screens/` is React
+   Native — regardless of the wrapper.
+2. **On-disk project markers** — when structure alone is ambiguous (e.g. a `src/components/*.tsx`
+   that could be web or mobile), the hooks walk up the tree to the nearest marker file:
 
-Rules are auto-loaded by file path. If you put your Rails code in `api/` instead of `backend/`, the Rails rules will **not** activate. Similarly, if you put React Native code in `src/` instead of `mobile/`, the React Native rules will not trigger.
+   | Framework | Marker files |
+   |-----------|-------------|
+   | **Rails** | `Gemfile`, `config/application.rb`, `bin/rails` |
+   | **Next.js** | `next.config.{js,ts,mjs,cjs}`, `"next"` in `package.json` |
+   | **ReactJS (Vite)** | `vite.config.{js,ts}`, `index.html` |
+   | **React Native** | `metro.config.js`, `app.json`, `"react-native"` in `package.json` |
 
-### Path Glob Mapping
+So putting your Rails code in `api/` instead of `backend/` works fine — the Rails rules and
+hooks still activate.
 
-Here is exactly which rules activate for which paths:
+### What Rules Auto-Load (wrapper-agnostic globs)
 
 ```
-File you edit                              Rules that auto-load
-──────────────────────────────────────     ──────────────────────────────────────
-backend/app/**/*.rb                      → rails-conventions, clean-architecture
-backend/app/components/**/*.rb           → phlex-conventions
-backend/app/views/**/*.rb                → phlex-conventions
-backend/config/**/*.rb                   → rails-conventions
-mobile/src/**/*.tsx                      → react-native, clean-architecture
-web/**                                   → reactjs, accessibility, clean-architecture
-web/src/i18n/**                          → i18n
-next/**                                  → nextjs, accessibility, clean-architecture
-next/src/i18n/**                         → i18n
-backend/config/locales/**                → i18n
-**/migrations/**                         → database
-terraform/**                             → infrastructure, terraform-conventions, monitoring
-**/*.test.*, **/*.spec.*                 → testing
+File you edit (under any wrapper)          Rules that auto-load
+--------------------------------------     --------------------------------------
+**/app/**/*.rb                           -> rails-conventions, clean-architecture
+**/app/components/**/*.rb                 -> phlex-conventions
+**/app/views/**/*.rb                      -> phlex-conventions, i18n
+**/src/pages/**/*.tsx                     -> reactjs, accessibility
+**/src/screens/**/*.tsx                   -> react-native
+**/app/**/*.tsx + **/next.config.*        -> nextjs, accessibility
+**/i18n/**, **/config/locales/**          -> i18n
+**/migrations/**, **/migrate/**           -> database
+**/*.tf, **/*.tfvars                      -> terraform-conventions, infrastructure, monitoring
+**/*.test.*, **/*.spec.*                  -> testing
 ```
 
-### PostToolUse Hook Path Awareness
+### Hook Domain-Aware Limits (wrapper-agnostic)
 
-The PostToolUse prompt hooks also use these paths for domain-aware limits:
+The PostToolUse checkers apply a 200-line limit to models and UI components (300 elsewhere),
+matched by canonical structure under any wrapper:
 
-| Path Pattern | File Limit | Rationale |
-|--------------|-----------|-----------|
-| `backend/app/models/**` | 200 lines | Rails models per rails-conventions.md |
-| `mobile/src/screens/**`, `mobile/src/components/**` | 200 lines | React Native components |
-| `web/src/components/**`, `web/src/pages/**` | 200 lines | Vite SPA components per reactjs.md |
-| `next/src/components/**`, `next/app/**` | 200 lines | Next.js components per nextjs.md |
-| `backend/app/components/**`, `backend/app/views/**` | 200 lines | Phlex components per phlex-conventions.md |
+| Canonical path (any wrapper) | File Limit | Rationale |
+|------------------------------|-----------|-----------|
+| `**/app/models/**/*.rb` | 200 lines | Rails models |
+| `**/src/screens/**`, `**/src/pages/**`, `**/src/components/**` | 200 lines | Frontend components |
+| `**/app/components/**/*.rb`, `**/app/views/**/*.rb` | 200 lines | Phlex components |
+| `**/app/**/*.tsx` (Next.js app router) | 200 lines | Next.js components |
 | All other source files | 300 lines | General limit per code-standards.md |
 
 ### Recommended Monorepo Structure
+
+The structure below is the **recommended** convention, not a requirement — detection works under any wrapper name. It is shown so teams have a sensible default.
 
 ```
 your-project/

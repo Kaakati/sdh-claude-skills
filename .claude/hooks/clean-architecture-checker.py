@@ -5,30 +5,18 @@ PostToolUse hook: Clean Architecture layer boundary checker.
 Checks source files for layer boundary violations per clean-architecture.md.
 Exits silently for non-source files.
 """
-import json
 import os
 import re
-import sys
+
+import _hooklib as hooklib
 
 
 SOURCE_EXTENSIONS = (".rb", ".py", ".ts", ".tsx", ".js", ".jsx")
 
 
-def normalize(path):
-    return path.replace("\\", "/")
-
-
-def read_file(path):
-    try:
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
-            return f.read()
-    except (OSError, IOError):
-        return ""
-
-
-def check_rails_model_imports(content, normalized):
+def check_rails_model_imports(content, file_path):
     """Models should not import from controllers or serializers."""
-    if "backend/app/models/" not in normalized:
+    if not hooklib.under(file_path, "app/models"):
         return []
     warnings = []
     if re.search(r"require.*controllers/", content) or re.search(
@@ -41,9 +29,9 @@ def check_rails_model_imports(content, normalized):
     return warnings
 
 
-def check_service_http_concepts(content, normalized):
+def check_service_http_concepts(content, file_path):
     """Services should not return HTTP status codes or use render."""
-    if "backend/app/services/" not in normalized:
+    if not hooklib.under(file_path, "app/services"):
         return []
     warnings = []
     if re.search(r"\bstatus:\s*:\w+", content) or re.search(
@@ -56,10 +44,9 @@ def check_service_http_concepts(content, normalized):
     return warnings
 
 
-def check_domain_framework_imports(content, normalized):
+def check_domain_framework_imports(content, file_path):
     """Domain types should not import framework modules."""
-    domain_prefixes = ("mobile/src/domain/", "web/src/domain/", "next/src/domain/")
-    if not any(p in normalized for p in domain_prefixes):
+    if not hooklib.under(file_path, "src/domain"):
         return []
     warnings = []
     framework_imports = re.compile(
@@ -73,10 +60,12 @@ def check_domain_framework_imports(content, normalized):
     return warnings
 
 
-def check_screen_direct_api_import(content, normalized):
+def check_screen_direct_api_import(content, file_path, ext):
     """Screens/pages should not import API clients directly."""
-    screen_prefixes = ("mobile/src/screens/", "web/src/pages/", "next/app/")
-    if not any(p in normalized for p in screen_prefixes):
+    is_screen = hooklib.under_any(file_path, ("src/screens", "src/pages")) or (
+        ext in (".tsx", ".jsx") and hooklib.under(file_path, "app")
+    )
+    if not is_screen:
         return []
     warnings = []
     # Check for direct axios/fetch/api client imports (not hooks)
@@ -91,36 +80,27 @@ def check_screen_direct_api_import(content, normalized):
     return warnings
 
 
-def main():
-    try:
-        data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
-        sys.exit(0)
-
-    file_path = data.get("tool_input", {}).get("file_path", "")
+def check(event):
+    file_path = hooklib.get_file_path(event)
     if not file_path:
-        sys.exit(0)
+        return []
 
     _, ext = os.path.splitext(file_path)
     if ext not in SOURCE_EXTENSIONS:
-        sys.exit(0)
+        return []
 
-    content = read_file(file_path)
+    content = hooklib.read_file(file_path)
     if not content:
-        sys.exit(0)
+        return []
 
-    normalized = normalize(file_path)
     warnings = []
-    warnings.extend(check_rails_model_imports(content, normalized))
-    warnings.extend(check_service_http_concepts(content, normalized))
-    warnings.extend(check_domain_framework_imports(content, normalized))
-    warnings.extend(check_screen_direct_api_import(content, normalized))
+    warnings.extend(check_rails_model_imports(content, file_path))
+    warnings.extend(check_service_http_concepts(content, file_path))
+    warnings.extend(check_domain_framework_imports(content, file_path))
+    warnings.extend(check_screen_direct_api_import(content, file_path, ext))
 
-    for w in warnings:
-        print(w)
-
-    sys.exit(0)
+    return warnings
 
 
 if __name__ == "__main__":
-    main()
+    hooklib.run_post_checker(check)
