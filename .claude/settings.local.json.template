@@ -1,0 +1,34 @@
+{
+  "//": "Copy to .claude/settings.local.json (gitignored) and customize. These are PERSONAL, per-developer overrides for working in a monorepo / large codebase. See docs/monorepo-setup.md. Project settings load only from the directory you start Claude in; arrays here MERGE with the committed .claude/settings.json.",
+
+  "//claudeMdExcludes": "Skip CLAUDE.md + rules under packages you never touch. Glob is matched against absolute paths, so lead relative patterns with **/.",
+  "claudeMdExcludes": [
+    "**/legacy/**",
+    "**/packages/admin-*/**"
+  ],
+
+  "permissions": {
+    "//additionalDirectories": "When started inside one package, grant read/write to siblings a task needs (paths relative to your start dir). Or pass --add-dir at launch.",
+    "additionalDirectories": [
+      "../shared"
+    ],
+
+    "//deny": "Extra Read denies for checked-in generated/vendored code specific to your machine (build artifacts are already denied in the committed settings.json).",
+    "deny": [
+      "Read(**/storybook-static/**)"
+    ]
+  },
+
+  "worktree": {
+    "//sparsePaths": "When Claude/agent-teams create a worktree, check out only these dirs (+ root files). Name YOUR actual package dirs — detection is wrapper-agnostic, so these are whatever your repo calls them. Always include .claude so rules/skills/hooks are present in the worktree.",
+    "sparsePaths": [
+      ".claude",
+      "backend",
+      "shared"
+    ],
+    "//symlinkDirectories": "Symlink heavy deps back to the main checkout instead of duplicating them per worktree (node_modules + vendor/bundle are already set in committed settings.json).",
+    "symlinkDirectories": [
+      "node_modules"
+    ]
+  }
+}

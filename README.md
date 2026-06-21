@@ -142,6 +142,19 @@ your-project/
 └── docker-compose.yml                # Local development
 ```
 
+### Monorepo & large codebases
+
+For scaling this config across a monorepo or large single-tree codebase — where to
+start Claude, layering per-package `CLAUDE.md` files, excluding packages you don't
+touch, blocking reads of generated/vendored code, code-intelligence plugins,
+cross-package access, and worktree sparse-checkout for agent teams — see
+**[docs/monorepo-setup.md](docs/monorepo-setup.md)**. Per-package `CLAUDE.md`
+starter templates live in [`docs/templates/`](docs/templates/), and per-developer
+overrides in [`.claude/settings.local.json.template`](.claude/settings.local.json.template).
+The committed `.claude/settings.json` already denies reads of build artifacts
+(`dist/`, `build/`, `.next/`, `coverage/`, `*.min.*`, `vendor/`, Rails compiled
+assets) and symlinks `node_modules`/`vendor/bundle` into worktrees.
+
 ## Technology Stack
 
 | Layer | Technology | Role |

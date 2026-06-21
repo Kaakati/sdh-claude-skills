@@ -2,6 +2,12 @@
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
+  "worktree": {
+    "symlinkDirectories": [
+      "node_modules",
+      "vendor/bundle"
+    ]
+  },
   "permissions": {
     "deny": [
       "Read(**/.env)",
@@ -11,6 +17,17 @@
       "Read(**/*secret*)",
       "Read(**/master.key)",
       "Read(**/credentials.yml.enc)",
+      "Read(**/dist/**)",
+      "Read(**/build/**)",
+      "Read(**/.next/**)",
+      "Read(**/coverage/**)",
+      "Read(**/*.generated.*)",
+      "Read(**/*.min.js)",
+      "Read(**/*.min.css)",
+      "Read(**/vendor/**)",
+      "Read(**/public/assets/**)",
+      "Read(**/public/packs/**)",
+      "Read(**/tmp/cache/**)",
       "Bash(sudo:*)",
       "Bash(rm -rf /)*",
       "Bash(rm -rf /*)",
