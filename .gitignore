@@ -2,7 +2,8 @@
 CLAUDE.local.md
 .claude/settings.local.json
 .claude/audit/
-.claude/hooks/__pycache__/
+hooks/__pycache__/
+hooks/tests/__pycache__/
 
 # Environment files
 .env

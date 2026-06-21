@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "sdh-claude-skills",
+  "owner": {
+    "name": "Mohamad Kaakati",
+    "url": "https://github.com/Kaakati"
+  },
+  "metadata": {
+    "description": "SDH enterprise development standards as a Claude Code plugin.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "sdh",
+      "source": "./",
+      "description": "Enterprise SDLC standards: Rails + Phlex, React Native, ReactJS (Vite), Next.js, Terraform — skills, agents, and quality-gate hooks with wrapper-agnostic framework detection."
+    }
+  ]
+}

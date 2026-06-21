@@ -2,6 +2,13 @@
 
 This repository follows enterprise-grade development standards for a professional software development house. All contributors and AI agents must adhere to these guidelines.
 
+> **This repository is packaged as the `sdh` Claude Code plugin.** Components live at the
+> plugin root: `skills/` (37 workflow skills + 20 `std-*` convention skills), `agents/`,
+> `hooks/` (with `hooks/hooks.json`), and the manifest at `.claude-plugin/plugin.json`. The
+> former `.claude/rules/*.md` are now `std-*` skills (path-scoped, auto-load by file path).
+> See `README.md` for install. A plugin's `CLAUDE.md` is **not** loaded as context for
+> consumers — the always-on standards ship as the `sdh-engineering-standards` skill.
+
 ## Project Identity
 
 We are a Software Development House building production systems for clients. Quality, maintainability, and security are non-negotiable. Every line of code represents our professional standard.
@@ -104,7 +111,7 @@ We are a Software Development House building production systems for clients. Qua
 
 ## Rule Reference
 
-Detailed domain-specific rules are maintained in `.claude/rules/`:
+Detailed domain-specific conventions ship as path-scoped `std-*` skills under `skills/` (auto-load by file path, wrapper-directory agnostic):
 
 - `code-standards.md` — Naming, SOLID, function/file limits, error handling, logging
 - `security.md` — OWASP, auth, input validation, secret management

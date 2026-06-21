@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "sdh",
+  "displayName": "SDH Enterprise Standards",
+  "version": "1.0.0",
+  "description": "Enterprise SDLC standards for a Software Development House: Rails + Phlex backend, React Native, ReactJS (Vite), Next.js, Terraform. Ships 57 skills (37 workflow + 20 path-scoped convention skills), 12 specialized agents, and quality-gate hooks with wrapper-agnostic framework detection.",
+  "author": {
+    "name": "Mohamad Kaakati"
+  },
+  "homepage": "https://github.com/Kaakati/sdh-claude-skills",
+  "repository": "https://github.com/Kaakati/sdh-claude-skills",
+  "keywords": [
+    "rails",
+    "phlex",
+    "react-native",
+    "nextjs",
+    "vite",
+    "terraform",
+    "enterprise",
+    "sdlc",
+    "standards",
+    "code-review"
+  ]
+}

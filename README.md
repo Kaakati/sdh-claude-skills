@@ -1,20 +1,41 @@
 # SDH Claude Skills
 
-**Enterprise-grade Claude Code configuration for a professional Software Development House.**
+**Enterprise-grade Claude Code plugin for a professional Software Development House.**
 
-A complete, audited system of rules, agents, skills, and hooks that transforms Claude Code into a full SDLC partner — from requirements gathering through production incident response.
+A complete, audited system of skills, agents, and hooks that transforms Claude Code into a full SDLC partner — from requirements gathering through production incident response.
 
 ## What This Is
 
-This repository contains a production-ready `.claude/` configuration that enforces enterprise development standards across the entire software development lifecycle. It is designed for teams building **Rails API (Phlex views) + React Native mobile + ReactJS Vite SPA + Next.js App Router** applications deployed on **AWS** and **Vercel**.
+This repository is a **Claude Code plugin** (`sdh`) that enforces enterprise development standards across the entire software development lifecycle. It is designed for teams building **Rails API (Phlex views) + React Native mobile + ReactJS Vite SPA + Next.js App Router** applications deployed on **AWS** and **Vercel**.
 
-Instead of relying on ad-hoc prompting, this system provides:
+Instead of relying on ad-hoc prompting, this plugin provides:
 
-- **20 rules** that are automatically loaded based on file paths being edited
+- **57 skills** — 37 workflow skills (`/sdh:code-reviewer`, `/sdh:rails-architect`, …) plus **20 `std-*` convention skills** that auto-load by file path (e.g. `std-rails-conventions`, `std-accessibility`)
 - **12 specialized agents** (4 with team lead protocols) that handle complex tasks with constrained tool access
 - **6 pre-defined agent team templates** for coordinated multi-agent work
-- **37 slash-command skills** that provide repeatable, templated workflows
-- **15 hook scripts + 8 prompt hooks** that enforce quality gates on every action
+- **Quality-gate hooks** (PreToolUse blockers + a single PostToolUse dispatcher) with **wrapper-agnostic framework detection**
+- A core **`sdh-engineering-standards`** skill carrying the stack + library conventions
+
+## Install
+
+```bash
+# Add this repo as a marketplace, then install the plugin
+/plugin marketplace add Kaakati/sdh-claude-skills
+/plugin install sdh@sdh-claude-skills
+
+# Or test locally without installing
+claude --plugin-dir /path/to/sdh-claude-skills
+```
+
+Skills are namespaced under the plugin: `/sdh:code-reviewer`, `/sdh:rails-architect`, etc.
+Run `/plugin` to manage it, and `claude plugin validate .` to validate changes.
+
+### What a plugin can't ship — add these to your project `.claude/settings.json`
+
+A plugin cannot ship `permissions`, `env`, or `worktree` settings. Copy them from this
+repo's [`.claude/settings.json`](.claude/settings.json) into your own project settings to get
+the secret/build-artifact `Read` denies, the agent-teams env flag, and worktree symlinks.
+See [`docs/monorepo-setup.md`](docs/monorepo-setup.md).
 
 ## Project Directory Convention
 
