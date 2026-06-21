@@ -298,7 +298,21 @@ Claude will automatically suggest creating a team when:
 - **Quality gates**: `TeammateIdle` and `TaskCompleted` hooks enforce deliverable quality automatically
 - See `.claude/rules/agent-teams.md` for full coordination conventions
 
+## Monorepo & Large Codebases
+
+This config scales to monorepos and large single-tree codebases. It uses the
+centralized model — path-scoped rules in `.claude/rules/` that auto-load by file
+path, with **wrapper-directory-agnostic** framework detection (your package dirs
+can be named anything). See `docs/monorepo-setup.md` for the full setup:
+
+- **Per-package `CLAUDE.md`** starter templates in `docs/templates/` (backend, mobile, web, next, shared) — copy into each package dir so its conventions layer on the root `CLAUDE.md`.
+- **`.claude/settings.local.json.template`** — per-developer overrides: `claudeMdExcludes` (skip packages you don't touch), `additionalDirectories` (cross-package access), `worktree.sparsePaths` (scope worktree checkouts).
+- **Build-artifact read denies** and **worktree symlinks** are pre-set in `.claude/settings.json` (`dist/`, `build/`, `.next/`, `coverage/`, `*.min.*`, `vendor/`, Rails assets; `node_modules`/`vendor/bundle` symlinked into worktrees).
+- **Code intelligence** — install language-server plugins (`typescript-lsp`, Ruby LSP) to cut file reads.
+- The **SessionStart hook** reports which framework area you launched in and which rules apply.
+
 ## Enterprise Governance
 
 - `managed-settings.template.json` — IT deployment template for non-overridable org policies
 - `CLAUDE.local.md.template` — Developer personal override template (copy to CLAUDE.local.md)
+- `.claude/settings.local.json.template` — Per-developer monorepo overrides (copy to `.claude/settings.local.json`)
