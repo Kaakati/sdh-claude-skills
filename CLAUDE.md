@@ -207,9 +207,9 @@ Active hooks in `.claude/settings.json` enforce quality at every lifecycle point
 - **Test coverage checker** — Enforces testing.md (warns when source files lack corresponding test files)
 - **Clean architecture checker** — Enforces clean-architecture.md (layer boundary violations, dependency direction)
 - **i18n checker** — Enforces i18n.md (hardcoded user-facing strings in .tsx/.jsx/.erb files)
-- **Accessibility agent hook** — Enforces accessibility.md (semantic HTML, alt text, label associations, focus indicators, ARIA misuse) — Haiku agent with Read/Grep/Glob tools, scoped to .tsx/.jsx under web/next/frontend
-- **API design agent hook** — Enforces api-design.md (URL nouns, data wrapper, error format, HTTP status codes) — Haiku agent with Read/Grep/Glob tools, scoped to controllers and API routes
-- **Monitoring prompt** — Enforces monitoring.md (request_id in logs, sensitive data logging) — scoped to .rb under backend/app/controllers and backend/app/jobs
+- **Accessibility agent hook** — Enforces accessibility.md (semantic HTML, alt text, label associations, focus indicators, ARIA misuse) — Haiku agent with Read/Grep/Glob tools, scoped to browser-React .tsx/.jsx (Vite/Next, detected by marker; React Native is skipped) under any wrapper dir
+- **API design agent hook** — Enforces api-design.md (URL nouns, data wrapper, error format, HTTP status codes) — Haiku agent with Read/Grep/Glob tools, scoped to `app/controllers` (.rb), `src/api`, and `src/actions` under any wrapper dir
+- **Monitoring prompt** — Enforces monitoring.md (request_id in logs, sensitive data logging) — scoped to .rb under `app/controllers` and `app/jobs` under any wrapper dir
 - `atomic-design-checker.py` — Validates Atomic Design hierarchy (atom independence, molecule composition, organism boundaries, naming) across Phlex, ReactJS, Next.js, React Native
 - `terraform-checker.py` — Validates Terraform .tf files (hardcoded secrets, snake_case naming, required tags, backend config, provider versions)
 - `design-token-checker.py` — Validates design token usage (hardcoded colors, arbitrary spacing, missing focus-visible, missing prefers-reduced-motion) in component/style files

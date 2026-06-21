@@ -1,10 +1,11 @@
 ---
 paths:
-  - "backend/app/**"
-  - "mobile/src/**"
-  - "backend/lib/**"
-  - "web/**"
-  - "next/**"
+  - "**/app/**/*.rb"
+  - "**/lib/**/*.rb"
+  - "**/src/**/*.ts"
+  - "**/src/**/*.tsx"
+  - "**/app/**/*.ts"
+  - "**/app/**/*.tsx"
 ---
 
 # Clean Architecture

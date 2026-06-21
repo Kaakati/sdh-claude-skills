@@ -1,11 +1,13 @@
 ---
 paths:
-  - "terraform/**"
-  - "infra/**"
-  - "docker-compose*.yml"
-  - "Dockerfile*"
-  - ".github/workflows/**"
-  - "deploy/**"
+  - "**/*.tf"
+  - "**/*.tfvars"
+  - "**/terraform/**"
+  - "**/infra/**"
+  - "**/docker-compose*.yml"
+  - "**/Dockerfile*"
+  - "**/.github/workflows/**"
+  - "**/deploy/**"
 ---
 
 # Infrastructure Conventions

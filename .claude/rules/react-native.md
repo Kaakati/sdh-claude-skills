@@ -1,11 +1,12 @@
 ---
+# Wrapper-agnostic: React Native detected by config markers + distinctive dirs.
 paths:
-  - "mobile/src/**/*.tsx"
-  - "mobile/src/**/*.ts"
-  - "mobile/app/**/*.tsx"
-  - "mobile/app/**/*.ts"
-  - "mobile/**/*.tsx"
-  - "mobile/**/*.ts"
+  - "**/metro.config.*"
+  - "**/app.json"
+  - "**/src/screens/**/*.ts"
+  - "**/src/screens/**/*.tsx"
+  - "**/src/navigation/**/*.ts"
+  - "**/src/navigation/**/*.tsx"
 ---
 
 # React Native Conventions

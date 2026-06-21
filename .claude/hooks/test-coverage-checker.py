@@ -2,47 +2,39 @@
 """
 PostToolUse hook: Test coverage checker.
 
-Checks if source files under backend/app/, mobile/src/, web/src/, or next/src/ have
+Checks if source files under Rails app/ or JS/TS src/ (under any wrapper directory) have
 corresponding test files per testing.md conventions.
 Exits silently for non-source files, test files, and files outside source dirs.
 """
-import json
 import os
-import sys
+
+import _hooklib as hooklib
 
 
 SOURCE_EXTENSIONS = (".rb", ".py", ".ts", ".tsx", ".js", ".jsx")
 SKIP_PATTERNS = (".test.", ".spec.", "__tests__", "_test.", "_spec.")
-SOURCE_PREFIXES = ("backend/app/", "mobile/src/", "web/src/", "next/src/")
 
 
-def normalize(path):
-    return path.replace("\\", "/")
-
-
-def main():
-    try:
-        data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
-        sys.exit(0)
-
-    file_path = data.get("tool_input", {}).get("file_path", "")
+def check(event):
+    file_path = hooklib.get_file_path(event)
     if not file_path:
-        sys.exit(0)
+        return []
 
     _, ext = os.path.splitext(file_path)
     if ext not in SOURCE_EXTENSIONS:
-        sys.exit(0)
+        return []
 
-    normalized = normalize(file_path)
+    normalized = hooklib.normalize(file_path)
 
     # Skip test files themselves
     if any(p in normalized for p in SKIP_PATTERNS):
-        sys.exit(0)
+        return []
 
-    # Only check files under source directories
-    if not any(p in normalized for p in SOURCE_PREFIXES):
-        sys.exit(0)
+    # Only check files under source directories (wrapper-agnostic)
+    is_rails_source = ext == ".rb" and hooklib.under(normalized, "app")
+    is_js_source = hooklib.under(normalized, "src")
+    if not (is_rails_source or is_js_source):
+        return []
 
     basename = os.path.splitext(os.path.basename(file_path))[0]
     directory = os.path.dirname(file_path)
@@ -51,9 +43,9 @@ def main():
     candidates = []
 
     if ext == ".rb":
-        # Rails: backend/app/services/foo.rb → backend/spec/services/foo_spec.rb
-        if "backend/app/" in normalized:
-            spec_path = normalized.replace("backend/app/", "backend/spec/", 1)
+        # Rails: <wrapper>/app/services/foo.rb → <wrapper>/spec/services/foo_spec.rb
+        if is_rails_source:
+            spec_path = hooklib.replace_first_segment(normalized, "app", "spec")
             spec_path = spec_path.replace(f"{basename}.rb", f"{basename}_spec.rb")
             candidates.append(spec_path)
     else:
@@ -64,29 +56,25 @@ def main():
             os.path.join(directory, "__tests__", f"{basename}.test{ext}"),
             os.path.join(directory, "..", "__tests__", f"{basename}.test{ext}"),
         ])
-        # Vite: web/src/components/Foo.tsx → web/tests/components/Foo.test.tsx
-        if "web/src/" in normalized:
-            web_test = normalized.replace("web/src/", "web/tests/", 1)
-            web_test = web_test.replace(f"{basename}{ext}", f"{basename}.test{ext}")
-            candidates.append(web_test)
-        # Next.js: next/src/actions/foo.ts → next/tests/actions/foo.test.ts
-        if "next/src/" in normalized:
-            next_test = normalized.replace("next/src/", "next/tests/", 1)
-            next_test = next_test.replace(f"{basename}{ext}", f"{basename}.test{ext}")
-            candidates.append(next_test)
+        # JS/TS: <wrapper>/src/components/Foo.tsx → <wrapper>/tests/components/Foo.test.tsx
+        if is_js_source:
+            src_test = hooklib.replace_first_segment(normalized, "src", "tests")
+            src_test = src_test.replace(f"{basename}{ext}", f"{basename}.test{ext}")
+            candidates.append(src_test)
 
     # Check if any candidate exists
     found = any(os.path.isfile(c) for c in candidates)
 
+    warnings = []
     if not found:
         filename = os.path.basename(file_path)
-        print(
+        warnings.append(
             f"WARNING: No test file found for {filename}. "
             "Consider adding tests per testing.md (80% coverage target for business logic)."
         )
 
-    sys.exit(0)
+    return warnings
 
 
 if __name__ == "__main__":
-    main()
+    hooklib.run_post_checker(check)

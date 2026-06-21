@@ -5,22 +5,21 @@ PostToolUse hook: Code quality checker.
 Checks source files for function/file length limits, parameter counts,
 and nesting depth per code-standards.md. Exits silently for non-source files.
 """
-import json
 import os
 import re
-import sys
+
+import _hooklib as hooklib
 
 
 SOURCE_EXTENSIONS = (".rb", ".py", ".ts", ".tsx", ".js", ".jsx")
 
-# Domain-aware file limits (normalized forward-slash paths)
-MODEL_PREFIXES = ("backend/app/models/",)
-COMPONENT_PREFIXES = (
-    "mobile/src/screens/", "mobile/src/components/",
-    "web/src/components/", "web/src/pages/",
-    "next/src/components/", "next/app/",
-    "backend/app/components/", "backend/app/views/",
+# Domain-aware file limits (canonical framework-internal dirs, wrapper-agnostic)
+MODEL_DIR = "app/models"
+COMPONENT_DIRS = (
+    "src/components", "src/screens", "src/pages",
+    "app/components", "app/views",
 )
+COMPONENT_EXTENSIONS = (".tsx", ".jsx")
 MODEL_LIMIT = 200
 COMPONENT_LIMIT = 200
 DEFAULT_LIMIT = 300
@@ -30,22 +29,17 @@ MAX_PARAMS = 4
 MAX_NESTING = 3
 
 
-def normalize(path):
-    return path.replace("\\", "/")
+def is_component(file_path, ext):
+    # Canonical component dirs anywhere, OR a Next app-router .tsx/.jsx under app/.
+    return hooklib.under_any(file_path, COMPONENT_DIRS) or (
+        ext in COMPONENT_EXTENSIONS and hooklib.under(file_path, "app")
+    )
 
 
-def read_file(path):
-    try:
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
-            return f.read()
-    except (OSError, IOError):
-        return ""
-
-
-def get_line_limit(normalized_path):
-    if any(p in normalized_path for p in MODEL_PREFIXES):
+def get_line_limit(file_path, ext):
+    if hooklib.under(file_path, MODEL_DIR):
         return MODEL_LIMIT
-    if any(p in normalized_path for p in COMPONENT_PREFIXES):
+    if is_component(file_path, ext):
         return COMPONENT_LIMIT
     return DEFAULT_LIMIT
 
@@ -230,28 +224,22 @@ def check_nesting_depth(content, ext):
     return None
 
 
-def main():
-    try:
-        data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
-        sys.exit(0)
-
-    file_path = data.get("tool_input", {}).get("file_path", "")
+def check(event):
+    file_path = hooklib.get_file_path(event)
     if not file_path:
-        sys.exit(0)
+        return []
 
     _, ext = os.path.splitext(file_path)
     if ext not in SOURCE_EXTENSIONS:
-        sys.exit(0)
+        return []
 
-    content = read_file(file_path)
+    content = hooklib.read_file(file_path)
     if not content:
-        sys.exit(0)
+        return []
 
-    normalized = normalize(file_path)
     warnings = []
 
-    limit = get_line_limit(normalized)
+    limit = get_line_limit(file_path, ext)
     w = check_file_length(content, limit)
     if w:
         warnings.append(w)
@@ -263,11 +251,8 @@ def main():
     if w:
         warnings.append(w)
 
-    for w in warnings:
-        print(w)
-
-    sys.exit(0)
+    return warnings
 
 
 if __name__ == "__main__":
-    main()
+    hooklib.run_post_checker(check)

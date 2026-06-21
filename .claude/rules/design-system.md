@@ -1,10 +1,9 @@
 ---
 paths:
-  - "web/src/styles/**"
-  - "web/src/components/ui/**"
-  - "next/src/components/ui/**"
-  - "mobile/src/theme/**"
-  - "backend/app/components/**"
+  - "**/styles/**"
+  - "**/components/ui/**"
+  - "**/src/theme/**"
+  - "**/app/components/**/*.rb"
   - "**/tailwind.config.*"
   - "**/globals.css"
 ---

@@ -106,63 +106,8 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/run-python.sh .claude/hooks/test-runner.py",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/run-python.sh .claude/hooks/code-quality-checker.py",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/run-python.sh .claude/hooks/error-handling-checker.py",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/run-python.sh .claude/hooks/test-coverage-checker.py",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/run-python.sh .claude/hooks/clean-architecture-checker.py",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/run-python.sh .claude/hooks/i18n-checker.py",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/run-python.sh .claude/hooks/accessibility-checker.py",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/run-python.sh .claude/hooks/api-design-checker.py",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/run-python.sh .claude/hooks/monitoring-checker.py",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/run-python.sh .claude/hooks/atomic-design-checker.py",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/run-python.sh .claude/hooks/terraform-checker.py",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/run-python.sh .claude/hooks/design-token-checker.py",
-            "timeout": 10
+            "command": "bash .claude/hooks/run-python.sh .claude/hooks/post-edit-dispatch.py",
+            "timeout": 20
           }
         ]
       },

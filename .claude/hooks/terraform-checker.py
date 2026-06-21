@@ -6,10 +6,10 @@ Validates .tf files for: hardcoded secrets, resource naming (snake_case),
 required tags, backend config in environment dirs, provider version constraints.
 Outputs warnings only — never blocks.
 """
-import json
 import os
 import re
-import sys
+
+import _hooklib as hooklib
 
 
 # Only check .tf files (not .tfvars — may contain dummy dev values)
@@ -52,20 +52,6 @@ VARIABLE_BLOCK_PATTERN = re.compile(r'variable\s+"(\w+)"\s*\{')
 
 # snake_case validation
 SNAKE_CASE_PATTERN = re.compile(r'^[a-z][a-z0-9_]*$')
-
-
-def normalize(path):
-    """Normalize path separators to forward slashes."""
-    return path.replace("\\", "/")
-
-
-def read_file(path):
-    """Read file content safely."""
-    try:
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
-            return f.read()
-    except (OSError, IOError):
-        return ""
 
 
 def check_hardcoded_secrets(content, display_path):
@@ -166,26 +152,21 @@ def get_display_path(normalized_path):
     return os.path.basename(normalized_path)
 
 
-def main():
-    try:
-        data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
-        sys.exit(0)
-
-    file_path = data.get("tool_input", {}).get("file_path", "")
+def check(event):
+    file_path = hooklib.get_file_path(event)
     if not file_path:
-        sys.exit(0)
+        return []
 
     _, ext = os.path.splitext(file_path)
     if ext != TF_EXTENSION:
-        sys.exit(0)
+        return []
 
-    normalized = normalize(file_path)
+    normalized = hooklib.normalize(file_path)
     display_path = get_display_path(normalized)
 
-    content = read_file(file_path)
+    content = hooklib.read_file(file_path)
     if not content:
-        sys.exit(0)
+        return []
 
     warnings = []
 
@@ -195,12 +176,8 @@ def main():
     warnings.extend(check_backend_config(normalized, content, display_path))
     warnings.extend(check_provider_version(content, display_path))
 
-    for w in warnings:
-        print(w)
-
-    # Always exit 0 — warnings only, never blocks
-    sys.exit(0)
+    return warnings
 
 
 if __name__ == "__main__":
-    main()
+    hooklib.run_post_checker(check)

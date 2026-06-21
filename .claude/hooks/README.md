@@ -30,6 +30,51 @@ This eliminates the `python3` not-found error on Windows and works identically o
 text) to `eol=lf`, so every clone gets LF regardless of `core.autocrlf`. Do not re-save the
 launcher with CRLF.
 
+## Architecture
+
+### Shared library (`_hooklib.py`)
+
+Every hook imports `_hooklib`, which centralizes event parsing, file reading, path
+normalization, the run loops, and framework detection so individual hooks stay small and
+consistent. Key helpers:
+
+| Helper | Purpose |
+|--------|---------|
+| `load_event()` | Parse the hook JSON from stdin; `{}` on any parse error |
+| `get_file_path(event)` / `get_content(event)` | Pull `file_path` / write content |
+| `read_file(path)` | UTF-8 read, `errors="replace"`, `""` on error |
+| `under(path, "app/models")` | Match canonical structure under **any** wrapper dir |
+| `detect_framework(path)` | `rails` / `nextjs` / `vite` / `react-native` / `None` via markers |
+| `run_post_checker(check)` | Run loop for advisory checkers (`check(event) -> list[str]`) |
+| `run_pre_blocker(check, fail_closed=)` | Run loop for PreToolUse gates; `deny()` / `ask()` |
+
+### Advisory dispatcher (`post-edit-dispatch.py`)
+
+The 12 advisory PostToolUse checkers run **in one process** via the dispatcher, which reads
+the event once and calls each checker's `check(event)` in-process. This replaces 12 separate
+hook entries — ~12 fewer Python cold-starts per edit. Each checker is isolated: a crash in
+one is swallowed so it cannot suppress the others. `auto-format.py` stays a separate hook
+entry (it mutates files and may invoke slow formatters with their own timeout).
+
+### Wrapper-directory-agnostic detection
+
+Checkers detect frameworks by **canonical internal structure** (`app/models`, `src/pages`,
+`src/screens`) and **on-disk markers** (`Gemfile`, `next.config.*`, `vite.config.*`,
+`metro.config.js`, `react-native` in `package.json`) — never by a forced top-level folder
+name. Rails works under `backend/`, `api/`, or the repo root; a Vite app under `web/`,
+`frontend/`, or root; etc. See the root `README.md` → *Project Directory Convention*.
+
+### Exit-code / decision convention
+
+| Hook type | Mechanism | "allow" | "block / warn" |
+|-----------|-----------|---------|----------------|
+| PreToolUse gate | `permissionDecision` JSON on stdout, always exit 0 | no JSON | `deny` (block) or `ask` (confirm) |
+| PostToolUse checker | stdout lines, always exit 0 | no output | `WARNING: …` lines (advisory) |
+
+**Fail-closed gates:** `security-scan.py` and `dangerous-command-blocker.py` run with
+`fail_closed=True` — if the check itself errors, they emit a `deny` rather than silently
+allowing the action. Advisory checkers and `ask`-style gates fail open.
+
 ## Debug Mode
 
 Set `CLAUDE_HOOKS_DEBUG=1` to see which Python interpreter the launcher selects:
@@ -43,16 +88,22 @@ CLAUDE_HOOKS_DEBUG=1 bash .claude/hooks/run-python.sh .claude/hooks/security-sca
 
 | Script | Event | Purpose |
 |--------|-------|---------|
-| `run-python.sh` | — | Cross-platform Python 3 launcher |
-| `security-scan.py` | PreToolUse | Blocks writes to protected files, detects hardcoded secrets |
-| `dangerous-command-blocker.py` | PreToolUse | Blocks destructive shell commands |
+| `run-python.sh` | — | Cross-platform Python 3 launcher (UTF-8, interpreter discovery) |
+| `_hooklib.py` | — | Shared library: event parsing, file IO, framework detection, run loops |
+| `security-scan.py` | PreToolUse | Blocks writes to protected files, detects hardcoded secrets (**fail-closed**) |
+| `dangerous-command-blocker.py` | PreToolUse | Blocks destructive shell commands (**fail-closed**) |
 | `pre-commit-check.py` | PreToolUse | Validates conventional commit format, blocks force pushes |
 | `migration-validator.py` | PreToolUse | Validates migration reversibility, SQL injection, destructive ops |
 | `deployment-gate.py` | PreToolUse | Requires confirmation for deploys |
 | `auto-format.py` | PostToolUse | Auto-formats edited files (rubocop, prettier, black, terraform fmt) |
-| `test-runner.py` | PostToolUse | Reminds to run tests for modified code |
+| `post-edit-dispatch.py` | PostToolUse | Runs all 12 advisory checkers in one process (see below) |
 | `audit-logger.py` | PostToolUse | Logs all tool executions for compliance (JSON-lines) |
 | `vague-request-detector.py` | UserPromptSubmit | Suggests requirements-consultant for ambiguous inputs |
+
+**Advisory checkers** (dispatched by `post-edit-dispatch.py`, each `check(event) -> list[str]`):
+`test-runner`, `code-quality-checker`, `error-handling-checker`, `test-coverage-checker`,
+`clean-architecture-checker`, `i18n-checker`, `accessibility-checker`, `api-design-checker`,
+`monitoring-checker`, `atomic-design-checker`, `terraform-checker`, `design-token-checker`.
 
 ## Optional Formatters
 

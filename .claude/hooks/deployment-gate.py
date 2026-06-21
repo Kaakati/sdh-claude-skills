@@ -1,43 +1,30 @@
 #!/usr/bin/env python3
-"""
-PreToolUse hook: Deployment gate.
+"""PreToolUse hook: Deployment gate.
 
-Detects deployment commands targeting production or protected branches
-and requires explicit confirmation before allowing execution.
+Detects deployment commands targeting production or protected branches and
+requires explicit confirmation before allowing execution.
 
 Monitored commands:
 - git push to main/master/develop
 - aws ecs, vercel deploy, terraform apply
 - docker push to production registries
 
-Exit codes:
-  0 = allow (not a deployment command, or informational warning)
-"""
-import json
-import sys
+Emits an 'ask' (confirmation) decision when a deployment command is detected.
+Fails open: a bug here must not block unrelated commands."""
+
 import re
 
+import _hooklib as hooklib
 
-def main():
-    try:
-        data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
-        sys.exit(0)
 
-    tool_name = data.get("tool_name", "")
-    tool_input = data.get("tool_input", {})
+def check(event):
+    if hooklib.tool_name(event) != "Bash":
+        return
 
-    if tool_name != "Bash":
-        sys.exit(0)
-
-    command = tool_input.get("command", "")
-
+    command = hooklib.tool_input(event).get("command", "")
     warnings = []
 
-    # Git push to protected branches
-    protected_branch_push = re.search(
-        r'git\s+push\s+.*\b(main|master|develop)\b', command
-    )
+    protected_branch_push = re.search(r'git\s+push\s+.*\b(main|master|develop)\b', command)
     if protected_branch_push:
         branch = protected_branch_push.group(1)
         warnings.append(
@@ -45,14 +32,12 @@ def main():
             "Verify CI has passed and PR was approved per git-workflow.md."
         )
 
-    # Force push detection
     if re.search(r'git\s+push\s+.*(-f|--force)\b', command):
         warnings.append(
             "Force push detected. This can overwrite remote history. "
             "Force pushes to protected branches are prohibited per git-workflow.md."
         )
 
-    # AWS ECS deployments
     if re.search(r'aws\s+ecs\s+(update-service|create-service|deploy)', command):
         warnings.append(
             "AWS ECS deployment detected. Verify: "
@@ -61,7 +46,6 @@ def main():
             "3) Rollback strategy is ready per infrastructure.md."
         )
 
-    # Vercel deployments
     if re.search(r'vercel\s+(deploy|--prod)', command):
         warnings.append(
             "Vercel deployment detected. Verify: "
@@ -70,7 +54,6 @@ def main():
             "3) Preview deployment was tested per infrastructure.md."
         )
 
-    # Terraform apply (production changes)
     if re.search(r'terraform\s+apply\b', command):
         warnings.append(
             "Terraform apply detected. Verify: "
@@ -79,7 +62,6 @@ def main():
             "3) State file is locked per infrastructure.md."
         )
 
-    # Docker push to production registries
     if re.search(r'docker\s+push\b', command):
         warnings.append(
             "Docker push detected. Verify: "
@@ -89,20 +71,11 @@ def main():
         )
 
     if warnings:
-        output = {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "ask",
-                "permissionDecisionReason": (
-                    "Deployment gate — confirm before proceeding:\n"
-                    + "\n".join(f"- {w}" for w in warnings)
-                )
-            }
-        }
-        print(json.dumps(output))
-
-    sys.exit(0)
+        hooklib.ask(
+            "Deployment gate — confirm before proceeding:\n"
+            + "\n".join(f"- {w}" for w in warnings)
+        )
 
 
 if __name__ == "__main__":
-    main()
+    hooklib.run_pre_blocker(check, fail_closed=False, gate_label="deployment-gate")

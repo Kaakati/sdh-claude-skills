@@ -1,6 +1,12 @@
 ---
+# Wrapper-agnostic: Next.js detected by config marker + app-router layout.
 paths:
-  - "next/**"
+  - "**/next.config.*"
+  - "**/app/**/*.tsx"
+  - "**/app/**/*.jsx"
+  - "**/src/app/**/*.ts"
+  - "**/src/app/**/*.tsx"
+  - "**/middleware.ts"
 ---
 
 # Next.js (App Router) Conventions
