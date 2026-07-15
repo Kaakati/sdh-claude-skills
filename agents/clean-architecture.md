@@ -2,8 +2,12 @@
 name: clean-architecture
 description: Validate and enforce Clean Architecture principles — dependency direction, layer boundaries, and architectural conformance. Use this agent for architectural reviews, layer boundary violations, dependency analysis, and structural refactoring toward Clean Architecture patterns.
 model: opus
-permissionMode: plan
-tools: Read, Grep, Glob, Bash
+# Genuinely read-only by CAPABILITY, not by mode. `Bash` was removed: it was never
+# used by this protocol, and Bash is write access (`sed -i`, `echo > file`), which
+# made the "validate/review" role theater. Note that `permissionMode` is NOT
+# supported for plugin-shipped agents — it is silently ignored — so the tool list is
+# the only real control here. (The Governed Agent, Ch. 8 "The Bash hole")
+tools: Read, Grep, Glob
 maxTurns: 20
 ---
 

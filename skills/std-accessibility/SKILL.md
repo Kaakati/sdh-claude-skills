@@ -79,13 +79,21 @@ Accessibility is a requirement, not a nice-to-have. All web and mobile frontends
 
 ## WCAG 2.2 New Criteria
 
-WCAG 2.2 adds 7 success criteria beyond WCAG 2.1. All are required for AA compliance:
+WCAG 2.2 adds **9** success criteria beyond WCAG 2.1 and **removes 4.1.1 Parsing** (obsolete —
+do not audit for it). Six of the nine bind at AA: `3.2.6` and `3.3.7` (Level A, which AA
+includes) plus `2.4.11`, `2.5.7`, `2.5.8`, `3.3.8` (Level AA). The other three —
+`2.4.12` Focus Not Obscured (Enhanced), `2.4.13` Focus Appearance, and `3.3.9` Accessible
+Authentication (Enhanced) — are **AAA**.
+
+**We adopt one AAA criterion as a house rule: `2.4.13` Focus Appearance.** Labelled honestly
+below so nobody mistakes our choice for the standard's requirement — it is stricter than AA, we
+do it on purpose, and the design system already ships the ring that satisfies it.
 
 ### 2.4.11 Focus Not Obscured (Minimum) (AA)
 - When a component receives focus, it must not be entirely hidden by author-created content (sticky headers, floating toolbars, cookie banners)
 - Ensure sticky/fixed elements don't cover focused items; use `scroll-margin-top` to offset
 
-### 2.4.13 Focus Appearance (AA)
+### 2.4.13 Focus Appearance (**AAA** — house rule, not required for AA)
 - Focus indicator must be at least **2px thick** (outline or ring)
 - Focus indicator must have at least **3:1 contrast** against the unfocused state
 - Standard pattern: `focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2`

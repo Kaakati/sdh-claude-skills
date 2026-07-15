@@ -32,6 +32,16 @@ paths:
 - Never put business logic in controllers — delegate to service objects
 - Use strong parameters: `params.require(:model).permit(:field1, :field2)`
 
+## Authorization (Pundit) — non-negotiable
+- **Wire `after_action :verify_authorized, except: :index` and
+  `after_action :verify_policy_scoped, only: :index`** in `ApplicationController`. Writing a
+  policy is the easy half; a policy nobody calls returns `200 OK` with someone else's data and
+  raises nothing. This is the line that turns a forgotten `authorize` into a failing spec.
+- **`index` uses `policy_scope(Model)`, never `authorize`** — authorizing a collection does not
+  filter it.
+- Public endpoints call `skip_authorization` / `skip_policy_scope` — explicit, not silent.
+- Deep guide → `references/authorization.md`
+
 ## Serialization (Panko)
 - Use Panko::Serializer for all JSON responses — it's significantly faster than AMS
 - Define explicit `attributes` — never serialize entire models
@@ -75,7 +85,9 @@ paths:
 - Use cache keys that include `updated_at` for automatic invalidation
 
 ## Gems — Prefer Established Libraries
-- Authentication: `devise` + `devise-jwt` for API auth
+- Authentication: `devise` + `devise-jwt` for API auth — **set a revocation strategy**
+  (`JTIMatcher` + a unique `jti` column). `devise-jwt` does not revoke by default, so without
+  one, "sign out" leaves the token valid until it expires (`references/authorization.md`)
 - Authorization: `pundit` (policy objects) over `cancancan`
 - Pagination: `pagy` (fastest) over `kaminari` or `will_paginate`
 - Search: `pg_search` for PostgreSQL full-text search
@@ -85,3 +97,13 @@ paths:
 - Testing: `rspec-rails`, `factory_bot_rails`, `shoulda-matchers`
 - Background jobs: `sidekiq`, `sidekiq-cron` for scheduled jobs
 - HTTP client: `faraday` with middleware
+
+## Deep guides (read on demand, do not preload)
+
+- Making the policy actually run (`verify_authorized`/`verify_policy_scoped`), `policy_scope`
+  vs `authorize`, 404-not-403 for non-owners, deliberate public endpoints, and JWT revocation
+  → `references/authorization.md`
+
+Related, owned elsewhere — do not duplicate: the API error envelope and
+`rescue_from Pundit::NotAuthorizedError` live in `../std-api-design/references/errors-rails.md`;
+service/query/result object patterns live in the `rails-architect` skill.

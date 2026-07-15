@@ -56,7 +56,7 @@ def check(event):
     for pattern, description, category in ALL_PATTERNS:
         if re.search(pattern, command, re.IGNORECASE):
             hooklib.deny(
-                f"BLOCKED [{category}]: {description}. "
+                f"BLOCKED [{category}]: {description}. (Rule: the `std-security` skill.) "
                 f"Command: '{command[:100]}...'. "
                 "This action requires manual execution outside Claude Code."
             )

@@ -3,7 +3,6 @@ name: code-reviewer
 description: Code quality reviewer. Use when reviewing pull requests, auditing code quality, checking adherence to team conventions, or evaluating maintainability and technical debt.
 tools: Read, Grep, Glob
 model: sonnet
-permissionMode: default
 maxTurns: 20
 ---
 

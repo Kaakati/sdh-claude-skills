@@ -33,6 +33,11 @@ type(scope): short description
 | `ci`       | CI/CD configuration changes                      | `ci: add parallel test execution`              |
 | `build`    | Build system or external dependency changes      | `build: update webpack to v5`                  |
 | `style`    | Formatting, whitespace (no logic change)         | `style: fix linting warnings`                  |
+| `revert`   | Reverts a previous commit                        | `revert: feat(auth): add SSO login with Google` |
+
+**This table is the whole accepted set.** `pre-commit-check.py` **blocks** a commit whose type is
+not one of these eleven — so a type missing from this table is a type nobody can discover without
+being denied first. A test keeps the hook's pattern and this table identical.
 
 ### Rules
 

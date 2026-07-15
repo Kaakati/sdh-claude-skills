@@ -3,7 +3,7 @@
 PostToolUse hook: Test coverage checker.
 
 Checks if source files under Rails app/ or JS/TS src/ (under any wrapper directory) have
-corresponding test files per testing.md conventions.
+corresponding test files per the `std-testing` skill conventions.
 Exits silently for non-source files, test files, and files outside source dirs.
 """
 import os
@@ -70,7 +70,7 @@ def check(event):
         filename = os.path.basename(file_path)
         warnings.append(
             f"WARNING: No test file found for {filename}. "
-            "Consider adding tests per testing.md (80% coverage target for business logic)."
+            "Consider adding tests per the `std-testing` skill (80% coverage target for business logic)."
         )
 
     return warnings

@@ -222,3 +222,7 @@ When designing or reviewing an API, provide:
 3. Error scenarios and codes.
 4. Pagination and filtering parameters.
 5. OpenAPI specification (if generating from scratch).
+
+## Deep guides (read on demand, do not preload)
+
+- URL structure, status codes, the error envelope, pagination, filtering/sorting, HATEOAS links → `references/api-conventions.md`

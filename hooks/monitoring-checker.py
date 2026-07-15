@@ -4,7 +4,7 @@
 Checks .rb files under backend/app/controllers/ and backend/app/jobs/ for:
 - Log statements missing request_id
 - Sensitive data in log statements
-Per monitoring.md. Returns no warnings for non-matching files."""
+Per the `std-monitoring` skill. Returns no warnings for non-matching files."""
 
 import os
 import re
@@ -28,7 +28,7 @@ def check_log_without_request_id(content):
         if "request_id" not in line:
             warnings.append(
                 "WARNING: Log statement without request_id. "
-                "Include request_id for distributed tracing per monitoring.md."
+                "Include request_id for distributed tracing per the `std-monitoring` skill."
             )
             return warnings  # One warning is enough
     return warnings
@@ -44,7 +44,7 @@ def check_sensitive_data_in_logs(content):
             if word in line and re.search(r"[#$]\{[^}]*" + word, line):
                 warnings.append(
                     "WARNING: Potentially sensitive data in log statement "
-                    "per monitoring.md. Never log passwords, tokens, PII, or secrets."
+                    "per the `std-monitoring` skill. Never log passwords, tokens, PII, or secrets."
                 )
                 return warnings  # One warning is enough
     return warnings

@@ -1,6 +1,13 @@
 ---
 name: std-security
 description: Security standards — OWASP Top 10, input validation, parameterized queries, secret management, auth, web headers. Apply when handling user input, auth, secrets, or data access.
+paths:
+  - "**/*.rb"
+  - "**/*.py"
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.js"
+  - "**/*.jsx"
 ---
 
 # Security Standards
@@ -83,7 +90,17 @@ Every developer and AI agent must account for these risks in all code:
     return order;
   }
   ```
+- **The check must be impossible to forget, not merely written.** The common Broken Access
+  Control bug is not a wrong policy — it is a correct policy nobody invoked, which returns
+  `200 OK` with another user's data and raises nothing. Wire the framework's own enforcement:
+  in Rails that is `after_action :verify_authorized` / `verify_policy_scoped` (Pundit) — see
+  `../std-rails-conventions/references/authorization.md`.
+- **Filter collections; don't just authorize them.** Asking "may you list orders?" is not the
+  same as returning only *your* orders. Scope the query (`policy_scope`).
+- Prefer **404 over 403** for a record the caller may not see — a 403 confirms it exists.
 - Use short-lived tokens (JWTs with reasonable expiry). Implement refresh token rotation.
+- **Sign-out must revoke**, not just discard client-side. `devise-jwt` does not revoke by
+  default; a token kept after logout keeps working until expiry.
 - Hash passwords with bcrypt (cost factor 12+) or argon2. Never use MD5 or SHA for passwords.
 - Implement account lockout or exponential backoff after repeated failed login attempts.
 

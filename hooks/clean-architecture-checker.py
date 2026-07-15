@@ -2,7 +2,7 @@
 """
 PostToolUse hook: Clean Architecture layer boundary checker.
 
-Checks source files for layer boundary violations per clean-architecture.md.
+Checks source files for layer boundary violations per the `std-clean-architecture` skill.
 Exits silently for non-source files.
 """
 import os
@@ -24,7 +24,7 @@ def check_rails_model_imports(content, file_path):
     ):
         warnings.append(
             "WARNING: Model imports controller/serializer — entity depends on "
-            "adapter. Move logic to a service per clean-architecture.md."
+            "adapter. Move logic to a service per the `std-clean-architecture` skill."
         )
     return warnings
 
@@ -39,7 +39,7 @@ def check_service_http_concepts(content, file_path):
     ) or re.search(r"\b(status|http_status)\s*=\s*\d{3}\b", content):
         warnings.append(
             "WARNING: Service returns HTTP concepts — use case knows about HTTP. "
-            "Return Result objects per clean-architecture.md."
+            "Return Result objects per the `std-clean-architecture` skill."
         )
     return warnings
 
@@ -55,7 +55,7 @@ def check_domain_framework_imports(content, file_path):
     if framework_imports.search(content):
         warnings.append(
             "WARNING: Domain type imports framework module — entity depends on "
-            "framework per clean-architecture.md."
+            "framework per the `std-clean-architecture` skill."
         )
     return warnings
 
@@ -75,7 +75,7 @@ def check_screen_direct_api_import(content, file_path, ext):
     if api_import.search(content):
         warnings.append(
             "WARNING: Screen/page imports API client directly — use a hook as "
-            "intermediary per clean-architecture.md."
+            "intermediary per the `std-clean-architecture` skill."
         )
     return warnings
 

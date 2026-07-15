@@ -240,12 +240,25 @@ end
 ```ruby
 class ProcessPaymentJob < ApplicationJob
   queue_as :critical
-  retry_on Stripe::RateLimitError, wait: :polynomially_longer, attempts: 5
+
+  # ONE retry policy, set where it is actually enforced. `retry_on ..., attempts: 5` would
+  # NOT cap this at 5: ActiveJob retries first, then "kick[s] the job back to Sidekiq, where
+  # Sidekiq's retries with exponential backoff will take over" — its default 25 retries over
+  # ~20 days. On a payment. `sidekiq_options` works on ActiveJob classes and does not stack.
+  sidekiq_options retry: 5
+
+  # Permanent failure: don't burn attempts proving the request is still invalid.
   discard_on Stripe::InvalidRequestError
+
+  # The last moment anyone can act. Without this the job dies into the Dead set and the
+  # customer is simply never charged, silently. See std-error-handling/references/background-jobs.md
+  sidekiq_retries_exhausted do |job, ex|
+    Sentry.capture_exception(ex, extra: { job: job["class"], args: job["args"] })
+  end
 
   def perform(order_id)
     order = Order.find(order_id)
-    return if order.paid?
+    return if order.paid?   # cheap guard; the server-side idempotency key is the correctness
 
     result = PaymentProcessor.new(order: order).call
 

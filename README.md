@@ -10,8 +10,8 @@ This repository is a **Claude Code plugin** (`sdh`) that enforces enterprise dev
 
 Instead of relying on ad-hoc prompting, this plugin provides:
 
-- **58 skills** — 37 workflow skills (`/sdh:code-reviewer`, `/sdh:rails-architect`, …), **20 `std-*` convention skills** that auto-load by file path (e.g. `std-rails-conventions`, `std-accessibility`), plus the always-on `sdh-engineering-standards` skill
-- **12 specialized agents** (4 with team lead protocols) that handle complex tasks with constrained tool access
+- **64 skills** — 43 workflow skills (`/sdh:code-reviewer`, `/sdh:rails-architect`, `/sdh:monorepo-architect`, …), **20 `std-*` convention skills** that auto-load by file path (e.g. `std-rails-conventions`, `std-accessibility`), plus the always-on `sdh-engineering-standards` skill
+- **13 specialized agents** (4 with team lead protocols) that handle complex tasks with constrained tool access
 - **6 pre-defined agent team templates** for coordinated multi-agent work
 - **Quality-gate hooks** (PreToolUse blockers + a single PostToolUse dispatcher) with **wrapper-agnostic framework detection**
 - A core **`sdh-engineering-standards`** skill carrying the stack + library conventions
@@ -27,6 +27,20 @@ Instead of relying on ad-hoc prompting, this plugin provides:
 claude --plugin-dir /path/to/sdh-claude-skills
 ```
 
+> **This floats on `main`.** Fine for evaluating the plugin; wrong for running a team on it — a
+> standards change or a hook bug reaches everyone the moment it is pushed, with no review gate
+> in between. To pin a reviewed release, point a marketplace entry at a tag (`ref`), or at a
+> commit (`sha`, which wins over `ref` when both are set):
+>
+> ```json
+> { "name": "sdh",
+>   "source": { "source": "github", "repo": "Kaakati/sdh-claude-skills", "ref": "v2.0.0" } }
+> ```
+>
+> See [`docs/releasing.md`](docs/releasing.md) for pinning, release channels, and the required
+> branch-protection posture. **No release is tagged yet** — pinning becomes available with the
+> first tag.
+
 Skills are namespaced under the plugin: `/sdh:code-reviewer`, `/sdh:rails-architect`, etc.
 Run `/plugin` to manage it, and `claude plugin validate .` to validate changes.
 
@@ -36,6 +50,27 @@ A plugin cannot ship `permissions`, `env`, or `worktree` settings. Copy them fro
 repo's [`.claude/settings.json`](.claude/settings.json) into your own project settings to get
 the secret/build-artifact `Read` denies, the agent-teams env flag, and worktree symlinks.
 See [`docs/monorepo-setup.md`](docs/monorepo-setup.md).
+
+### Configuration
+
+The rules are universal; the specifics are yours. Everything has a working default — set nothing
+and the plugin behaves exactly as documented.
+
+| Variable | Default | What it changes |
+|---|---|---|
+| `SDH_PROTECTED_BRANCHES` | `main,master,develop` | Which branches a direct push or force push is gated on. Set it if your trunk is named something else — otherwise those hooks protect branches you don't have. |
+
+```bash
+# a repo whose trunk is `trunk` and which also guards `staging`
+export SDH_PROTECTED_BRANCHES="trunk,staging"
+```
+
+A blank value means "unset" and falls back to the defaults — it never leaves every branch
+unprotected.
+
+**Missing formatters are fine.** If `rubocop`, `prettier`, `black`, or `terraform` isn't
+installed, nothing breaks and nothing is blocked: the auto-format hook says so once per session,
+names the install command, and stays quiet after that.
 
 ## Project Directory Convention
 
@@ -100,6 +135,13 @@ matched by canonical structure under any wrapper:
 ### Recommended Monorepo Structure
 
 The structure below is the **recommended** convention, not a requirement — detection works under any wrapper name. It is shown so teams have a sensible default.
+
+> **Sharing code between the apps?** Once packages are shared across deployables, prefer the
+> `apps/` + `packages/` + `tooling/` layout and run **`/sdh:monorepo-architect`** — it covers
+> boundary enforcement, Turborepo, affected-only CI, the one-version policy, and generating a
+> shared `api-client` from the Rails schema. Both layouts auto-load `std-*` identically
+> (`apps/rails-api/app/models/user.rb` is still Rails); the flat layout below is simply the
+> smaller default for repos with no shared packages.
 
 ```
 your-project/
@@ -238,8 +280,8 @@ assets) and symlinks `node_modules`/`vendor/bundle` into worktrees.
 │   └── … (37 workflow skills, see below)
 ├── agents/                        ← 12 specialized agents (bundled in the plugin)
 │   ├── requirements-consultant.md    (Opus, discovery)
-│   ├── architecture-advisor.md       (Opus, plan mode)
-│   ├── clean-architecture.md         (Opus, plan mode)
+│   ├── architecture-advisor.md       (Opus, read-only)
+│   ├── clean-architecture.md         (Opus, read-only)
 │   ├── code-reviewer.md              (Sonnet, review)
 │   ├── security-auditor.md           (Sonnet, audit)
 │   ├── test-generator.md             (Sonnet, testing)
@@ -408,20 +450,21 @@ automatically when you edit files matching their globs:
 
 Agents are specialized Claude instances with constrained tools and focused expertise:
 
-| Agent | Model | Mode | Specialization |
-|-------|-------|------|---------------|
-| `requirements-consultant` | Opus | Interactive | Discovery, feasibility, compliance, user stories, spike scoping |
-| `architecture-advisor` | Opus | Plan | ADRs, quality attributes, build-vs-buy, architectural decisions |
-| `clean-architecture` | Opus | Plan | Layer boundary validation, dependency direction, conformance |
-| `code-reviewer` | Sonnet | Interactive | SOLID review, complexity analysis, security scan, PR review |
-| `security-auditor` | Sonnet | Interactive | OWASP audit, secret scanning, SBOM, supply chain security |
-| `test-generator` | Sonnet | Interactive | Test generation, AAA pattern, coverage analysis, mocking |
-| `devops-engineer` | Sonnet | Interactive | CI/CD, Terraform, Docker, deployment automation, GitOps |
-| `refactor-specialist` | Opus | Interactive | Code smells, Fowler's patterns, incremental refactoring |
-| `incident-responder` | Opus | Interactive | Production incident diagnosis, mitigation, post-mortem |
-| `phlex-developer` | Sonnet | Interactive | Phlex view components, Atomic Design, Tailwind tokens |
-| `design-system-architect` | Opus | Plan | Design tokens, component spec matrices, grid systems |
-| `design-critique` | Opus | Plan | Nielsen's heuristics, visual hierarchy, token compliance |
+| Agent | Model | Capability | Specialization |
+|-------|-------|------------|---------------|
+| `architecture-advisor` | Opus | Read-only | ADRs, quality attributes, build-vs-buy, architectural decisions |
+| `clean-architecture` | Opus | Read-only | Layer boundary validation, dependency direction, conformance |
+| `code-reviewer` | Sonnet | Read-only | SOLID review, complexity analysis, security scan, PR review |
+| `design-critique` | Opus | Read-only | Nielsen's heuristics, visual hierarchy, token compliance |
+| `design-system-architect` | Opus | Read-only | Design tokens, component spec matrices, grid systems |
+| `devops-engineer` | Sonnet | Read-write | CI/CD, Terraform, Docker, deployment automation, GitOps |
+| `incident-responder` | Opus | Read-write | Production incident diagnosis, mitigation, post-mortem |
+| `monorepo-architect` | Opus | Read-only | — |
+| `phlex-developer` | Sonnet | Read-write | Phlex view components, Atomic Design, Tailwind tokens |
+| `refactor-specialist` | Opus | Read-write | Code smells, Fowler's patterns, incremental refactoring |
+| `requirements-consultant` | Opus | Read-only | Discovery, feasibility, compliance, user stories, spike scoping |
+| `security-auditor` | Sonnet | Read-write | OWASP audit, secret scanning, SBOM, supply chain security |
+| `test-generator` | Sonnet | Read-write | Test generation, AAA pattern, coverage analysis, mocking |
 
 ### Skills (Slash Commands)
 
@@ -433,6 +476,12 @@ repeatable workflows. The command column below omits the `sdh:` prefix for brevi
 | `/code-reviewer` | code-reviewer | PR review with auto-injected git diff |
 | `/security-auditor` | security-auditor | OWASP audit, SBOM generation, license compliance |
 | `/clean-architecture` | clean-architecture | Architecture conformance validation |
+| `/monorepo-architect` | monorepo-architect | Workspace layout, boundaries, Turborepo/affected-only CI, one-version policy, api-client contract (Opus) |
+| `/mobile-signing` | — | Certificates, provisioning profiles, .p8 keys, keystores, Play App Signing, CI secrets |
+| `/mobile-beta-release` | — | TestFlight + Play testing tracks, fastlane beta lanes, staged rollout |
+| `/log-search` | — | CloudWatch Logs Insights, `aws logs tail`, GCP Cloud Logging (LQL), tracing a request |
+| `/mcp-advisor` | — | Discover/vet MCP servers, scope choice, and the ask-before-adding gate |
+| `/toolchain` | — | Linters/formatters/typecheckers/compilers, install checks, safe vs unsafe autocorrect |
 | `/test-generator` | test-generator | Generate tests with AAA pattern |
 | `/requirements-consultant` | requirements-consultant | Requirements discovery, user stories, feasibility (Opus) |
 | `/api-designer` | — | REST API design and review |

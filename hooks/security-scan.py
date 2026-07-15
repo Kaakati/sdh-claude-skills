@@ -52,7 +52,7 @@ def check(event):
                 hooklib.deny(
                     f"BLOCKED: Potential {secret_type} detected in content "
                     f"being written to '{file_path}'. "
-                    "Use environment variables or a secrets manager instead."
+                    "Use environment variables or a secrets manager instead — see the `std-security` skill."
                 )
                 return
 

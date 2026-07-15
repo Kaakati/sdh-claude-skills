@@ -60,11 +60,19 @@ paths:
 
 ## Real-time (Centrifugal / Centrifugo)
 - Use Centrifugo client SDK for real-time subscriptions
-- Subscribe in custom hooks: `useCentrifugoChannel('chat:${roomId}')`
-- Unsubscribe on component unmount — always clean up
-- Update TanStack Query cache on real-time events (don't duplicate state)
-- Use presence channels for online status features
-- Handle reconnection gracefully — show connection status to user
+- **One `Centrifuge` client for the app**, created once at module scope — not per screen
+- **`getSubscription(channel) ?? newSubscription(channel)`** — `newSubscription` *throws* if the
+  channel is already in the client's registry, which is exactly what a remounting screen does
+- Subscribe in custom hooks: `useChannel('chat:${roomId}')`
+- Clean up on unmount by removing **your** handler — `unsubscribe()` does not remove listeners,
+  so remounts stack handlers and each message is processed N times
+- **An event updates the TanStack Query cache; it never becomes a second copy of the data.**
+  Full entity on the wire → `setQueryData`; partial or "something changed" → `invalidateQueries`
+- **Invalidate on reconnect** — the socket does not backfill what it missed while down
+- Mint the connection token on the Rails side and wire `getToken` (not a static `token`), or the
+  socket dies silently when it expires
+- Use presence channels for online status — presence is ephemeral client state, not Query state
+- Deep guide → `references/realtime-centrifugo.md`
 
 ## Navigation
 - Use React Navigation (or Expo Router if using Expo)
@@ -88,8 +96,16 @@ paths:
 ## Offline Support
 - Persist critical Zustand stores with MMKV
 - TanStack Query `persister` for caching API responses offline
-- Queue mutations when offline, replay on reconnect
-- Show clear offline indicators in UI
+- **Feed `onlineManager` from NetInfo** — Query cannot tell a dead radio from a slow server
+- Queue mutations when offline, replay on reconnect. **Register `queryClient.setMutationDefaults`
+  at app/module scope, not in the screen**: only mutation *state* is persisted (functions are not
+  serializable), so after an app kill the resumed mutation has no `mutationFn` and dies with
+  `No mutationFn found` — the user saw a success toast an hour ago
+- **A retried mutation must be idempotent** — generate the `Idempotency-Key` once at the call
+  site so every replay carries the same one; "replayed on reconnect" means the server may see it
+  twice
+- Show clear offline indicators — a queued write must not look identical to a sent one
+- Deep guide → `references/offline-and-mutations.md`
 
 ## Libraries — Prefer Community Packages
 - Navigation: `@react-navigation/native`
@@ -109,4 +125,17 @@ paths:
 - Strict mode enabled — no `any` types
 - Define interfaces for all API responses, props, and store state
 - Use discriminated unions for state machines (loading | success | error)
+
+## Deep guides (read on demand, do not preload)
+
+- NetInfo → `onlineManager`, persisting the cache to MMKV, `setMutationDefaults` at app scope,
+  idempotency keys that survive a cold start, optimistic updates with rollback
+  → `references/offline-and-mutations.md`
+- One Centrifuge client, the `getSubscription ?? newSubscription` rule, handler cleanup,
+  `setQueryData` vs `invalidateQueries`, reconnect backfill, presence
+  → `references/realtime-centrifugo.md`
+
+Related, owned elsewhere — do not duplicate: list/render/animation performance rules live in the
+`react-native-best-practices` skill (38 rule files); axios token-refresh interceptors live in
+`../react-native-dev/references/react-native-patterns.md`.
 - Export types alongside components

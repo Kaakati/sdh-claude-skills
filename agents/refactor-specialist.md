@@ -3,7 +3,6 @@ name: refactor-specialist
 description: Code refactoring specialist. Use when reducing technical debt, restructuring modules, extracting reusable patterns, improving code organization, or performing large-scale codebase transformations.
 tools: Read, Grep, Glob, Write, Edit
 model: opus
-permissionMode: default
 maxTurns: 30
 ---
 

@@ -3,7 +3,6 @@ name: design-critique
 description: Design critique partner for visual quality review. Use when reviewing UI components for design quality, evaluating visual hierarchy, auditing design token compliance, checking cross-platform consistency, scoring against Nielsen's heuristics, or evaluating storytelling / narrative UX (StoryBrand-style hero framing, emotional beats, narrative arc).
 tools: Read, Grep, Glob
 model: opus
-permissionMode: plan
 maxTurns: 20
 ---
 

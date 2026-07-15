@@ -3,7 +3,6 @@ name: design-system-architect
 description: Design system architect for Apple-level visual standards. Use when building or auditing a design token system, establishing component specs, defining grid systems, or producing design system documentation across Phlex, ReactJS, Next.js, and React Native.
 tools: Read, Grep, Glob
 model: opus
-permissionMode: plan
 maxTurns: 25
 ---
 

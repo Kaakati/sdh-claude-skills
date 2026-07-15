@@ -175,3 +175,9 @@ docker build -t myapp-next .
 - [ ] Responsive Tailwind CSS design
 - [ ] Accessibility: semantic HTML, keyboard navigation, WCAG AA contrast
 - [ ] Tests for server components, server actions, and client components
+
+## Deep guides (read on demand, do not preload)
+
+- Server Component pages, `generateMetadata`, server actions with validation + revalidation, Route Handlers (BFF) → `references/server-patterns.md`
+- Progressive-enhancement forms, Client Components with TanStack Query → `references/client-patterns.md`
+- Root layout providers, loading/error boundaries, auth+locale middleware, Server Component and server-action tests → `references/infrastructure-patterns.md`

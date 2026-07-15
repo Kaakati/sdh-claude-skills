@@ -1,6 +1,13 @@
 ---
 name: std-code-standards
 description: Universal code standards — naming, SOLID, DRY/KISS, function/file size limits, error handling, logging, constants. Apply when writing or reviewing any source code.
+paths:
+  - "**/*.rb"
+  - "**/*.py"
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.js"
+  - "**/*.jsx"
 ---
 
 # Code Standards
@@ -26,10 +33,26 @@ Universal coding standards for all source code in this project.
 
 ## Function and File Limits
 
+These are the numbers the `code-quality-checker` hook actually warns on. If a warning surprises
+you, the number below is why — not the hook being arbitrary.
+
 - **Function length**: Maximum 30 lines. If a function exceeds this, decompose it into smaller, well-named helper functions.
-- **File length**: Target maximum 300 lines. When a file exceeds this, consider whether it has multiple responsibilities that can be separated.
+- **File length**: **300 lines — but 200 for Rails models and UI components.**
+  - `**/app/models/**/*.rb`, and components (`**/src/components/**`, `**/src/screens/**`,
+    `**/src/pages/**`, `**/app/components/**/*.rb`, `**/app/views/**/*.rb`, and Next.js
+    app-router `.tsx`/`.jsx`) → **200**
+  - everything else → **300**
+  - **Why the two numbers:** models and components are where responsibilities accumulate without
+    anyone deciding to add them. A 300-line service usually does one thing at length; a 300-line
+    model is a god object with validations, callbacks, scopes, and business rules that belong in
+    a service or a value object. The tighter limit is aimed at the file types that rot, not at
+    file length as a virtue. Detection is wrapper-agnostic — `api/app/models/` counts the same as
+    `backend/app/models/`.
 - **Parameters**: Maximum 4 parameters per function. Use an options/config object for more.
 - **Nesting depth**: Maximum 3 levels of nesting. Extract early returns or helper functions to reduce depth.
+
+All four are **warnings, not blocks** — the hook is advisory and never fails your edit. A limit is
+a prompt to think, not a law: exceeding one deliberately, with a reason, is a normal outcome.
 
 ## Error Handling
 

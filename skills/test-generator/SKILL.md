@@ -310,3 +310,7 @@ When generating tests, provide:
 2. Any required test fixtures or factories.
 3. A brief summary of what is covered and any known gaps.
 4. Setup instructions if new test infrastructure is needed.
+
+## Deep guides (read on demand, do not preload)
+
+- Naming, the AAA structure, fixtures, mock/stub/spy guidance, test data, CI integration → `references/testing-standards.md`

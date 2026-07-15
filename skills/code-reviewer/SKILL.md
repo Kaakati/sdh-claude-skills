@@ -68,7 +68,17 @@ See `@rules/accessibility.md` for the full WCAG 2.1 AA standard.
 
 ## Supplementary: Stack-Specific Checks
 
-**Rails**: Panko serializers used (not raw models)? Service objects for business logic? Pundit `authorize` on every action? Sidekiq jobs idempotent? Redis cache TTLs set?
+**Rails**: Panko serializers used (not raw models)? Service objects for business logic? Redis cache TTLs set? Plus the five that fail **silently** — nothing raises, and the diff looks fine:
+- **Is the policy actually *called*?** `authorize` / `policy_scope` present, and `index` uses
+  `policy_scope` (authorizing a collection does not filter it). A policy that exists but is never
+  invoked returns `200 OK` with another user's data.
+- **Does the migration set `lock_timeout`?** The default is 0 — wait forever — and a waiting
+  `ALTER TABLE` queues every query behind it.
+- **`remove_column`?** Then `ignored_columns` must have shipped in an earlier deploy, alone.
+- **`create!`/`save!` inside a transaction**, not the non-bang forms (they return `false`, so the
+  block completes and commits half the operation). `after_commit`, not `after_save`, for jobs.
+- **Money/irreversible job:** explicit `sidekiq_options retry:` — the default is 25 retries over
+  ~20 days — and an idempotency key derived from the work, not per attempt.
 
 **React Native**: Server data in TanStack Query (not Zustand)? Proper `staleTime`? `FlatList` for lists? `useCallback` on render functions? Centrifugo subscriptions cleaned up on unmount?
 
@@ -96,3 +106,8 @@ End each review with:
 2. **Strengths**: What was done well (always include positive feedback)
 3. **Key Issues**: Top 3 items that must be addressed
 4. **Key Takeaway**: Single most important improvement for future code
+
+## Deep guides (read on demand, do not preload)
+
+- Rails red flags, N+1 detection, migration-safety checks, PostGIS spatial checks, React Native red flags, Sidekiq job checks → `references/pr-review-guide.md`
+- The dimension-by-dimension pass: correctness, security, performance, maintainability, testing, documentation → `references/review-checklist.md`

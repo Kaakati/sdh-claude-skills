@@ -18,20 +18,36 @@ Rules for database design, migrations, queries, and data management.
 
 ## Migration Safety
 
-- **All migrations must be reversible**. Every `up` migration must have a corresponding `down` migration:
-  ```typescript
-  export async function up(knex: Knex): Promise<void> {
-    await knex.schema.createTable("orders", (table) => {
-      table.uuid("id").primary().defaultTo(knex.fn.uuid());
-      table.uuid("user_id").notNullable().references("users.id");
-      table.decimal("total_amount", 10, 2).notNullable();
-      table.timestamps(true, true);
-    });
-  }
+- **Every migration sets `lock_timeout` (e.g. 5s).** The default is **0 — wait forever**, and a
+  migration that *waits* is more dangerous than one that fails: `ALTER TABLE` needs
+  `ACCESS EXCLUSIVE`, which blocks `SELECT`, and every query arriving after it queues behind it.
+  A millisecond-fast, correctly-written migration becomes a full table outage for as long as some
+  unrelated slow query runs. Failing is the good outcome — retry it. → `references/locking-and-timeouts.md`
+- **All migrations must be reversible**. Prefer `change` — ActiveRecord infers the inverse. When
+  it cannot (raw SQL, data backfills), write `up`/`down` explicitly rather than leaving the
+  rollback undefined:
+  ```ruby
+  class CreateOrders < ActiveRecord::Migration[7.1]
+    def change
+      create_table :orders, id: :uuid do |t|
+        t.references :user, null: false, foreign_key: true, type: :uuid
+        t.decimal :total_amount, precision: 10, scale: 2, null: false
+        t.timestamps                      # created_at / updated_at
+      end
+    end
+  end
+  ```
+  ```ruby
+  # Irreversible by inference -> say so, or `rails db:rollback` fails at 2am
+  class BackfillOrderStatus < ActiveRecord::Migration[7.1]
+    def up
+      Order.where(status: nil).in_batches.update_all(status: "pending")
+    end
 
-  export async function down(knex: Knex): Promise<void> {
-    await knex.schema.dropTableIfExists("orders");
-  }
+    def down
+      raise ActiveRecord::IrreversibleMigration
+    end
+  end
   ```
 
 - **No destructive migrations without a data backup plan**. Before dropping tables, columns, or changing types:
@@ -64,38 +80,46 @@ Rules for database design, migrations, queries, and data management.
 ## Transactions
 
 - **Use transactions for multi-table operations**. Any operation that modifies more than one table must be wrapped in a transaction:
-  ```typescript
-  async function createOrderWithItems(order: Order, items: OrderItem[]): Promise<void> {
-    await db.transaction(async (trx) => {
-      const [orderId] = await trx("orders").insert(order).returning("id");
-      const itemsWithOrderId = items.map((item) => ({ ...item, order_id: orderId }));
-      await trx("order_items").insert(itemsWithOrderId);
-    });
-  }
+  ```ruby
+  # app/services/orders/create.rb
+  ActiveRecord::Base.transaction do
+    order = Order.create!(user:, total_amount:)
+    order.line_items.insert_all!(items)          # one statement, not N
+  end
   ```
 - Set appropriate isolation levels based on consistency requirements.
-- Keep transactions short — do not perform external API calls inside a transaction.
-- Handle transaction rollback explicitly when using manual transaction management.
+- **Keep transactions short — never make an HTTP call inside one.** The transaction holds its
+  row locks for as long as the slowest thing in the block, so a payment API that hangs for 30s
+  holds those locks for 30s and everything touching those rows queues behind it. Do the external
+  call first, then open the transaction to record the result.
+- **`create!` / `save!`, not `create` / `save`, inside a transaction.** The non-bang forms return
+  `false` instead of raising, so the block completes, nothing rolls back, and you commit half the
+  operation. This is the single most common way a Rails transaction silently does nothing.
+- `after_commit`, not `after_save`, for anything the outside world sees (enqueuing a Sidekiq job,
+  publishing to Centrifugo). A job enqueued inside the transaction can start — and fail to find
+  the row — before the commit lands.
 
 ## N+1 Query Prevention
 
-- **Never query in a loop**. Use batch queries, JOINs, or eager loading:
-  ```typescript
-  // BAD — N+1: one query per user
-  const users = await db("users").select("*");
-  for (const user of users) {
-    user.orders = await db("orders").where("user_id", user.id);
-  }
+- **Never query in a loop**. Eager-load the association instead:
+  ```ruby
+  # BAD — N+1: one query per user, and it looks fine with 10 rows in development
+  User.all.each { |user| user.orders.each { |o| puts o.total_amount } }
 
-  // GOOD — Two queries total
-  const users = await db("users").select("*");
-  const userIds = users.map((u) => u.id);
-  const orders = await db("orders").whereIn("user_id", userIds);
-  const ordersByUser = groupBy(orders, "user_id");
-  users.forEach((u) => { u.orders = ordersByUser[u.id] || []; });
+  # GOOD — two queries total
+  User.includes(:orders).each { |user| user.orders.each { |o| puts o.total_amount } }
   ```
-- When using ORMs, configure eager loading for known associations.
-- Monitor query logs in development to catch N+1 patterns early.
+- **`includes` vs `preload` vs `eager_load`** — `preload` always issues a separate query;
+  `eager_load` always LEFT JOINs; `includes` picks, and switches to a JOIN when you reference the
+  association in a `where`. If you filter on the association, say `references` or you get a
+  missing-column error at runtime:
+  ```ruby
+  User.includes(:orders).where(orders: { status: "paid" }).references(:orders)
+  ```
+- **Serializers are where N+1 hides.** Panko does not eager-load for you: a `has_many` in a
+  serializer fires a query per record unless the controller's scope already included it.
+- Add `bullet` in development — an N+1 with 10 rows in dev is invisible and a full-table stall in
+  production.
 
 ## Query Best Practices
 
@@ -119,3 +143,15 @@ Rules for database design, migrations, queries, and data management.
 - Use `DECIMAL` for monetary values, never `FLOAT` or `DOUBLE`.
 - Use `TEXT` for variable-length strings with no practical limit. Use `VARCHAR(n)` only when a specific length constraint is meaningful.
 - Use `JSONB` (PostgreSQL) sparingly — only for truly schemaless data. Prefer normalized columns for structured data.
+
+## Deep guides (read on demand, do not preload)
+
+- `lock_timeout` vs `statement_timeout` (and why the ordering between them matters), the lock
+  queue that turns a fast migration into an outage, `disable_ddl_transaction!` and the invalid
+  index it can leave, retrying a lock timeout, finding the blocker with `pg_blocking_pids()`,
+  row locks and advisory locks → `references/locking-and-timeouts.md`
+
+Related, owned elsewhere — do not duplicate: which migration *operation* is safe and its
+expand/contract form (add/remove/rename column, change type, add FK) →
+`../db-migration/references/migration-guide.md`; index/query tuning and `EXPLAIN` →
+`../performance-profiler`.

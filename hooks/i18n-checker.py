@@ -3,7 +3,7 @@
 PostToolUse hook: Internationalization (i18n) checker.
 
 Checks .tsx, .jsx, and .erb files for hardcoded user-facing strings
-that should use translation keys per i18n.md.
+that should use translation keys per the `std-i18n` skill.
 Exits silently for non-matching files.
 """
 import os
@@ -91,7 +91,7 @@ def check(event):
     if found:
         warnings.append(
             "WARNING: Hardcoded user-facing string detected. "
-            "Use translation keys per i18n.md — never hardcode user-facing strings."
+            "Use translation keys per the `std-i18n` skill — never hardcode user-facing strings."
         )
 
     return warnings

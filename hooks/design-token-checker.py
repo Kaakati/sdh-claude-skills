@@ -134,7 +134,7 @@ def check_hardcoded_colors(content, ext, display_path):
             if HEX_COLOR_PATTERN.search(line):
                 warnings.append(
                     f"WARNING: Design token — Hardcoded hex color in {display_path}:{i}. "
-                    f"Use a design token (e.g., hsl(var(--primary))) instead."
+                    f"Use a design token (e.g., hsl(var(--primary))) instead — see the `std-design-system` skill."
                 )
                 if len(warnings) >= 3:
                     break

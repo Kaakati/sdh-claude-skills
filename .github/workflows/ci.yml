@@ -1,0 +1,373 @@
+name: CI
+
+# Layer 7 (external verification) for the plugin repo itself.
+# "A governance repository without CI running its own gate tests is enforcing on its
+# consumers a discipline it does not practice on itself." — The Governed Agent, Ch. 13
+#
+# Runs on Linux to also prove the cross-platform contract (LF line endings + UTF-8
+# hook output), which is otherwise only exercised on a developer's Windows machine.
+
+on:
+  push:
+    branches: [main]
+    # Release tags must be verified BY the tag push — that is the moment a consumer's pin
+    # starts pointing at this commit, and the last moment the version/CHANGELOG/tag can be
+    # caught disagreeing.
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  release-hygiene:
+    name: Version is a working delivery handle
+    # Ch. 13, "pin, don't float" — with the edge the plugin docs make explicit: a `version`
+    # that never moves means "pushing new commits does nothing for existing users". A stale
+    # version is a SILENT delivery failure: everything merges, CI is green, and nobody
+    # receives it. See docs/releasing.md.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # the delivery gate diffs against the newest release tag
+      - run: git fetch --tags --force
+      - run: python3 .github/scripts/check_release_hygiene.py
+
+  hook-fixtures:
+    name: Hook fixture suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test deps
+        run: pip install --quiet pyyaml
+      - name: Run the hook fixture suite (via the cross-platform launcher)
+        run: bash hooks/run-python.sh hooks/tests/run-all.py
+
+  plugin-manifest:
+    name: Plugin manifest & structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate plugin.json / marketplace.json
+        run: |
+          python - <<'EOF'
+          import json, sys, os
+          fail = []
+
+          with open(".claude-plugin/plugin.json", encoding="utf-8") as f:
+              m = json.load(f)
+          if not m.get("name"):
+              fail.append("plugin.json: `name` is required")
+          if not m.get("description"):
+              fail.append("plugin.json: `description` missing")
+
+          with open(".claude-plugin/marketplace.json", encoding="utf-8") as f:
+              mk = json.load(f)
+          for key in ("name", "owner", "plugins"):
+              if key not in mk:
+                  fail.append(f"marketplace.json: `{key}` is required")
+          for p in mk.get("plugins", []):
+              if not p.get("name") or not p.get("source"):
+                  fail.append(f"marketplace.json: plugin entry needs name+source: {p}")
+
+          # Components must live at the plugin root, never inside .claude-plugin/
+          for d in ("skills", "agents", "hooks"):
+              if not os.path.isdir(d):
+                  fail.append(f"missing plugin-root component dir: {d}/")
+              if os.path.isdir(os.path.join(".claude-plugin", d)):
+                  fail.append(f"{d}/ must NOT live inside .claude-plugin/")
+          if not os.path.isfile("hooks/hooks.json"):
+              fail.append("hooks/hooks.json is missing")
+
+          # Hook commands must be plugin-root-relative via ${CLAUDE_PLUGIN_ROOT}
+          with open("hooks/hooks.json", encoding="utf-8") as f:
+              hooks = json.load(f).get("hooks", {})
+          for event, blocks in hooks.items():
+              for b in blocks:
+                  for h in b.get("hooks", []):
+                      cmd = h.get("command", "")
+                      if ".claude/hooks/" in cmd:
+                          fail.append(f"{event}: stale .claude/hooks path in command: {cmd}")
+                      if "hooks/" in cmd and "${CLAUDE_PLUGIN_ROOT}" not in cmd:
+                          fail.append(f"{event}: hook command must use ${{CLAUDE_PLUGIN_ROOT}}: {cmd}")
+
+          if fail:
+              print("\n".join("FAIL: " + x for x in fail)); sys.exit(1)
+          print("plugin manifest + structure OK")
+          EOF
+
+  skills-lint:
+    name: Skill & agent frontmatter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet pyyaml
+      - name: Every SKILL.md / agent has valid frontmatter
+        run: |
+          python - <<'EOF'
+          import glob, sys, yaml
+          fail = []
+          for f in sorted(glob.glob("skills/*/SKILL.md")) + sorted(glob.glob("agents/*.md")):
+              text = open(f, encoding="utf-8").read()
+              if not text.startswith("---"):
+                  fail.append(f"{f}: missing YAML frontmatter"); continue
+              try:
+                  fm = yaml.safe_load(text.split("---", 2)[1]) or {}
+              except Exception as e:
+                  fail.append(f"{f}: invalid YAML frontmatter — {e}"); continue
+              if not fm.get("name"):
+                  fail.append(f"{f}: frontmatter `name` missing")
+              if not fm.get("description"):
+                  fail.append(f"{f}: frontmatter `description` missing")
+          if fail:
+              print("\n".join("FAIL: " + x for x in fail)); sys.exit(1)
+          print("all skill/agent frontmatter OK")
+          EOF
+      - name: Tier discipline — rule-per-file indexed, no monolith pointers
+        # Ch. 7: the body's index must let the model know what knowledge EXISTS, and a task
+        # must load only the file it needs. Two regressions this catches:
+        #  1. a rules/<id>.md on disk that no SKILL.md indexes -> the model never knows it exists
+        #  2. a body pointing at a compiled multi-thousand-line monolith -> skimmed, not read
+        run: |
+          python - <<'EOF'
+          import glob, os, re, sys
+          fail = []
+          for skill_dir in sorted(glob.glob("skills/*/")):
+              body_path = os.path.join(skill_dir, "SKILL.md")
+              if not os.path.isfile(body_path):
+                  continue
+              body = open(body_path, encoding="utf-8").read()
+
+              # 1. every rule file must be indexed by id in the body
+              for rule in sorted(glob.glob(os.path.join(skill_dir, "rules", "*.md"))):
+                  rid = os.path.basename(rule)[:-3]
+                  if rid.startswith("_"):
+                      continue
+                  if f"`{rid}`" not in body:
+                      fail.append(f"{body_path}: rule '{rid}' exists on disk but is not indexed in the body")
+
+              # 1b. ...and so must every reference file. This is the MIRROR of check 3 below:
+              #     3 catches a pointer with no destination; this catches a destination with
+              #     no pointer. Tier 1 is the catalog — if the body never names the file, the
+              #     model never learns it exists, so the content is written, maintained, and
+              #     never once loaded. 14 references (2,298 lines) were stranded this way
+              #     before anything checked.
+              for ref in sorted(glob.glob(os.path.join(skill_dir, "references", "*.md"))):
+                  rname = os.path.basename(ref)
+                  if rname not in body:
+                      fail.append(
+                          f"{body_path}: reference '{rname}' exists on disk but the body never names "
+                          f"it, so nothing will ever load it. Add it to the skill's 'Deep guides "
+                          f"(read on demand)' index, or delete the file.")
+
+              # 2. no body may advertise a compiled monolith
+              if "full-guide.md" in body:
+                  fail.append(f"{body_path}: points at a compiled monolith (full-guide.md); "
+                              f"index rules/<id>.md instead so a task loads only what it needs")
+
+              # 3. every reference the body indexes must exist. Accepts skill-local
+              #    (references/x.md) and cross-skill (../other/references/x.md,
+              #    [@]skills/other/references/x.md) — the latter is deliberate where a
+              #    framework has one canonical home (e.g. storytelling-ui.md).
+              for m in re.finditer(r'(@?(?:\.\./[a-z0-9-]+/|skills/[a-z0-9-]+/)?references/[a-z0-9-]+\.md)', body):
+                  ref = m.group(1).lstrip("@")
+                  cands = [os.path.normpath(os.path.join(skill_dir, ref)), os.path.normpath(ref)]
+                  if ref.startswith("../"):
+                      cands.append(os.path.normpath(os.path.join("skills", ref[3:])))
+                  if not any(os.path.isfile(c) for c in cands):
+                      # Name the remedy, not just the breach (Ch. 25 — a reason that says only
+                      # what is wrong invites a retry; one that names the fix invites the fix).
+                      # The common cause, hit three times while authoring these skills, is a
+                      # cross-skill pointer written bare ("std-api-design/references/x.md"):
+                      # only the trailing "references/x.md" is captured, so it resolves
+                      # skill-locally and vanishes. Find where the file really lives, and say.
+                      base = os.path.basename(ref)
+                      owners = sorted(
+                          os.path.basename(os.path.dirname(os.path.dirname(p)))
+                          for p in glob.glob(os.path.join("skills", "*", "references", base))
+                      )
+                      if owners:
+                          hint = " or ".join(f"`../{o}/references/{base}`" for o in owners)
+                          fail.append(
+                              f"{body_path}: reference '{ref}' does not resolve, but {base} exists in "
+                              f"{', '.join(owners)}. Write cross-skill pointers as {hint} — a bare "
+                              f"'skill-name/references/...' is read as skill-local and silently dangles.")
+                      else:
+                          fail.append(
+                              f"{body_path}: indexes a reference that does not exist -> {ref} "
+                              f"(no references/{base} in any skill — create it, or drop the pointer)")
+
+          if fail:
+              print("\n".join("FAIL: " + x for x in fail)); sys.exit(1)
+          print("tier discipline OK — rules indexed, no monolith pointers, all references resolve")
+          EOF
+      - name: Rule taxonomy — body table matches rules/_sections.md and disk
+        # rules/_sections.md is the canonical taxonomy: it owns each section's impact and the
+        # filename prefix that groups its rules. The body's table is GENERATED from it, and a
+        # generated table with no gate rots — react-native-best-practices had silently dropped
+        # its CRITICAL "Core Rendering" section and relabelled two others. The body is what the
+        # model reads, so a wrong impact there mis-prioritises real work.
+        run: python3 .github/scripts/check_rule_taxonomy.py
+
+  changelog-interface:
+    name: Deny-floor changes are documented
+    # Ch. 13: "When a plugin bump changes what gets denied or how a gate behaves, that is a
+    # behavioural change to every consuming repo's development process. Document it as you
+    # would an API change." A plugin cannot ship `permissions`, so an undocumented floor
+    # change is one consumers can neither see nor copy — it silently goes stale.
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: A changed permission floor (or gate) must update CHANGELOG.md
+        run: |
+          BASE="origin/${{ github.base_ref }}"
+          git fetch origin "${{ github.base_ref }}" --depth=1 >/dev/null 2>&1 || true
+          CHANGED=$(git diff --name-only "$BASE"...HEAD || true)
+          echo "changed files:"; echo "$CHANGED" | sed 's/^/  /'
+
+          floor_changed=0
+          if echo "$CHANGED" | grep -qE '^\.claude/settings\.json$'; then
+            if ! git diff "$BASE"...HEAD -- .claude/settings.json | grep -qE '^[+-].*"(Read|Bash)\('; then
+              echo "settings.json changed but no deny/allow rules moved — not an interface change."
+            else
+              floor_changed=1
+            fi
+          fi
+          gate_changed=0
+          if echo "$CHANGED" | grep -qE '^hooks/(.*gate|.*blocker|security-scan|pre-commit-check|migration-validator)\.py$'; then
+            gate_changed=1
+          fi
+
+          if [ "$floor_changed" = "1" ] || [ "$gate_changed" = "1" ]; then
+            if echo "$CHANGED" | grep -q '^CHANGELOG.md$'; then
+              echo "OK: an interface change (permission floor and/or a gate) is documented in CHANGELOG.md"
+            else
+              echo "FAIL: this PR changes the permission floor and/or a gate's behaviour, but does not"
+              echo "      update CHANGELOG.md. That is a behavioural change to every consuming repo —"
+              echo "      and because a plugin cannot ship \`permissions\`, an undocumented floor change"
+              echo "      is one consumers can neither see nor copy. Document it under [Unreleased]."
+              exit 1
+            fi
+          else
+            echo "OK: no permission-floor or gate change in this PR."
+          fi
+
+  agent-frontmatter:
+    name: Agents carry no silently-ignored fields
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet pyyaml
+      - name: No unsupported frontmatter on plugin-shipped agents
+        # `hooks`, `mcpServers` and `permissionMode` are NOT supported for plugin agents —
+        # they are silently ignored. A silently-ignored security control is theater, and
+        # theater in a security control is worse than nothing: it changes how much you check.
+        # Capability must come from the `tools` list, which is real.
+        run: |
+          python - <<'EOF'
+          import glob, sys, yaml
+          UNSUPPORTED = ("permissionMode", "hooks", "mcpServers")
+          fail = []
+          for f in sorted(glob.glob("agents/*.md")):
+              fm = yaml.safe_load(open(f, encoding="utf-8").read().split("---", 2)[1]) or {}
+              for key in UNSUPPORTED:
+                  if key in fm:
+                      fail.append(f"{f}: `{key}` is silently ignored for plugin-shipped agents — "
+                                  f"remove it and enforce capability via `tools`")
+              if not fm.get("tools"):
+                  fail.append(f"{f}: no `tools` list — capability is unconstrained")
+          if fail:
+              for x in fail: print("FAIL: " + x)
+              sys.exit(1)
+          print("agent frontmatter OK — no silently-ignored fields; every agent scopes `tools`")
+          EOF
+
+  managed-floor-sync:
+    name: Managed security floor is not stale
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Layer-5 managed floor must carry the catastrophic tier
+        # The managed template went stale once already (it missed the terraform denies added
+        # to the reference floor). Layer 5's floor is deliberately a SUBSET — the catastrophic
+        # tier only, never the build-artifact/context denies (that would be maximalism) — so
+        # this checks containment of the security tier, not equality.
+        run: |
+          python - <<'EOF'
+          import json, re, sys
+
+          def deny(path):
+              raw = open(path, encoding="utf-8").read()
+              # strip _comment / _README style annotation keys before parsing
+              return json.loads(raw).get("permissions", {}).get("deny", [])
+
+          project = set(deny(".claude/settings.json"))
+          managed = set(deny(".claude/managed-settings.template.json"))
+
+          # The catastrophic tier: secrets, privilege escalation, remote-exec, irreversible infra.
+          CATASTROPHIC = re.compile(
+              r"\.env|secrets/|master\.key|credentials|sudo|rm -rf|chmod 777|"
+              r"\| bash|terraform destroy|tofu destroy|terraform state (rm|mv|push)|force-unlock"
+          )
+          required = {r for r in project if CATASTROPHIC.search(r)}
+          missing = sorted(required - managed)
+
+          # And the inverse: context-economy denies must NOT be in non-overridable org policy.
+          CONTEXT_ONLY = re.compile(r"dist/|build/|\.next/|coverage/|\.min\.|generated|public/(assets|packs)|tmp/cache")
+          overreach = sorted(r for r in managed if CONTEXT_ONLY.search(r))
+
+          fail = []
+          if missing:
+              fail += [f"managed template is STALE — missing catastrophic deny: {r}" for r in missing]
+          if overreach:
+              fail += [f"managed template overreaches — {r} is a context-economy rule, not a security "
+                       f"one; non-overridable org policy for it is maximalism" for r in overreach]
+          if fail:
+              for x in fail: print("FAIL: " + x)
+              sys.exit(1)
+          print(f"managed floor OK — carries all {len(required)} catastrophic denies, no context-economy overreach")
+          EOF
+
+  sentinel-guard:
+    name: Sentinel check is present
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: The plugin must ship the layer-4 sentinel check
+        # "A plugin without this check is distributing a false sense of protection,
+        # which is worse than distributing none." — Ch. 13
+        run: |
+          python - <<'EOF'
+          import sys
+          src = open("hooks/session-start-check.py", encoding="utf-8").read()
+          missing = [t for t in ("PERMISSION_SENTINELS", "check_permission_sentinels", "GOVERNANCE GAP") if t not in src]
+          if missing:
+              print("FAIL: sentinel check missing from session-start-check.py:", missing); sys.exit(1)
+          # And the deny floor it guards must still exist in the reference settings.
+          import json
+          deny = json.load(open(".claude/settings.json", encoding="utf-8"))["permissions"]["deny"]
+          for s in ("Read(**/.env)", "Read(**/secrets/**)", "Bash(sudo:*)", "Bash(curl * | bash)"):
+              if s not in deny:
+                  print(f"FAIL: reference settings.json lost sentinel deny: {s}"); sys.exit(1)
+          print("sentinel check present and consistent with the reference deny floor")
+          EOF

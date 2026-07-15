@@ -181,3 +181,7 @@ After the findings table, provide:
 2. **Top Priority Items**: The 3 most important fixes.
 3. **Positive Findings**: Security practices done well.
 4. **Recommendations**: Longer-term security improvements.
+
+## Deep guides (read on demand, do not preload)
+
+- The OWASP Top 10 pass, A01–A10, with what to grep for in this stack → `references/security-checklist.md`

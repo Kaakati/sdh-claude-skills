@@ -4,7 +4,7 @@ PostToolUse hook: API design checker for controller and API route files.
 
 Replaces the agent-based API design hook with a deterministic command hook.
 Checks files under backend/app/controllers/, mobile/src/api/, web/src/api/, next/src/actions/
-for common API design violations per api-design.md.
+for common API design violations per the `std-api-design` skill.
 Exits silently (exit 0, no output) for non-matching files.
 """
 import re
@@ -44,7 +44,7 @@ def check_verbs_in_routes(content):
         verb = match.group(2)
         warnings.append(
             f"WARNING: Verb '{verb}' in URL path '{path_segment}'. "
-            f"Use plural nouns for resources per api-design.md."
+            f"Use plural nouns for resources per the `std-api-design` skill."
         )
     return warnings
 
@@ -58,7 +58,7 @@ def check_unwrapped_array_response(content):
     if pattern_rails.search(content):
         warnings.append(
             "WARNING: Collection response not wrapped in data key "
-            "per api-design.md. Use { data: [...] } format."
+            "per the `std-api-design` skill. Use { data: [...] } format."
         )
 
     # JS/TS: res.json([...]) or return Response.json([...])
@@ -66,7 +66,7 @@ def check_unwrapped_array_response(content):
     if pattern_js.search(content):
         warnings.append(
             "WARNING: Collection response not wrapped in data key "
-            "per api-design.md. Use { data: [...] } format."
+            "per the `std-api-design` skill. Use { data: [...] } format."
         )
 
     return warnings
@@ -89,7 +89,7 @@ def check_error_response_format(content):
                 missing.append("request_id")
             warnings.append(
                 f"WARNING: Error response missing {'/'.join(missing)} "
-                f"per api-design.md."
+                f"per the `std-api-design` skill."
             )
 
     return warnings
@@ -108,7 +108,7 @@ def check_post_returns_200(content):
         if re.search(r"status:\s*(:ok|200)\b", block):
             warnings.append(
                 "WARNING: POST create action returns 200 instead of 201 "
-                "Created per api-design.md."
+                "Created per the `std-api-design` skill."
             )
 
     # JS/TS: router.post with res.status(200) or without explicit status
@@ -118,7 +118,7 @@ def check_post_returns_200(content):
     if post_pattern.search(content):
         warnings.append(
             "WARNING: POST handler returns 200 instead of 201 "
-            "Created per api-design.md."
+            "Created per the `std-api-design` skill."
         )
 
     return warnings

@@ -3,7 +3,7 @@
 PostToolUse hook: Error handling checker.
 
 Checks source files for empty catch/rescue/except blocks and
-rescue Exception (should be StandardError) per error-handling.md.
+rescue Exception (should be StandardError) per the `std-error-handling` skill.
 Exits silently for non-source files.
 """
 import os
@@ -24,7 +24,7 @@ def check_empty_handlers(content, ext):
         )
         if pattern.search(content):
             warnings.append(
-                "WARNING: Empty error handler found per error-handling.md."
+                "WARNING: Empty error handler found per the `std-error-handling` skill."
             )
     elif ext == ".py":
         # except ... : followed by pass or just a comment
@@ -33,7 +33,7 @@ def check_empty_handlers(content, ext):
         )
         if pattern.search(content):
             warnings.append(
-                "WARNING: Empty error handler found per error-handling.md."
+                "WARNING: Empty error handler found per the `std-error-handling` skill."
             )
     else:
         # JS/TS: catch(...) { } with nothing meaningful inside
@@ -42,7 +42,7 @@ def check_empty_handlers(content, ext):
         )
         if pattern.search(content):
             warnings.append(
-                "WARNING: Empty error handler found per error-handling.md."
+                "WARNING: Empty error handler found per the `std-error-handling` skill."
             )
     return warnings
 
@@ -53,7 +53,7 @@ def check_rescue_exception(content, ext):
     pattern = re.compile(r"rescue\s+Exception\b")
     if pattern.search(content):
         return [
-            "WARNING: Rescue StandardError, not Exception per error-handling.md."
+            "WARNING: Rescue StandardError, not Exception per the `std-error-handling` skill."
         ]
     return []
 

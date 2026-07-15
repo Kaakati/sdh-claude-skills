@@ -62,7 +62,8 @@ def check_hardcoded_secrets(content, display_path):
             line_num = content[:match.start()].count("\n") + 1
             warnings.append(
                 f"WARNING: Terraform — {description} detected in {display_path}:{line_num}. "
-                f"Use variables with sensitive = true or AWS Secrets Manager."
+                f"Use variables with sensitive = true or AWS Secrets Manager — see the "
+                f"`std-terraform-conventions` skill."
             )
     return warnings
 

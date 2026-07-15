@@ -13,7 +13,20 @@ import re
 
 import _hooklib as hooklib
 
-MIGRATION_PATH_PATTERNS = ["/migrations/", "/backend/db/migrate/", "/migrate/"]
+# Wrapper-agnostic: "/migrate/" already matches backend/db/migrate, api/db/migrate, or
+# db/migrate at the repo root. A hard-coded "backend/" would only ever match repos that
+# adopted our old forced layout.
+MIGRATION_PATH_PATTERNS = ["/migrations/", "/migrate/"]
+
+# `remove_column :t, :c` cannot be reversed — ActiveRecord does not know the type to restore.
+# `remove_column :t, :c, :string` CAN. Match the 2-arg form only, or the hook fires on the
+# exact form the migration guide recommends, and a gate that flags correct code is a gate
+# people learn to ignore.
+REMOVE_COLUMN_NO_TYPE = re.compile(
+    r"\bremove_column\s+[:\"'][\w\"']+\s*,\s*[:\"'][\w\"']+\s*(?:\)|$|#)", re.M
+)
+# `drop_table :t` is irreversible; `drop_table :t do |t| ... end` is reversible.
+DROP_TABLE_NO_BLOCK = re.compile(r"\bdrop_table\s+[:\"'][\w\"']+\s*(?!.*\bdo\b)(?:\)|$|#)", re.M)
 
 
 def check(event):
@@ -40,30 +53,43 @@ def check(event):
             warnings.append("Migration has 'up' method but no 'down' method. Add a 'down' method for rollback safety.")
 
         if has_change and not has_reversible:
+            # Only the genuinely irreversible forms. ActiveRecord CAN invert `rename_column`,
+            # a `remove_column` that carries its type, and a `drop_table` with a block — so
+            # flagging those would be crying wolf on correct code.
             irreversible_ops = []
-            if re.search(r'\bremove_column\b', content):
-                irreversible_ops.append("remove_column")
+            if REMOVE_COLUMN_NO_TYPE.search(content):
+                irreversible_ops.append("remove_column without a type argument")
             if re.search(r'\bchange_column\b', content):
-                irreversible_ops.append("change_column")
-            if re.search(r'\bdrop_table\b', content):
-                irreversible_ops.append("drop_table")
-            if re.search(r'\brename_column\b', content):
-                irreversible_ops.append("rename_column")
+                irreversible_ops.append("change_column (the old type is unknowable)")
+            if DROP_TABLE_NO_BLOCK.search(content):
+                irreversible_ops.append("drop_table without a block")
             if re.search(r'\bexecute\b', content):
                 irreversible_ops.append("execute (raw SQL)")
 
             if irreversible_ops:
                 warnings.append(
-                    f"Irreversible operations in 'change' method: {', '.join(irreversible_ops)}. "
-                    "Use 'reversible do' block or explicit 'up'/'down' methods per database.md."
+                    f"`change` cannot be reversed: {', '.join(irreversible_ops)}. "
+                    "Pass the type (`remove_column :orders, :status, :string`), use a "
+                    "`reversible do` block, or write explicit `up`/`down` — see the "
+                    "`db-migration` skill. If it is genuinely irreversible, say so with "
+                    "`raise ActiveRecord::IrreversibleMigration` in `down`."
                 )
+
+        # rename_column IS reversible — the risk is different, and so is the remedy.
+        if re.search(r'\brename_column\b', content):
+            warnings.append(
+                "rename_column breaks every running instance the moment it lands: old code "
+                "still selects the old name. It is reversible, so this is not a rollback "
+                "problem — it is a rolling-deploy problem. Use expand/contract (add the new "
+                "column, dual-write, backfill, switch reads, drop) — see the `db-migration` skill."
+            )
 
     # Check 2: No raw SQL string interpolation
     sql_interpolation = re.findall(r'execute\s*[(\s]*["\'].*#\{.*\}.*["\']', content)
     if sql_interpolation:
         warnings.append(
             "Raw SQL with string interpolation detected. Use parameterized queries or "
-            "ActiveRecord methods to prevent SQL injection per security.md."
+            "ActiveRecord methods to prevent SQL injection per the `std-security` skill."
         )
 
     # Check 3: Warn about destructive operations
@@ -78,7 +104,7 @@ def check(event):
     if destructive_ops:
         warnings.append(
             f"Destructive operations detected: {', '.join(destructive_ops)}. "
-            "Follow expand/contract pattern per database.md. Consider multi-step migration."
+            "Follow expand/contract pattern per the `std-database` skill. Consider multi-step migration."
         )
 
     if warnings:

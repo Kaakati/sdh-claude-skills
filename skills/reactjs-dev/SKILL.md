@@ -150,3 +150,9 @@ const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
 - [ ] Accessibility: semantic HTML, keyboard navigation, ARIA labels
 - [ ] Tests written with Vitest + React Testing Library
 - [ ] Bundle size checked with `vite-bundle-visualizer`
+
+## Deep guides (read on demand, do not preload)
+
+- Page components, auth guards, react-hook-form + zod + Tailwind, the `cn()` utility → `references/component-patterns.md`
+- Zustand with persistence, React Router config, the axios client with interceptors, Vitest + MSW tests → `references/data-patterns.md`
+- Framer Motion page/list transitions, ApexCharts revenue and donut charts → `references/ui-patterns.md`

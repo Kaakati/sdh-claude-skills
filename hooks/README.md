@@ -52,9 +52,10 @@ consistent. Key helpers:
 
 The 12 advisory PostToolUse checkers run **in one process** via the dispatcher, which reads
 the event once and calls each checker's `check(event)` in-process. This replaces 12 separate
-hook entries — ~12 fewer Python cold-starts per edit. Each checker is isolated: a crash in
-one is swallowed so it cannot suppress the others. `auto-format.py` stays a separate hook
-entry (it mutates files and may invoke slow formatters with their own timeout).
+hook entries — ~12 fewer Python cold-starts per edit. Each checker is isolated: a crash in one
+cannot suppress the others — but it is **reported**, never swallowed (see *Silent failure* below).
+`auto-format.py` stays a separate hook entry (it mutates files and may invoke slow formatters with
+their own timeout).
 
 ### Wrapper-directory-agnostic detection
 
@@ -63,6 +64,44 @@ Checkers detect frameworks by **canonical internal structure** (`app/models`, `s
 `metro.config.js`, `react-native` in `package.json`) — never by a forced top-level folder
 name. Rails works under `backend/`, `api/`, or the repo root; a Vite app under `web/`,
 `frontend/`, or root; etc. See the root `README.md` → *Project Directory Convention*.
+
+### Fail-closed or fail-open — decided, not defaulted
+
+Every hook eventually crashes (a schema change, a missing binary, malformed input). What happens
+**then** is a security property, chosen consciously per hook — never inherited by accident.
+
+| Hook | Stance | Why |
+|------|--------|-----|
+| `security-scan.py` | **fail-closed** | A gate that cannot evaluate must not pass. An exception in the secret scanner is the strongest possible reason *not* to allow the write. |
+| `dangerous-command-blocker.py` | **fail-closed** | Same: an unevaluated destructive command is not a safe one. |
+| `pre-commit-check.py` | fail-open | Workflow convention, not safety. A bug here must not block every Bash command. |
+| `migration-validator.py` | fail-open (`ask`) | Confirmation gate; the write itself isn't destructive. |
+| `deployment-gate.py` | fail-open (`ask`) | Confirmation gate. |
+| all 12 advisory checkers | fail-open | *"The linter's crash should cost you a lint report, not a session."* A fail-closed formatter is an outage generator. |
+| `audit-logger.py` | fail-open | Logging must never block a tool — but see below. |
+
+**The cost of fail-closed is availability**: a bug in a fail-closed gate on `Edit|Write` bricks all
+edits until fixed. That is the correct trade for the small deny tier, and the wrong one everywhere else.
+
+### Silent failure is invisible failure
+
+A fail-open hook that swallows its own exception **looks identical to one that passed** — so a dead
+gate can masquerade as a green one for months. Every fail-open path here therefore reports itself:
+
+```
+HOOK ERROR: code-quality-checker.py failed to run — ValueError: bad regex.
+Its checks did NOT execute, so its rules were not enforced on this edit.
+```
+
+- `_hooklib.hook_error(label, exc)` is the single emitter; `run_post_checker` and the dispatcher
+  both route through it, naming the failing checker so the message is actionable.
+- `audit-logger.py` is the sharpest case: a silent write failure leaves **invisible holes in the
+  audit trail plus false confidence that it is complete** — strictly worse than having no trail. It
+  announces every gap.
+- A healthy hook stays **silent** — the signal must not become noise.
+
+This is enforced by fixture tests (`[fail-open visibility]` in the harness), because a guarantee
+that isn't tested is a guarantee that decays.
 
 ### Exit-code / decision convention
 
@@ -75,12 +114,20 @@ name. Rails works under `backend/`, `api/`, or the repo root; a Vite app under `
 `fail_closed=True` — if the check itself errors, they emit a `deny` rather than silently
 allowing the action. Advisory checkers and `ask`-style gates fail open.
 
+## Writing & debugging hooks
+
+See **[docs/hook-development.md](../docs/hook-development.md)** for the development loop
+(capture a real event with `capture-event.py`, then develop against the fixture — a
+sub-second loop), the *observe, don't guess* first move, and the symptom→cause
+troubleshooting table (hook never fires / fires but never blocks / gate blocks everything /
+the model argues with a denial / the read-only lie).
+
 ## Debug Mode
 
 Set `CLAUDE_HOOKS_DEBUG=1` to see which Python interpreter the launcher selects:
 
 ```bash
-CLAUDE_HOOKS_DEBUG=1 bash .claude/hooks/run-python.sh .claude/hooks/security-scan.py
+CLAUDE_HOOKS_DEBUG=1 bash hooks/run-python.sh hooks/security-scan.py
 # stderr: [run-python] Using: python3 (Python 3.12.1)
 ```
 
@@ -90,8 +137,10 @@ CLAUDE_HOOKS_DEBUG=1 bash .claude/hooks/run-python.sh .claude/hooks/security-sca
 |--------|-------|---------|
 | `run-python.sh` | — | Cross-platform Python 3 launcher (UTF-8, interpreter discovery) |
 | `_hooklib.py` | — | Shared library: event parsing, file IO, framework detection, run loops |
+| `capture-event.py` | dev tool | Captures a real event to `tests/fixtures/` so you can develop against a fixture, not a session |
 | `security-scan.py` | PreToolUse | Blocks writes to protected files, detects hardcoded secrets (**fail-closed**) |
 | `dangerous-command-blocker.py` | PreToolUse | Blocks destructive shell commands (**fail-closed**) |
+| `terraform-command-gate.py` | PreToolUse | Three-tier gate: denies destroy/state-surgery/`-auto-approve`, asks on `apply`, allows the read-only surface (**fail-closed**) |
 | `pre-commit-check.py` | PreToolUse | Validates conventional commit format, blocks force pushes |
 | `migration-validator.py` | PreToolUse | Validates migration reversibility, SQL injection, destructive ops |
 | `deployment-gate.py` | PreToolUse | Requires confirmation for deploys |
@@ -120,7 +169,13 @@ CLAUDE_HOOKS_DEBUG=1 bash .claude/hooks/run-python.sh .claude/hooks/security-sca
 ## Running Tests
 
 ```bash
-python .claude/hooks/tests/run-all.py
+bash hooks/run-python.sh hooks/tests/run-all.py
 ```
 
-The test harness uses `sys.executable` to invoke hook scripts, so it works regardless of whether your system uses `python` or `python3`.
+The harness invokes hook scripts with `sys.executable`, so it works regardless of whether your
+system uses `python` or `python3`; going through `run-python.sh` additionally forces UTF-8 and
+picks a working interpreter on Windows.
+
+It is also a **standing audit**, not just a regression net (Ch. 22) — beyond per-hook behaviour it
+asserts that fail-open paths stay visible, that every `deny` reason names a remedy, and that the
+sentinel detects a *stale* permission floor. CI runs it on every push and PR.

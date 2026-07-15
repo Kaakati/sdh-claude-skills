@@ -21,9 +21,19 @@ paths:
 - Use log levels consistently: DEBUG for dev, INFO for requests, WARN for recoverable issues, ERROR for failures
 
 ## Request Tracing
-- Propagate `X-Request-ID` header across all service boundaries
-- Include request_id in all log entries, error reports, and API responses
-- Centrifugo messages must carry request_id for end-to-end tracing
+- **You do not build this — Rails already does.** `ActionDispatch::RequestId` is in the default
+  middleware stack: it adopts an incoming `X-Request-Id` (typically set by the load balancer, so
+  your logs join to the LB's for free) or generates a uuid, exposes it as `request.request_id`,
+  and returns it to the client in the `X-Request-Id` header.
+- **`config.log_tags = [:request_id]`** — one line, and every log line in the request carries it.
+- Include request_id in all log entries, error reports, and API responses.
+- **The trace breaks at the async boundary.** A Sidekiq job runs in another process with no
+  request: `request_id` is `nil` there unless you propagate it through client/server middleware.
+  That is exactly where you need it — the async work is what fails at 3am.
+- Centrifugo messages must carry request_id for end-to-end tracing.
+- The id is **outside input** (Rails sanitizes it to 255 alphanumeric-and-dash chars because a
+  client can send it) — never interpolate it into SQL or a shell command.
+- Deep guide → `references/request-tracing.md`
 
 ## Health Check Endpoints
 - `/health` — application liveness (returns 200 if app process is running)
@@ -65,3 +75,14 @@ paths:
 - Infrastructure dashboard: ECS, RDS, ElastiCache, Centrifugo metrics
 - Background jobs dashboard: Sidekiq queues, execution times, failures
 - Mobile dashboard: crash-free rate, API latency from client, active sessions
+
+## Deep guides (read on demand, do not preload)
+
+- Where `request_id` comes from (`ActionDispatch::RequestId`), `config.log_tags`, `Current`
+  attributes for services, **propagating the id into Sidekiq** (the boundary where the trace
+  breaks), returning it to clients, and proving it end to end with one `curl`
+  → `references/request-tracing.md`
+
+Related, owned elsewhere — do not duplicate: *querying* the logs this produces (Logs Insights,
+`gcloud logging read`) → `../log-search`; the API error envelope the id belongs in →
+`../std-api-design/references/errors-rails.md`; what must never be logged → `../std-security`.

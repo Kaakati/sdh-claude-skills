@@ -68,6 +68,24 @@ Reference these guidelines when:
 | Templates | Atoms + Molecules + Organisms | Layout only | DashboardLayout, AuthLayout |
 | Pages | Everything | Full data | Articles::Index, DashboardPage |
 
-## Full Reference
+## Deep guides (read on demand, do not preload)
 
-For the complete guide with all rules and code examples: `references/full-guide.md`
+Every rule id listed above maps to a self-contained file at `rules/<rule-id>.md`, each with its
+own bad/good code pair for all 4 platforms.
+
+**Read only the rule file matching your task** — not the set:
+
+```
+rules/<rule-id>.md
+```
+
+Loading one ~60-line rule beats skimming the whole directory. Do not preload it.
+
+The rules answer "how do I write this level correctly?". These references answer the questions that
+come before and after that — read one only when the question is yours:
+
+| Reference | Read it when |
+|-----------|--------------|
+| `references/choosing-the-atomic-level.md` | You don't yet know which level a component is. Decision tree, classification questions, data/state boundaries, the standard atom and molecule catalogs, and whether a level changes when you port across platforms. |
+| `references/diagnosing-misplaced-components.md` | The hierarchy exists but feels wrong — an import goes the wrong way, a component won't reuse, an atom has too many props. Symptom → diagnosis → fix. |
+| `references/nextjs-server-client-boundary.md` | **Next.js only.** Deciding `"use client"` placement, whether an organism should `await` or use a hook, or `layout.tsx` vs an Atomic Design template. Skip on Vite, Phlex, and React Native. |

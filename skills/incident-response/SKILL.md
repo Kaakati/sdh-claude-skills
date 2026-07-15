@@ -47,3 +47,7 @@ The agent also supports proactive resilience testing:
 
 See `.claude/agents/incident-responder.md` for the full diagnosis protocol, communication templates, and chaos engineering procedures.
 See `docs/runbooks/` for component-specific operational runbooks.
+
+## Deep guides (read on demand, do not preload)
+
+- Runbooks: database connection exhaustion, Redis OOM, Sidekiq queue backup, ECS crash loops, Centrifugo disconnections, PostGIS query timeouts → `references/runbooks.md`

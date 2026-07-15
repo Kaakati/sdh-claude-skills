@@ -3,7 +3,7 @@
 PostToolUse hook: Code quality checker.
 
 Checks source files for function/file length limits, parameter counts,
-and nesting depth per code-standards.md. Exits silently for non-source files.
+and nesting depth per the `std-code-standards` skill. Exits silently for non-source files.
 """
 import os
 import re

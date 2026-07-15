@@ -28,40 +28,43 @@ Reference these guidelines when:
 
 ## Rule Categories by Priority
 
-| Priority | Category                | Impact | Prefix          |
-| -------- | ----------------------- | ------ | --------------- |
-| 1        | Component Architecture  | HIGH   | `architecture-` |
-| 2        | State Management        | MEDIUM | `state-`        |
-| 3        | Implementation Patterns | MEDIUM | `patterns-`     |
-| 4        | React 19 APIs           | MEDIUM | `react19-`      |
+<!-- GENERATED from rules/_sections.md + the rule files on disk.
+     CI (skills-lint) fails if this drifts. Edit _sections.md, not this table. -->
+
+| # | Category | Impact | Rule prefix | Rules |
+|---|---|---|---|---|
+| 1 | Component Architecture | HIGH | `architecture-` | 2 |
+| 2 | State Management | MEDIUM | `state-` | 3 |
+| 3 | Implementation Patterns | MEDIUM | `patterns-` | 2 |
+| 4 | React 19 APIs | MEDIUM | `react19-` | 1 |
 
 ## Quick Reference
 
 ### 1. Component Architecture (HIGH)
 
+*Fundamental patterns for structuring components to avoid prop proliferation and enable flexible composition.*
+
 - `architecture-avoid-boolean-props` - Don't add boolean props to customize
-  behavior; use composition
 - `architecture-compound-components` - Structure complex components with shared
-  context
 
 ### 2. State Management (MEDIUM)
 
-- `state-decouple-implementation` - Provider is the only place that knows how
-  state is managed
+*Patterns for lifting state and managing shared context across composed components.*
+
 - `state-context-interface` - Define generic interface with state, actions, meta
-  for dependency injection
+- `state-decouple-implementation` - Provider is the only place that knows how
 - `state-lift-state` - Move state into provider components for sibling access
 
 ### 3. Implementation Patterns (MEDIUM)
 
-- `patterns-explicit-variants` - Create explicit variant components instead of
-  boolean modes
+*Specific techniques for implementing compound components and context providers.*
+
 - `patterns-children-over-render-props` - Use children for composition instead
-  of renderX props
+- `patterns-explicit-variants` - Create explicit variant components instead of
 
 ### 4. React 19 APIs (MEDIUM)
 
-> **React 19+ only.** Skip this section if using React 18 or earlier.
+*React 19+ only. Don't use `forwardRef`; use `use()` instead of `useContext()`.*
 
 - `react19-no-forwardref` - Don't use `forwardRef`; use `use()` instead of `useContext()`
 
@@ -81,6 +84,15 @@ Each rule file contains:
 - Correct code example with explanation
 - Additional context and references
 
-## Full Compiled Document
+## Deep guides (read on demand, do not preload)
 
-For the complete guide with all rules expanded: `references/full-guide.md`
+Every rule id listed above maps to a self-contained file at `rules/<rule-id>.md`, each with its
+own bad/good code pair.
+
+**Read only the rule file matching your task** — not the set:
+
+```
+rules/<rule-id>.md
+```
+
+Loading one ~60-line rule beats skimming a compiled monolith. Do not preload the directory.

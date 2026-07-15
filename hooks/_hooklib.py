@@ -74,16 +74,110 @@ def emit(warnings):
         print(line)
 
 
+def hook_error(label, exc):
+    """Announce a fail-open failure. Loudly.
+
+    "Silent failure is invisible failure. A fail-open hook that swallows its own
+    exceptions looks identical to one that passed" — so a dead gate can masquerade
+    as a green one for months. Advisory hooks fail OPEN (a crash must never block
+    the edit) but never SILENTLY: emit one actionable line naming the checker.
+    """
+    print(
+        f"HOOK ERROR: {label} failed to run — {type(exc).__name__}: {exc}. "
+        "Its checks did NOT execute, so its rules were not enforced on this edit."
+    )
+
+
+def _script_label():
+    """Best-effort name of the running hook, for hook_error."""
+    try:
+        return os.path.basename(sys.argv[0]) or "checker"
+    except Exception:
+        return "checker"
+
+
+# Ch. 13, "It's configurable at the edges": hard-coding a team's branch names,
+# test command, or protected paths makes the plugin unusable anywhere else. The
+# core rules are universal; the specifics are parameters with sane defaults, so a
+# repo we did not design works on day one.
+DEFAULT_PROTECTED_BRANCHES = ("main", "master", "develop")
+
+
+def env_list(name, default):
+    """Read a comma-separated env override, falling back to `default`.
+
+    An unset OR blank value yields the default — an empty override almost always
+    means "this env var is not set here", not "protect no branches", and the
+    silently-unprotected reading is the dangerous one.
+    """
+    values = [v.strip() for v in os.environ.get(name, "").split(",") if v.strip()]
+    return values or list(default)
+
+
+def protected_branches():
+    """Branches a direct push / force push must be gated on.
+
+    Override with SDH_PROTECTED_BRANCHES (e.g. "trunk,release"). Default:
+    main, master, develop.
+    """
+    return env_list("SDH_PROTECTED_BRANCHES", DEFAULT_PROTECTED_BRANCHES)
+
+
+def branch_alternation(extra=()):
+    """Regex alternation of the protected branches, safely escaped."""
+    import re as _re
+
+    names = list(protected_branches()) + [e for e in extra if e not in protected_branches()]
+    return "|".join(_re.escape(n) for n in names)
+
+
+def _notice_dir():
+    import tempfile
+
+    return os.path.join(tempfile.gettempdir(), "sdh-hook-notices")
+
+
+def notice_once(event, key, message):
+    """Print `message` at most once per session, then stay quiet. Returns True if printed.
+
+    Ch. 13: a hook whose tool is missing "should say so once and exit 0, not crash
+    on every write". Both other options are wrong: crashing punishes the user for
+    not having our toolchain, and exiting silently is Ch. 9's "silent failure is
+    invisible failure" — the user watches formatting never happen and has no idea
+    why. Once per session is the whole point: the notice is actionable the first
+    time and pure noise by the fifth.
+
+    If the marker cannot be written (read-only or missing temp dir), we speak
+    rather than stay silent — a repeated notice is visible and fixable; a silent
+    hole is neither. Deliberate, not a default.
+    """
+    session = str((event or {}).get("session_id") or "nosession")
+    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in f"{session}-{key}")
+    try:
+        os.makedirs(_notice_dir(), exist_ok=True)
+        marker = os.path.join(_notice_dir(), safe)
+        if os.path.exists(marker):
+            return False
+        with open(marker, "w", encoding="utf-8") as fh:
+            fh.write("1")
+    except Exception:
+        pass
+    print(message)
+    return True
+
+
 def run_post_checker(check):
     """Standalone runner for an advisory PostToolUse checker.
 
-    `check(event)` returns a list of warning lines. Always exits 0; a crash in an
-    advisory checker must never block the tool, so exceptions are swallowed.
+    `check(event)` returns a list of warning lines. Always exits 0 — a crash in an
+    advisory checker must never block the tool (fail-open) — but the crash is
+    reported rather than swallowed, so a dead checker cannot look like a passing one.
     """
     event = load_event()
     try:
         warnings = check(event) or []
-    except Exception:  # advisory: degrade silently, never block the edit
+    except Exception as exc:
+        hook_error(_script_label(), exc)
         warnings = []
     emit(warnings)
     sys.exit(0)

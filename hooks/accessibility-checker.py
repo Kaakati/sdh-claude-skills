@@ -4,7 +4,7 @@ PostToolUse hook: Accessibility checker for web UI files.
 
 Replaces the agent-based accessibility hook with a deterministic command hook.
 Checks .tsx/.jsx browser-React files (Vite/Next, any wrapper dir) for common a11y
-violations per accessibility.md. React Native files are skipped. Exits silently
+violations per the `std-accessibility` skill. React Native files are skipped. Exits silently
 (exit 0, no output) for non-matching files.
 """
 import os
@@ -25,7 +25,7 @@ def check_non_semantic_clickable(content):
         tag = match.group(1)
         warnings.append(
             f"WARNING: Non-semantic <{tag} onClick> found. "
-            f"Use <button> for interactive actions per accessibility.md."
+            f"Use <button> for interactive actions per the `std-accessibility` skill."
         )
     return warnings
 
@@ -40,7 +40,7 @@ def check_missing_alt_text(content):
         if not re.search(r"\balt\s*=", attrs):
             tag = match.group(1)
             warnings.append(
-                f"WARNING: <{tag}> missing alt text per accessibility.md."
+                f"WARNING: <{tag}> missing alt text per the `std-accessibility` skill."
             )
     return warnings
 
@@ -70,13 +70,13 @@ def check_input_without_label(content):
                 # Simple heuristic — if no htmlFor match found, warn
                 warnings.append(
                     "WARNING: <input> without associated <label> "
-                    "per accessibility.md."
+                    "per the `std-accessibility` skill."
                 )
         elif not re.search(r"\baria-label\s*=", attrs):
             # No id and no aria-label — likely missing label association
             warnings.append(
                 "WARNING: <input> without associated <label> or aria-label "
-                "per accessibility.md."
+                "per the `std-accessibility` skill."
             )
     return warnings
 
@@ -88,7 +88,7 @@ def check_focus_indicator_removed(content):
     if pattern.search(content):
         warnings.append(
             "WARNING: Focus indicator removed (outline:none/0) "
-            "without visible replacement per accessibility.md."
+            "without visible replacement per the `std-accessibility` skill."
         )
     return warnings
 
@@ -104,7 +104,7 @@ def check_aria_hidden_interactive(content):
     if pattern.search(content):
         warnings.append(
             "WARNING: Interactive element hidden from assistive technology "
-            "(aria-hidden=\"true\" with onClick) per accessibility.md."
+            "(aria-hidden=\"true\" with onClick) per the `std-accessibility` skill."
         )
     return warnings
 

@@ -6,8 +6,10 @@ requires explicit confirmation before allowing execution.
 
 Monitored commands:
 - git push to main/master/develop
-- aws ecs, vercel deploy, terraform apply
+- aws ecs, vercel deploy
 - docker push to production registries
+
+Terraform is owned by `terraform-command-gate.py` (a three-tier gate), not this hook.
 
 Emits an 'ask' (confirmation) decision when a deployment command is detected.
 Fails open: a bug here must not block unrelated commands."""
@@ -24,18 +26,20 @@ def check(event):
     command = hooklib.tool_input(event).get("command", "")
     warnings = []
 
-    protected_branch_push = re.search(r'git\s+push\s+.*\b(main|master|develop)\b', command)
+    protected_branch_push = re.search(
+        r'git\s+push\s+.*\b(' + hooklib.branch_alternation() + r')\b', command
+    )
     if protected_branch_push:
         branch = protected_branch_push.group(1)
         warnings.append(
             f"Pushing to protected branch '{branch}'. "
-            "Verify CI has passed and PR was approved per git-workflow.md."
+            "Verify CI has passed and PR was approved per the `std-git-workflow` skill."
         )
 
     if re.search(r'git\s+push\s+.*(-f|--force)\b', command):
         warnings.append(
             "Force push detected. This can overwrite remote history. "
-            "Force pushes to protected branches are prohibited per git-workflow.md."
+            "Force pushes to protected branches are prohibited per the `std-git-workflow` skill."
         )
 
     if re.search(r'aws\s+ecs\s+(update-service|create-service|deploy)', command):
@@ -43,7 +47,7 @@ def check(event):
             "AWS ECS deployment detected. Verify: "
             "1) Target environment (staging vs production). "
             "2) Health checks are configured. "
-            "3) Rollback strategy is ready per infrastructure.md."
+            "3) Rollback strategy is ready per the `std-infrastructure` skill."
         )
 
     if re.search(r'vercel\s+(deploy|--prod)', command):
@@ -51,16 +55,15 @@ def check(event):
             "Vercel deployment detected. Verify: "
             "1) Build passes locally. "
             "2) Environment variables are set. "
-            "3) Preview deployment was tested per infrastructure.md."
+            "3) Preview deployment was tested per the `std-infrastructure` skill."
         )
 
-    if re.search(r'terraform\s+apply\b', command):
-        warnings.append(
-            "Terraform apply detected. Verify: "
-            "1) 'terraform plan' output was reviewed. "
-            "2) No unexpected resource deletions. "
-            "3) State file is locked per infrastructure.md."
-        )
+    # NOTE: Terraform is deliberately NOT handled here. `terraform-command-gate.py` owns the
+    # whole terraform surface with a proper three-tier gate (deny state-surgery/destroy/
+    # -auto-approve, ask on apply with a checklist, allow the read-only surface). Two hooks
+    # both emitting a decision for `terraform apply` meant two prompts for one command —
+    # approval fatigue is how you get a human who stops reading (Ch. 20, layer 6) — and on
+    # `apply -auto-approve` they disagreed outright (ask vs deny). One concern, one owner.
 
     if re.search(r'docker\s+push\b', command):
         warnings.append(

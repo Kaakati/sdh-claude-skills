@@ -3,7 +3,6 @@ name: incident-responder
 description: Production incident diagnosis, mitigation, and post-mortem analysis. Use when responding to outages, performance degradation, error spikes, or production failures across Rails (ECS), PostgreSQL/PostGIS (RDS), Redis/Sidekiq, and Centrifugo.
 tools: Read, Grep, Glob, Bash
 model: opus
-permissionMode: default
 maxTurns: 30
 ---
 

@@ -54,7 +54,7 @@ UI components and navigation must be operable.
 | 2.4.6 Headings and Labels | Descriptive headings, no skipped levels | Yes |
 | 2.4.7 Focus Visible | Visible focus indicator on all focusable elements | Partial |
 | **2.4.11 Focus Not Obscured** (2.2) | Focused element not fully hidden by other content | Manual |
-| **2.4.13 Focus Appearance** (2.2) | Focus indicator has 3:1 contrast, 2px minimum | Partial |
+| **2.4.13 Focus Appearance** (2.2, **AAA** — house rule, not required for AA) | Focus indicator has 3:1 contrast, 2px minimum | Partial |
 | **2.5.7 Dragging Movements** (2.2) | Drag operations have single-pointer alternative | Manual |
 | **2.5.8 Target Size** (2.2) | Interactive targets minimum 24x24px (44x44px mobile) | Yes |
 

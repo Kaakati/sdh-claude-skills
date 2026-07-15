@@ -14,204 +14,127 @@ paths:
 
 Rules for building Next.js web applications with the App Router, consuming the shared Rails API backend.
 
+## Stack
+
+| Concern | Library |
+|---------|---------|
+| Framework | **Next.js 15+** (App Router) — Server Components by default. React 19 minimum |
+| Styling | Tailwind CSS (same conventions as the `std-reactjs` skill; use `cn()` for conditional classes) |
+| Server state | TanStack Query — Client Components only |
+| Client state | Zustand — Client Components only |
+| HTTP | axios (Rails API client) for client + server actions; `fetch` for cacheable server reads |
+| Forms | react-hook-form + zod (Client Components) |
+| i18n | next-intl or react-i18next |
+| Testing | Vitest + React Testing Library + MSW |
+
+CSS Modules only for animations Tailwind cannot express.
+
+## This targets Next.js 15+ — and 14 answers differently
+
+The version is part of the convention (`std-infrastructure`: *pin every version*). Next.js 15
+changed **caching defaults and request APIs**, so the same code behaves differently on 14 — and
+guidance that does not say which major it means is guidance you cannot check.
+
+| | Next.js 14 | **Next.js 15+ (this repo)** |
+|---|---|---|
+| `fetch` | cached by default | **not cached by default** — opt in with `cache: 'force-cache'` |
+| `GET` Route Handlers | cached by default | **not cached** — opt in with `export const dynamic = 'force-static'` |
+| Client Router Cache | page segments reused on `<Link>` nav | **not reused** (back/forward and shared layouts still are); tune via `experimental.staleTimes` |
+| `cookies`, `headers`, `draftMode` | synchronous | **async — `await cookies()`** |
+| `params`, `searchParams` | plain objects | **Promises — `await params`** |
+
+Two consequences that shape every example in this skill:
+
+- **`params: Promise<{…}>` and `await cookies()` are not style — they are required.** Sync usage
+  is a 14-ism that warns in dev and breaks.
+- **Never rely on the `fetch` default.** Since 15 makes uncached the default and 14 made cached
+  the default, *any* code whose correctness depends on the default is a version bug waiting to
+  happen. State intent explicitly — `next: { revalidate, tags }` or `cache: 'force-cache'` — which
+  is why `references/caching.md` always does, and why it reads as verbose. That verbosity is the
+  point.
+
+Upgrading from 14: `npx @next/codemod@canary upgrade latest` handles the async-API migration.
+
 ## Project Structure
 
 ```
-next/
-├── next.config.ts
-├── tailwind.config.ts
-├── tsconfig.json
-├── middleware.ts              # Edge middleware (auth, locale, redirects)
-├── app/                       # App Router pages and layouts
-│   ├── layout.tsx             # Root layout (providers, global styles)
-│   ├── page.tsx               # Home page
-│   ├── loading.tsx            # Root loading UI
-│   ├── error.tsx              # Root error boundary
-│   ├── not-found.tsx          # 404 page
-│   ├── (auth)/                # Route group for auth pages
-│   │   ├── login/page.tsx
-│   │   └── register/page.tsx
-│   ├── (dashboard)/           # Route group for authenticated pages
-│   │   ├── layout.tsx
-│   │   ├── page.tsx
-│   │   └── orders/
-│   │       ├── page.tsx
-│   │       └── [id]/page.tsx
-│   └── api/                   # Route Handlers (BFF endpoints only)
-│       └── health/route.ts
-├── src/
-│   ├── components/            # Shared components
-│   │   ├── ui/                # Design system primitives
-│   │   └── forms/             # Form components
-│   ├── actions/               # Server actions (use cases)
-│   ├── hooks/                 # Client-side custom hooks
-│   ├── stores/                # Zustand stores (client-only state)
-│   ├── api/                   # Rails API client (axios)
-│   ├── domain/                # Domain types and business rules
-│   ├── types/                 # Shared TypeScript types
-│   ├── lib/                   # Utilities (cn, auth helpers, etc.)
-│   └── i18n/                  # Internationalization
-└── tests/
-    ├── setup.ts
-    └── utils.tsx
+app/                    # Routes: layout.tsx, page.tsx, loading.tsx, error.tsx, not-found.tsx
+  (auth)/ (dashboard)/  # Route groups
+  api/                  # Route Handlers — BFF/webhooks/health only, never a second API
+src/
+  components/ui|forms/  # Design system primitives, form components
+  actions/              # Server actions (use-case layer for mutations)
+  hooks/ stores/        # Client hooks, Zustand stores
+  api/                  # Rails API client
+  domain/ types/ lib/ i18n/
+middleware.ts           # Edge middleware (auth gate, locale, redirects)
+tests/
 ```
 
-## Technology Stack
+## Core Rules
 
-| Concern | Library | Notes |
-|---------|---------|-------|
-| Framework | Next.js (App Router) | Server Components by default |
-| Styling | Tailwind CSS | Same conventions as ReactJS SPA |
-| Server State | TanStack Query | Client Components only |
-| Client State | Zustand | Client Components only |
-| HTTP | axios | Rails API client |
-| Forms | react-hook-form + zod | Client Components |
-| i18n | next-intl or react-i18next | Server + Client component support |
-| Testing | Vitest + React Testing Library | Server component tests via async patterns |
+### Server vs Client Components
+- Every component is a Server Component by default — no directive needed. Use for data fetching,
+  static rendering, SEO-critical content, layouts.
+- Add `'use client'` only for interactivity: state, event handlers, browser APIs, Zustand,
+  TanStack Query. Keep Client Components small and leaf-level.
+- **Never add `'use client'` to a page or layout file** — extract the interactive part instead.
+- Server Components can `await` directly; they cannot use hooks, state, or event handlers.
 
-## Server vs Client Components
-
-### Server Components (Default)
-- **Every component is a Server Component by default** — no `'use client'` directive needed.
-- Use for: data fetching, static rendering, SEO-critical content, layouts.
-- Can `await` async operations directly in the component body.
-- Cannot use hooks, browser APIs, event handlers, or state.
-
-### Client Components (`'use client'`)
-- Add `'use client'` at the top of files that need interactivity.
-- Use for: forms, interactive UI, Zustand stores, TanStack Query, event handlers.
-- Keep Client Components as small and leaf-level as possible.
-- **Never add `'use client'` to layout or page files** unless absolutely necessary — wrap interactive parts in separate Client Components.
-
-### Composition Pattern
 ```tsx
-// app/orders/page.tsx — Server Component (fetches data)
-import { OrderTable } from '@/components/OrderTable'; // Client Component
+// app/orders/page.tsx — Server Component fetches, Client Component renders interaction
+import { OrderTable } from '@/components/OrderTable'; // 'use client'
 
 export default async function OrdersPage() {
-  const orders = await fetchOrders(); // Server-side fetch
+  const orders = await fetchOrders();
   return <OrderTable initialData={orders} />;
 }
 ```
 
-## Server Actions
+### Data fetching
+- Fetch in Server Components with `async/await`. Parallelize independent reads with `Promise.all`.
+- TanStack Query only when you need polling, infinite scroll, or optimistic updates — seed it with
+  server data via `initialData` so there is no loading flash.
+- ISR: `export const revalidate = N`. Static: nothing, or `dynamic = 'force-static'`. Per-request:
+  `dynamic = 'force-dynamic'`. On-demand: `revalidatePath()` / `revalidateTag()`.
 
-Server actions are the use-case layer for mutations:
+### Server actions
+- **Always validate input with zod** — a server action is a public endpoint.
+- **Always authorize inside the action**; never take identity from the form payload.
+- **Always `revalidatePath`/`revalidateTag`** after a successful mutation.
+- Return serializable data only. Never return a raw error — catch, log, return a user-safe message.
+- Prefer progressive enhancement: `<form action={formAction}>` + `useActionState`.
 
-```tsx
-// src/actions/orders.ts
-'use server';
+### Metadata
+- **Every page exports `metadata` or `generateMetadata`.** Use `generateMetadata` when the title
+  depends on fetched data. Set a canonical URL to avoid duplicate content.
 
-import { revalidatePath } from 'next/cache';
-import { z } from 'zod';
+### Middleware
+- Auth redirects, locale detection, A/B bucketing, rate limiting. Runs on the Edge Runtime —
+  keep it lightweight, no data fetching, always set a `matcher`. It is a coarse gate, not the
+  security boundary.
 
-const CreateOrderSchema = z.object({
-  items: z.array(z.object({ productId: z.string(), quantity: z.number().positive() })),
-  paymentMethod: z.string(),
-});
-
-export async function createOrder(formData: FormData) {
-  const parsed = CreateOrderSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
-
-  const result = await railsApi.post('/api/v1/orders', parsed.data);
-  revalidatePath('/orders');
-  return { data: result.data };
-}
-```
-
-### Server Action Rules
-- **Always validate input with zod** — server actions are public endpoints.
-- **Call `revalidatePath` or `revalidateTag`** after mutations to refresh cached data.
-- **Return serializable data only** — no class instances, no functions.
-- **Never expose raw errors** — catch and return user-friendly error objects.
-- **Use progressive enhancement** — forms should work without JavaScript via `action` attribute.
-
-## Data Fetching
-
-### Server Components (Preferred)
-- Fetch data directly in Server Components using `async/await`.
-- Use `fetch()` with Next.js cache options or the Rails API client.
-- Set `revalidate` for ISR: `export const revalidate = 60;` (seconds).
-
-### Client Components (When Needed)
-- Use TanStack Query for client-side data fetching (polling, optimistic updates, infinite scroll).
-- Pass initial data from Server Components via props to avoid loading states.
-
-### Caching Strategy
-- **Static pages**: `export const dynamic = 'force-static'` or no dynamic data.
-- **ISR**: `export const revalidate = N` for time-based revalidation.
-- **Dynamic**: `export const dynamic = 'force-dynamic'` for real-time data.
-- **On-demand**: `revalidatePath()` / `revalidateTag()` after mutations.
-
-## Middleware
-
-```typescript
-// middleware.ts
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-
-export function middleware(request: NextRequest) {
-  // Auth check, locale detection, redirects
-}
-
-export const config = { matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'] };
-```
-
-- Use for: authentication redirects, locale detection, A/B testing, rate limiting.
-- Keep middleware lightweight — runs on the Edge Runtime.
-- Do not use for data fetching or heavy computation.
-
-## Metadata and SEO
-
-```tsx
-// app/orders/page.tsx
-import type { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Orders | MyApp',
-  description: 'View and manage your orders',
-  openGraph: { title: 'Orders', description: 'View and manage your orders' },
-};
-```
-
-- **Every page must export `metadata` or `generateMetadata`** for SEO.
-- Use `generateMetadata` for dynamic pages that need data-dependent titles.
-- Set canonical URLs to prevent duplicate content issues.
-
-## Styling
-
-- Same Tailwind CSS conventions as the ReactJS SPA rule (`reactjs.md`).
-- Use `cn()` utility for conditional classes.
-- Use CSS Modules only for complex animations that cannot be expressed in Tailwind.
-
-## Performance
-
-- **Prefer Server Components** — reduce client-side JavaScript bundle.
-- **Use `next/image`** for all images — automatic optimization, lazy loading, responsive sizes.
-- **Use `next/link`** for all internal navigation — prefetching enabled by default.
-- **Streaming with `<Suspense>`** — wrap slow data-fetching sections for progressive rendering.
-- **Bundle analysis**: Use `@next/bundle-analyzer` to audit client-side chunks.
-
-## Deployment
-
-### Vercel (Primary)
-- Connect Git repository for automatic preview + production deployments.
-- Environment variables set in Vercel dashboard.
-- Use `vercel.json` for redirects, headers, and rewrites.
-
-### AWS ECS (Alternative)
-- Build with `next build` (standalone output mode).
-- Deploy as a Docker container on ECS Fargate.
-- Use CloudFront as CDN for static assets (`_next/static`).
-- Set `output: 'standalone'` in `next.config.ts`.
+### Performance
+- Prefer Server Components — less client JS.
+- `next/image` for every image; `next/link` for every internal link.
+- Wrap slow data-fetching regions in `<Suspense>` to stream the shell first.
+- Audit client chunks with `@next/bundle-analyzer`.
 
 ## Anti-Patterns to Avoid
 
-- Adding `'use client'` to page or layout files (extract interactive parts).
-- Using `useEffect` for data fetching in pages (use Server Components or TanStack Query).
-- Importing server-only code in Client Components.
-- Missing `loading.tsx` or `error.tsx` boundaries.
-- Using `<img>` instead of `next/image` or `<a>` instead of `next/link`.
-- Skipping `metadata` exports on pages.
-- Server actions without input validation.
+- `'use client'` on a page or layout file.
+- `useEffect` for data fetching in pages.
+- Importing server-only code in Client Components (mark those modules `import 'server-only'`).
+- Missing `loading.tsx` / `error.tsx` boundaries (`error.tsx` must be a Client Component).
+- `<img>` instead of `next/image`; `<a>` instead of `next/link`.
+- Missing `metadata` export.
+- Server actions without input validation or without revalidation.
+- A secret behind a `NEXT_PUBLIC_` prefix.
+- Rebuilding the Rails API inside `app/api`.
+
+## Deep guides (read on demand, do not preload)
+
+- Server/Client boundary, composition, streaming, `<Suspense>`, error boundaries → `references/rendering.md`
+- Server actions: validation, forms, optimistic UI, redirects, testing → `references/server-actions.md`
+- Caching, ISR, `revalidateTag` vs `revalidatePath`, request dedupe → `references/caching.md`
+- Edge middleware, SEO/`generateMetadata`/sitemaps, Vercel & ECS deploy → `references/middleware-seo-deploy.md`

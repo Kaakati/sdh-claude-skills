@@ -86,7 +86,7 @@ def check_atom_imports_ruby(content, display_path):
     for match in RUBY_RENDER_PATTERN.finditer(content):
         target_level = match.group(1).lower()
         warnings.append(
-            f"WARNING: Atomic Design violation in {display_path} — "
+            f"WARNING: Atomic Design violation (see the `atomic-design` skill) in {display_path} — "
             f"Atoms cannot render other components. Found: {match.group(0).strip()}"
         )
     return warnings

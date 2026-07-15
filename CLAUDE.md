@@ -52,7 +52,7 @@ We are a Software Development House building production systems for clients. Qua
 ## Git Workflow
 
 - **Conventional Commits**: All commit messages must follow the format `type(scope): description`
-  - Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`, `ci`, `build`
+  - Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`, `ci`, `build`, `style`, `revert` (the full set `pre-commit-check.py` accepts — anything else is blocked)
   - Example: `feat(auth): add JWT refresh token rotation`
 - **Branch Naming**: `feature/TICKET-123-short-description`, `bugfix/TICKET-456-fix-desc`, `hotfix/TICKET-789-critical`, `release/v1.2.0`
 - **PR Requirements**: Description with context, test plan, screenshots for UI changes, at least one approval
@@ -136,19 +136,20 @@ Detailed domain-specific conventions ship as 20 path-scoped `std-*` skills under
 
 ## Agents
 
-12 specialized agents are bundled in the plugin under `agents/` (plugin root):
+13 specialized agents are bundled in the plugin under `agents/` (plugin root):
+- `monorepo-architect` — Monorepo layout, dependency boundaries, task orchestration/caching, affected-only CI, one-version policy, per-app releases (Opus, read-only)
 - `requirements-consultant` — Partner consultant for clarifying vague requirements (Opus)
 - `security-auditor` — Security vulnerability scanning and OWASP audit
 - `code-reviewer` — Comprehensive code quality and PR review
 - `test-generator` — Test generation and coverage improvement
-- `architecture-advisor` — Architectural decisions and ADRs (Opus, plan mode)
+- `architecture-advisor` — Architectural decisions and ADRs (Opus, read-only)
 - `devops-engineer` — CI/CD, Terraform, Docker, deployment
 - `refactor-specialist` — Safe incremental refactoring (Opus)
-- `clean-architecture` — Clean Architecture conformance, layer boundary validation, dependency direction enforcement (Opus, plan mode)
+- `clean-architecture` — Clean Architecture conformance, layer boundary validation, dependency direction enforcement (Opus, read-only)
 - `incident-responder` — Production incident diagnosis, mitigation, post-mortem, chaos engineering (Opus)
 - `phlex-developer` — Phlex view components with Atomic Design, Tailwind tokens, Stimulus, Turbo
-- `design-system-architect` — Design system specification, token architecture, component matrices (Opus, plan mode)
-- `design-critique` — Visual quality review, Nielsen's heuristics, design token compliance (Opus, plan mode)
+- `design-system-architect` — Design system specification, token architecture, component matrices (Opus, read-only)
+- `design-critique` — Visual quality review, Nielsen's heuristics, design token compliance (Opus, read-only)
 
 ## Skills
 
@@ -159,6 +160,8 @@ On-demand skills available via slash commands:
 - `/api-designer` — REST API design and review
 - `/rails-architect` — Rails backend architecture with Panko, PostGIS, Sidekiq
 - `/react-native-dev` — React Native features with Zustand, TanStack, Centrifugo
+- `/mobile-signing` — iOS/Android signing identities: certificates, provisioning profiles, .p8 keys, fastlane match, keystores, Play App Signing, CI secret handling
+- `/mobile-beta-release` — Ship betas to testers: TestFlight (internal/external, Beta App Review, 90-day expiry) and Play tracks (internal/closed/open, staged rollout), fastlane lanes
 - `/reactjs-dev` — ReactJS Vite SPA features with React Router, Tailwind, Framer Motion, ApexCharts
 - `/nextjs-dev` — Next.js App Router features with Server Components, server actions, Vercel deployment
 - `/db-migration` — Schema design and safe database migration creation
@@ -168,10 +171,14 @@ On-demand skills available via slash commands:
 - `/doc-generator` — Technical documentation, ADRs, retrospectives, change management procedures (fork context)
 - `/technical-rfc` — Technical RFC proposals for significant changes requiring team consensus
 - `/incident-response` — Production incident diagnosis, chaos engineering, operations runbooks (routes to incident-responder agent, Opus)
+- `/log-search` — Read production logs: CloudWatch Logs Insights + `aws logs tail`, GCP Cloud Logging (LQL) + `gcloud logging read`, tracing one request across services
+- `/mcp-advisor` — Discover, vet, and connect MCP servers: the Anthropic Directory, the vetting bar (publisher, pinning, credential scope), local vs project scope, and the ask-before-adding gate
+- `/toolchain` — Linters, formatters, type-checkers, compilers: what runs on what, checking a tool is installed (never auto-installing), safe vs unsafe autocorrect, `bundle exec`/`pnpm exec`, the format→lint→typecheck→build ladder
 - `/requirements-consultant` — Requirements discovery, user story generation, feasibility analysis (routes to requirements-consultant agent, Opus)
 - `/i18n` — Internationalization for Rails, React Native, ReactJS Vite SPA, and Next.js (locales, RTL, CSS logical properties)
 - `/compliance-auditor` — SOC2, HIPAA, PCI-DSS, GDPR compliance auditing and documentation
 - `/clean-architecture` — Clean Architecture validation, layer boundary enforcement (routes to clean-architecture agent)
+- `/monorepo-architect` — Monorepo structure (apps/packages/tooling), dependency boundaries, Turborepo/Nx/Bazel selection, affected-only CI + remote cache + merge queue, one-version policy, generated api-client contract (routes to monorepo-architect agent, Opus)
 - `/sprint-planner` — Sprint planning, effort estimation, capacity planning, backlog grooming
 - `/architecture-advisor` — Architectural decisions, ADRs, tech evaluation, system design (routes to architecture-advisor agent, Opus)
 - `/refactor` — Safe incremental refactoring with Fowler's patterns, test-first methodology (routes to refactor-specialist agent, Opus)
@@ -201,6 +208,7 @@ Active hooks are configured in `hooks/hooks.json` (commands run via `${CLAUDE_PL
 - `pre-commit-check.py` — Validates conventional commit format, blocks force pushes
 - `migration-validator.py` — Validates migration reversibility, SQL injection, destructive ops
 - `deployment-gate.py` — Requires confirmation for deploys (git push main, terraform apply, vercel deploy)
+- `mcp-install-gate.py` — Asks before `claude mcp add` / `.mcp.json` edits — an MCP server is an instruction source, so a human picks it
 
 **PostToolUse** (after tool completes):
 - `auto-format.py` — Auto-formats edited files (rubocop, prettier, terraform fmt)
@@ -256,7 +264,7 @@ Agent teams coordinate multiple Claude Code instances for parallel work. Use the
 Tell Claude to "use the [Template Name]" to spawn a coordinated team:
 
 #### Feature Team (full-stack feature development)
-- **Lead**: architecture-advisor (Opus, plan mode) — designs, coordinates, reviews
+- **Lead**: architecture-advisor (Opus, read-only) — designs, coordinates, reviews
 - **Teammates**: rails-architect (backend), reactjs-dev or react-native-dev (frontend), test-generator (tests), security-auditor (security review)
 - **When**: New feature spanning backend + frontend + tests
 
@@ -271,7 +279,7 @@ Tell Claude to "use the [Template Name]" to spawn a coordinated team:
 - **When**: Production outages, performance degradation, security incidents
 
 #### Refactor Team (large-scale refactoring)
-- **Lead**: architecture-advisor (Opus, plan mode) — design target architecture
+- **Lead**: architecture-advisor (Opus, read-only) — design target architecture
 - **Teammates**: refactor-specialist (Opus, implementation), test-generator (safety net), code-reviewer (quality gate)
 - **When**: Module extraction, pattern migration, dependency upgrades
 
@@ -281,7 +289,7 @@ Tell Claude to "use the [Template Name]" to spawn a coordinated team:
 - **When**: Terraform module creation, CI/CD pipeline changes, cloud migrations
 
 #### Design Team (design system and visual quality)
-- **Lead**: design-system-architect (Opus, plan mode) — token architecture, component specs
+- **Lead**: design-system-architect (Opus, read-only) — token architecture, component specs
 - **Teammates**: phlex-developer (Phlex components), design-critique (visual quality review)
 - **When**: Design system creation, cross-platform visual consistency, component library builds
 
@@ -302,6 +310,11 @@ Claude will automatically suggest creating a team when:
 - See the `std-agent-teams` skill for full coordination conventions
 
 ## Monorepo & Large Codebases
+
+> Two distinct concerns, don't confuse them: **how the monorepo is engineered** (layout,
+> boundaries, Turborepo, affected-only CI, one-version policy, per-app releases) is the
+> `/monorepo-architect` skill + agent. **How Claude Code is configured for a large repo**
+> (CLAUDE.md layering, excludes, worktrees) is this section and `docs/monorepo-setup.md`.
 
 This plugin scales to monorepos and large single-tree codebases. It uses the
 centralized model — path-scoped `std-*` skills under `skills/` that auto-load by

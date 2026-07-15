@@ -1,287 +1,312 @@
-# Migration Patterns Guide
+# Migration Patterns — ActiveRecord against PostgreSQL
 
-Safe and unsafe approaches for common database schema changes. Always prefer the safe approach. Use the unsafe approach only when the table is small and downtime is acceptable.
+Safe and unsafe approaches for common schema changes. "Unsafe" here means **it takes a lock long
+enough to matter on a big table** — on a small table almost everything in this file is fine, and
+building a two-phase deploy for a 500-row lookup table is its own kind of mistake.
+
+Every example assumes `lock_timeout` is set —
+`../../std-database/references/locking-and-timeouts.md` owns that and it is not repeated here.
 
 ---
 
 ## Add Column
 
-### Safe Approach
-```sql
--- 1. Add nullable column (instant in most databases)
-ALTER TABLE users ADD COLUMN phone VARCHAR(20) DEFAULT NULL;
+**Most of the received wisdom about this operation is out of date**, and being out of date makes
+teams do *more* work, not less. Postgres:
 
--- 2. Backfill data in batches (if default needed)
-UPDATE users SET phone = 'unknown' WHERE phone IS NULL AND id BETWEEN 1 AND 10000;
--- Repeat for all batches
+> *"When a column is added with `ADD COLUMN` and a non-volatile `DEFAULT` is specified, the
+> default value is evaluated at the time of the statement and the result stored in the table's
+> metadata… **making the `ALTER TABLE` very fast even on large tables**. In neither case is a
+> rewrite of the table required."*
 
--- 3. Add NOT NULL constraint (after backfill is complete)
-ALTER TABLE users ALTER COLUMN phone SET NOT NULL;
-ALTER TABLE users ALTER COLUMN phone SET DEFAULT 'unknown';
+### Safe — a constant default is free
+
+```ruby
+class AddStatusToOrders < ActiveRecord::Migration[7.1]
+  def change
+    # Fast on ANY table size. No rewrite, no backfill loop, no two-phase dance.
+    # This is a metadata change; the default materialises as rows are written.
+    add_column :orders, :status, :string, default: "pending"
+  end
+end
 ```
 
-### Unsafe Approach (small tables only)
-```sql
-ALTER TABLE users ADD COLUMN phone VARCHAR(20) NOT NULL DEFAULT 'unknown';
--- Rewrites entire table; locks table during operation
+### Unsafe — a *volatile* default rewrites the whole table
+
+```ruby
+class AddSeenAtToOrders < ActiveRecord::Migration[7.1]
+  def change
+    # ❌ clock_timestamp() is VOLATILE: Postgres must compute a different value per row, so
+    # it "will cause the entire table and its indexes to be rewritten" — holding
+    # ACCESS EXCLUSIVE for the duration. This is the case the folklore should warn about.
+    add_column :orders, :seen_at, :timestamptz, default: -> { "clock_timestamp()" }
+  end
+end
+```
+
+Same trap: stored generated columns, identity columns, and domain types with constraints.
+
+```ruby
+# ✅ instead: add it nullable (free), then backfill out-of-band if existing rows need a value
+add_column :orders, :seen_at, :timestamptz
+```
+
+### `NOT NULL` is the expensive half
+
+`SET NOT NULL` does not rewrite, but it *"requires scanning the table to verify that existing
+rows meet the constraint"* — and that scan holds `ACCESS EXCLUSIVE`. On a large table it is the
+outage.
+
+```ruby
+# ❌ on a big table: a full scan under an exclusive lock
+change_column_null :orders, :status, false
+```
+
+```ruby
+# ✅ two migrations. A NOT VALID check constraint is instant; VALIDATE takes only a SHARE
+#    UPDATE EXCLUSIVE lock, which does NOT block reads or writes.
+class AddStatusCheckToOrders < ActiveRecord::Migration[7.1]
+  def change
+    add_check_constraint :orders, "status IS NOT NULL", name: "orders_status_null", validate: false
+  end
+end
+
+class ValidateStatusCheckOnOrders < ActiveRecord::Migration[7.1]
+  def change
+    validate_check_constraint :orders, name: "orders_status_null"   # scans, but does not block
+    # Postgres can now use the validated constraint to prove the column is NOT NULL, so this
+    # is quick rather than a second full scan.
+    change_column_null :orders, :status, false
+    remove_check_constraint :orders, "status IS NOT NULL", name: "orders_status_null"
+  end
+end
 ```
 
 ### Rollback
-```sql
-ALTER TABLE users DROP COLUMN phone;
+
+```ruby
+remove_column :orders, :status    # `change` infers this; data is gone either way
 ```
 
 ---
 
 ## Remove Column
 
-### Safe Approach
-```sql
--- Phase 1: Remove all application references to the column (deploy code change)
--- Phase 2: Wait for all application instances to be updated
--- Phase 3: Drop the column
-ALTER TABLE users DROP COLUMN legacy_phone;
+The danger is not the `ALTER` — it is that **ActiveRecord caches the column list**. A running
+instance still selects the dropped column and every query explodes with `PG::UndefinedColumn`,
+including for rows it never touched.
+
+### Safe — `ignored_columns` first, drop second
+
+```ruby
+# Deploy 1: tell ActiveRecord the column no longer exists. Ship this ALONE and wait for every
+# instance to restart. This is the step people skip, and it is the whole safety.
+class Order < ApplicationRecord
+  self.ignored_columns += ["legacy_status"]
+end
 ```
 
-### Important
-- Never drop a column that any running application instance still references.
-- If using ORMs, ensure the column is removed from the model before dropping.
-- Consider keeping the column for one release cycle as a safety net.
+```ruby
+# Deploy 2: now nothing references it
+class RemoveLegacyStatusFromOrders < ActiveRecord::Migration[7.1]
+  def change
+    remove_column :orders, :legacy_status, :string   # give the type, or the rollback can't re-add it
+  end
+end
+```
+
+Passing the type to `remove_column` is what makes `change` reversible — without it,
+`rails db:rollback` raises.
 
 ### Rollback
-```sql
--- Re-add the column (data will be lost unless backed up)
-ALTER TABLE users ADD COLUMN legacy_phone VARCHAR(20);
--- Restore data from backup if available
-```
+
+Re-adding the column restores the **schema**, never the **data**. If the data matters, copy it
+out before the drop; a migration is not a backup.
 
 ---
 
 ## Rename Column
 
-### Safe Approach (Expand/Contract)
-```sql
--- Step 1: Add new column
-ALTER TABLE users ADD COLUMN full_name VARCHAR(200);
+Never `rename_column` on a live table. It is instant and it breaks every running instance at
+once — the fastest possible way to take an app down.
 
--- Step 2: Backfill
-UPDATE users SET full_name = name WHERE full_name IS NULL;
+### Safe — expand/contract across three deploys
 
--- Step 3: Deploy app writing to both columns
--- Step 4: Deploy app reading from new column only
--- Step 5: Deploy app writing to new column only
--- Step 6: Drop old column
-ALTER TABLE users DROP COLUMN name;
+```ruby
+# Deploy 1 — expand: add the new column (free), write to both
+class AddOrderStatusToOrders < ActiveRecord::Migration[7.1]
+  def change
+    add_column :orders, :order_status, :string
+  end
+end
+
+class Order < ApplicationRecord
+  # Dual-write while both columns exist. Old instances keep reading `status`.
+  before_save { self.order_status = status }
+end
 ```
 
-### Unsafe Approach (small tables, downtime acceptable)
-```sql
-ALTER TABLE users RENAME COLUMN name TO full_name;
--- Instant but breaks all queries referencing 'name'
+```ruby
+# Backfill (out-of-band, not in the deploy)
+Order.unscoped.where(order_status: nil).in_batches(of: 5_000) do |batch|
+  batch.update_all("order_status = status")
+  sleep 0.1     # let replication catch up
+end
 ```
 
-### Rollback
-```sql
--- If using expand/contract: drop the new column
-ALTER TABLE users DROP COLUMN full_name;
-
--- If using rename: rename back
-ALTER TABLE users RENAME COLUMN full_name TO name;
+```ruby
+# Deploy 2 — read from the new column, keep dual-writing.
+# Deploy 3 — contract: stop writing `status`, add ignored_columns, THEN drop it.
 ```
+
+Three deploys for a rename feels absurd until the alternative takes production down during a
+rolling restart, when half the instances know the new name and half do not.
 
 ---
 
 ## Add Index
 
-### Safe Approach
-```sql
--- PostgreSQL: concurrent index (no table lock)
-CREATE INDEX CONCURRENTLY idx_users_email ON users(email);
+```ruby
+class AddIndexToOrdersStatus < ActiveRecord::Migration[7.1]
+  # CREATE INDEX CONCURRENTLY cannot run inside a transaction, and Rails wraps migrations in
+  # one — without this line the migration simply errors.
+  disable_ddl_transaction!
 
--- MySQL: online DDL
-ALTER TABLE users ADD INDEX idx_email (email), ALGORITHM=INPLACE, LOCK=NONE;
+  def change
+    add_index :orders, :status, algorithm: :concurrently
+  end
+end
 ```
 
-### Unsafe Approach
-```sql
-CREATE INDEX idx_users_email ON users(email);
--- Locks table for reads and writes until complete
+```ruby
+# ❌ a plain add_index blocks WRITES for the entire build — minutes on a large table
+add_index :orders, :status
 ```
 
-### Rollback
+**The price of `disable_ddl_transaction!`:** the migration is no longer atomic. A failed
+`CREATE INDEX CONCURRENTLY` leaves an **invalid index** behind that you must drop by hand before
+retrying:
+
 ```sql
-DROP INDEX idx_users_email;
--- Or for MySQL: ALTER TABLE users DROP INDEX idx_email;
+SELECT indexrelid::regclass FROM pg_index WHERE NOT indisvalid;
+DROP INDEX CONCURRENTLY index_orders_on_status;
 ```
 
-### Notes
-- Concurrent index creation takes longer but does not block queries.
-- If concurrent index creation fails, a partially-built invalid index may remain; drop it and retry.
-- Monitor disk space — index creation requires temporary space.
-- For composite indexes, put the most selective column first.
+Keep such migrations to **one statement**, so "failed halfway" is a small place to be.
+
+Index rules: index every foreign key; index what you filter, join, and sort on; put the most
+selective column first in a composite; skip low-cardinality columns unless composite; drop
+unused indexes — each one taxes every write.
 
 ---
 
 ## Change Column Type
 
-### Safe Approach (Expand/Contract)
-```sql
--- Step 1: Add new column with target type
-ALTER TABLE orders ADD COLUMN amount_cents BIGINT;
+> *"Changing the type of an existing column will normally cause the entire table and its indexes
+> to be rewritten. As an exception… if the old type is either binary coercible to the new type…
+> a table rewrite is not needed."*
 
--- Step 2: Backfill in batches
-UPDATE orders SET amount_cents = CAST(amount * 100 AS BIGINT)
-  WHERE amount_cents IS NULL AND id BETWEEN 1 AND 10000;
+### Safe — the free cases first
 
--- Step 3: Deploy app to write to both columns
--- Step 4: Verify data consistency
-SELECT COUNT(*) FROM orders WHERE amount_cents != CAST(amount * 100 AS BIGINT);
-
--- Step 5: Deploy app to read from new column
--- Step 6: Drop old column
-ALTER TABLE orders DROP COLUMN amount;
+```ruby
+# ✅ binary-coercible widening: no rewrite
+change_column :orders, :code, :string           # varchar(50) -> text
+change_column :orders, :quantity, :bigint       # integer -> bigint  (PG rewrites; see below)
 ```
 
-### Unsafe Approach (small tables)
-```sql
-ALTER TABLE orders ALTER COLUMN amount TYPE BIGINT;
--- Rewrites entire table; locks table
+Check before assuming. `varchar(n) → text` and `varchar(n) → varchar(m>n)` are free;
+`integer → bigint` **does** rewrite, because the on-disk width changes.
+
+### Safe — expand/contract for the rest
+
+```ruby
+# Deploy 1
+add_column :orders, :amount_cents_v2, :bigint          # free
+# dual-write in the model, backfill out-of-band in batches
+# Deploy 2: read from v2
+# Deploy 3: ignored_columns on the old, then drop it
 ```
 
-### Rollback
-```sql
--- If expand/contract: drop new column, app continues using old
-ALTER TABLE orders DROP COLUMN amount_cents;
+### Unsafe
+
+```ruby
+# ❌ rewrites the table under ACCESS EXCLUSIVE — the whole table is offline for the duration
+change_column :orders, :amount_cents, :bigint
 ```
+
+Fine on 10k rows. An outage on 50M.
 
 ---
 
-## Split Table
+## Add Foreign Key
 
-When a table grows too wide or contains logically separate data.
+A plain `add_foreign_key` validates every existing row **while holding a lock on both tables** —
+including the one you are not thinking about.
 
-### Safe Approach
-```sql
--- Step 1: Create new table
-CREATE TABLE user_profiles (
-  user_id UUID PRIMARY KEY REFERENCES users(id),
-  bio TEXT,
-  avatar_url VARCHAR(500),
-  preferences JSONB
-);
+### Safe — two steps
 
--- Step 2: Backfill in batches
-INSERT INTO user_profiles (user_id, bio, avatar_url, preferences)
-SELECT id, bio, avatar_url, preferences FROM users
-WHERE id BETWEEN 1 AND 10000;
+```ruby
+class AddUserFkToOrders < ActiveRecord::Migration[7.1]
+  def change
+    # Instant: the constraint applies to NEW rows only. Existing rows are not checked yet.
+    add_foreign_key :orders, :users, validate: false
+  end
+end
 
--- Step 3: Deploy app to read from both tables, write to new table
--- Step 4: Verify data consistency
--- Step 5: Deploy app to read only from new table
--- Step 6: Drop old columns from original table
-ALTER TABLE users DROP COLUMN bio;
-ALTER TABLE users DROP COLUMN avatar_url;
-ALTER TABLE users DROP COLUMN preferences;
+class ValidateUserFkOnOrders < ActiveRecord::Migration[7.1]
+  def change
+    # Scans, but takes only SHARE UPDATE EXCLUSIVE — reads and writes keep flowing.
+    validate_foreign_key :orders, :users
+  end
+end
 ```
 
-### Rollback
-```sql
--- Re-add columns to original table
-ALTER TABLE users ADD COLUMN bio TEXT;
-ALTER TABLE users ADD COLUMN avatar_url VARCHAR(500);
-ALTER TABLE users ADD COLUMN preferences JSONB;
+### Unsafe
 
--- Copy data back
-UPDATE users SET
-  bio = up.bio,
-  avatar_url = up.avatar_url,
-  preferences = up.preferences
-FROM user_profiles up WHERE users.id = up.user_id;
-
--- Drop new table
-DROP TABLE user_profiles;
+```ruby
+add_foreign_key :orders, :users     # ❌ validates everything, locking both tables
 ```
+
+The same `validate: false` → `validate_*` split works for check constraints, and it is the
+general shape of "add the rule now, prove it later."
 
 ---
 
-## Merge Tables
+## Backfills
 
-When separate tables should be consolidated.
-
-### Safe Approach
-```sql
--- Step 1: Add columns to target table
-ALTER TABLE users ADD COLUMN bio TEXT;
-ALTER TABLE users ADD COLUMN avatar_url VARCHAR(500);
-
--- Step 2: Backfill from source table
-UPDATE users SET
-  bio = up.bio,
-  avatar_url = up.avatar_url
-FROM user_profiles up WHERE users.id = up.user_id;
-
--- Step 3: Deploy app to write to both tables
--- Step 4: Deploy app to read from merged table
--- Step 5: Deploy app to stop writing to source table
--- Step 6: Drop source table
-DROP TABLE user_profiles;
+```ruby
+# ❌ in the migration: holds the deploy, times out the release, one giant transaction
+Order.update_all(status: "pending")
 ```
 
-### Rollback
-```sql
--- Re-create source table and copy data back
-CREATE TABLE user_profiles AS
-SELECT id AS user_id, bio, avatar_url FROM users;
+```ruby
+# ✅ a job: batched, throttled, idempotent, resumable
+class BackfillOrderStatusJob
+  include Sidekiq::Job
 
--- Drop merged columns
-ALTER TABLE users DROP COLUMN bio;
-ALTER TABLE users DROP COLUMN avatar_url;
+  def perform
+    Order.unscoped.where(status: nil).in_batches(of: 5_000) do |batch|
+      batch.update_all(status: "pending")
+      sleep 0.1        # replication lag is the thing that bites at 3am
+    end
+  end
+end
 ```
+
+`unscoped` matters: a `default_scope` (soft delete, tenancy) silently skips rows, and you find
+out when the `NOT NULL` validation fails on the ones it missed.
+
+`update_all` skips validations and callbacks **by design** — it is one `UPDATE` per batch rather
+than N round trips. If the backfill genuinely needs callbacks, it is not a backfill; it is a data
+migration that belongs in application code with its own tests.
 
 ---
 
-## Add Foreign Key Constraint
+## Large tables
 
-### Safe Approach
-```sql
--- Step 1: Add the column (if new)
-ALTER TABLE orders ADD COLUMN customer_id UUID;
-
--- Step 2: Backfill data
-
--- Step 3: Validate existing data satisfies the constraint
-SELECT COUNT(*) FROM orders o
-LEFT JOIN customers c ON o.customer_id = c.id
-WHERE o.customer_id IS NOT NULL AND c.id IS NULL;
--- Must return 0
-
--- Step 4: Add constraint as NOT VALID (PostgreSQL — does not scan existing rows)
-ALTER TABLE orders ADD CONSTRAINT fk_orders_customer
-  FOREIGN KEY (customer_id) REFERENCES customers(id) NOT VALID;
-
--- Step 5: Validate the constraint (scans existing rows but does not block writes)
-ALTER TABLE orders VALIDATE CONSTRAINT fk_orders_customer;
-```
-
-### Unsafe Approach
-```sql
-ALTER TABLE orders ADD CONSTRAINT fk_orders_customer
-  FOREIGN KEY (customer_id) REFERENCES customers(id);
--- Scans entire table; locks table during validation
-```
-
-### Rollback
-```sql
-ALTER TABLE orders DROP CONSTRAINT fk_orders_customer;
-```
-
----
-
-## General Rollback Principles
-
-1. **Every migration has a corresponding rollback script** — no exceptions.
-2. **Test rollback before production** — run the full up-then-down cycle in staging.
-3. **Data-destructive rollbacks must be flagged** — if the down migration loses data, document it.
-4. **Rollback window**: Define a maximum time after deployment during which rollback is feasible (typically 1-4 hours).
-5. **After the rollback window**: Fixing forward (new migration) is safer than rolling back.
-6. **Never rollback a migration that other migrations depend on** — rollback in reverse order.
+- **Batch 1k–10k rows.** Bigger batches hold locks longer and bloat WAL; smaller ones are all
+  overhead.
+- **Watch replication lag**, not just the primary. A backfill that outruns the replicas breaks
+  every read-replica query.
+- **`pg_repack`** reclaims bloat without a long lock when a rewrite is unavoidable.
+- **Resumable beats fast.** `where(status: nil)` means a crashed backfill can simply be re-run.

@@ -60,7 +60,7 @@ Complete checklist organized by principle. Includes all WCAG 2.1 AA criteria plu
 - [ ] **2.4.6 Headings and Labels (AA)**: Descriptive headings and labels
 - [ ] **2.4.7 Focus Visible (AA)**: Keyboard focus indicator visible on all focusable elements
 - [ ] **2.4.11 Focus Not Obscured (Minimum) (AA)** [WCAG 2.2]: Focused component not entirely hidden by author-created content (sticky headers, modals)
-- [ ] **2.4.13 Focus Appearance (AA)** [WCAG 2.2]: Focus indicator is at least 2px thick with 3:1 contrast against unfocused state
+- [ ] **2.4.13 Focus Appearance (AAA)** [WCAG 2.2] — *not required for AA; adopted as a house rule*: Focus indicator is at least 2px thick with 3:1 contrast against unfocused state
 
 ### 2.5 Input Modalities
 - [ ] **2.5.1 Pointer Gestures (A)**: Multi-point/path-based gestures have single-pointer alternatives
@@ -110,7 +110,7 @@ These 7 criteria are new in WCAG 2.2 (not in WCAG 2.1):
 | Criterion | Level | Key Requirement |
 |-----------|-------|----------------|
 | 2.4.11 Focus Not Obscured | AA | Focused element visible (not hidden by sticky/fixed elements) |
-| 2.4.13 Focus Appearance | AA | 2px minimum focus indicator, 3:1 contrast |
+| 2.4.13 Focus Appearance | **AAA** (house rule) | 2px minimum focus indicator, 3:1 contrast |
 | 2.5.7 Dragging Movements | AA | Single-pointer alternative for all drag operations |
 | 2.5.8 Target Size | AA | 24x24px minimum (44x44px recommended for mobile) |
 | 3.2.6 Consistent Help | A | Help in same relative location across pages |

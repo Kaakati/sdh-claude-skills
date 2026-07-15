@@ -298,3 +298,7 @@ Claude will suggest a team when:
 | Day 3 | First task | Pick a small bug fix or documentation improvement |
 | Day 4 | First PR | Submit PR, go through the review process |
 | Day 5 | Review | Review a teammate's PR, deeper dive into a module |
+
+## Deep guides (read on demand, do not preload)
+
+- Tech-stack deep dive, code review process, testing strategy, environment variables, incident response, getting help → `references/dev-handbook.md`

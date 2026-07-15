@@ -251,3 +251,7 @@ When reporting performance findings:
 | N+1 query on user orders | 200ms per request | api/users.ts:45 | 150 queries/req | 2 queries/req | Batch fetch with IN clause |
 | Missing index on orders.status | Slow order listing | orders table | 850ms seq scan | <10ms index scan | Add index on status column |
 | Unoptimized hero image | 3s LCP | public/hero.png | 2.4MB PNG | <200KB WebP | Convert and resize |
+
+## Deep guides (read on demand, do not preload)
+
+- The actual numbers: API response times, query limits, bundle budgets, Core Web Vitals, memory thresholds, throughput targets → `references/performance-benchmarks.md`
