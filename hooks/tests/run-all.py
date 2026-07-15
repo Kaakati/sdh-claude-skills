@@ -403,6 +403,112 @@ def test_vague_request_detector():
     )
 
 
+def test_fail_open_is_not_silent():
+    """Ch. 9: "Silent failure is invisible failure." Advisory hooks fail OPEN (a crash
+    must never block the edit) but must NOT fail silently — a swallowed exception makes
+    a dead gate indistinguishable from a passing one. Every fail-open path must emit an
+    actionable HOOK ERROR line naming the checker."""
+    print("\n[fail-open visibility — dead gates must not look green]")
+    global PASS, FAIL
+    import tempfile, os, json as _json
+
+    def run(script, event):
+        r = subprocess.run([sys.executable, script], input=_json.dumps(event),
+                           capture_output=True, text=True, timeout=15)
+        return r.returncode, r.stdout
+
+    ev = {"tool_name": "Write", "tool_input": {"file_path": "x.rb", "content": "x"}}
+
+    def assert_visible(name, body, expect_token):
+        global PASS, FAIL
+        probe = os.path.join(HOOKS_DIR, "_failvis_probe.py")
+        with open(probe, "w", encoding="utf-8") as f:
+            f.write(body)
+        try:
+            code, out = run(probe, ev)
+            ok = code == 0 and "HOOK ERROR" in out and expect_token in out
+            if ok:
+                PASS += 1; print(f"  PASS: {name}")
+            else:
+                FAIL += 1
+                print(f"  FAIL: {name} — exit={code} stdout={out[:120]!r}")
+        finally:
+            if os.path.exists(probe):
+                os.remove(probe)
+
+    # a checker that raises must still exit 0 (fail-open) AND announce itself
+    assert_visible(
+        "crashing checker reports HOOK ERROR and still exits 0",
+        'import _hooklib as hooklib\n'
+        'def check(event):\n'
+        '    raise RuntimeError("boom")\n'
+        'if __name__ == "__main__":\n'
+        '    hooklib.run_post_checker(check)\n',
+        "boom",
+    )
+    # the error names the failing script so it is actionable
+    assert_visible(
+        "HOOK ERROR names the failing checker",
+        'import _hooklib as hooklib\n'
+        'def check(event):\n'
+        '    raise ValueError("bad regex")\n'
+        'if __name__ == "__main__":\n'
+        '    hooklib.run_post_checker(check)\n',
+        "_failvis_probe.py",
+    )
+    # a healthy checker stays quiet — the signal must not be noise
+    probe = os.path.join(HOOKS_DIR, "_failvis_ok.py")
+    with open(probe, "w", encoding="utf-8") as f:
+        f.write('import _hooklib as hooklib\n'
+                'def check(event):\n'
+                '    return []\n'
+                'if __name__ == "__main__":\n'
+                '    hooklib.run_post_checker(check)\n')
+    try:
+        code, out = run(probe, ev)
+        if code == 0 and out.strip() == "":
+            PASS += 1; print("  PASS: healthy checker emits nothing (no false alarms)")
+        else:
+            FAIL += 1; print(f"  FAIL: healthy checker emitted {out[:80]!r}")
+    finally:
+        if os.path.exists(probe):
+            os.remove(probe)
+
+    # the dispatcher must report a broken checker rather than skipping it silently
+    disp = os.path.join(HOOKS_DIR, "post-edit-dispatch.py")
+    src = open(disp, encoding="utf-8").read()
+    if "hook_error" in src and "except Exception as exc" in src:
+        PASS += 1; print("  PASS: dispatcher reports a failing checker instead of skipping silently")
+    else:
+        FAIL += 1; print("  FAIL: dispatcher still swallows checker exceptions silently")
+
+    # A GAP IN THE AUDIT TRAIL MUST ANNOUNCE ITSELF. A silent logging failure leaves
+    # invisible holes plus false confidence the trail is complete — worse than no trail.
+    import shutil
+    root = tempfile.mkdtemp()
+    try:
+        # make .claude a FILE so both makedirs() and the append fail
+        with open(os.path.join(root, ".claude"), "w") as f:
+            f.write("not a dir")
+        r = subprocess.run([sys.executable, os.path.join(HOOKS_DIR, "audit-logger.py")],
+                           input=_json.dumps({"tool_name": "Bash", "tool_input": {"command": "ls"}}),
+                           capture_output=True, text=True, cwd=root, timeout=15)
+        if r.returncode == 0 and "HOOK ERROR" in r.stdout and "gap" in r.stdout.lower():
+            PASS += 1; print("  PASS: unwritable audit trail reports a gap (and never blocks)")
+        else:
+            FAIL += 1; print(f"  FAIL: audit trail gap was silent — exit={r.returncode} out={r.stdout[:90]!r}")
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+    # a malformed event must not produce a raw traceback at the user
+    r = subprocess.run([sys.executable, os.path.join(HOOKS_DIR, "vague-request-detector.py")],
+                       input='{"prompt":', capture_output=True, text=True, timeout=15)
+    if r.returncode == 0 and "Traceback" not in r.stdout + r.stderr and "HOOK ERROR" in r.stdout:
+        PASS += 1; print("  PASS: malformed event reports one line, not a traceback")
+    else:
+        FAIL += 1; print(f"  FAIL: malformed event — exit={r.returncode} err={r.stderr[:80]!r}")
+
+
 def test_permission_sentinel():
     """Layer-4 sentinel (the 'plugin trap'): a plugin cannot ship `permissions`, so
     the SessionStart hook must verify the deny floor was copied into the consuming
@@ -565,6 +671,7 @@ def main():
     test_pre_commit_check()
     test_accessibility_checker()
     test_api_design_checker()
+    test_fail_open_is_not_silent()
     test_permission_sentinel()
     test_hooklib_primitives()
     test_wrapper_agnostic()

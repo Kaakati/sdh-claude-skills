@@ -64,6 +64,44 @@ Checkers detect frameworks by **canonical internal structure** (`app/models`, `s
 name. Rails works under `backend/`, `api/`, or the repo root; a Vite app under `web/`,
 `frontend/`, or root; etc. See the root `README.md` → *Project Directory Convention*.
 
+### Fail-closed or fail-open — decided, not defaulted
+
+Every hook eventually crashes (a schema change, a missing binary, malformed input). What happens
+**then** is a security property, chosen consciously per hook — never inherited by accident.
+
+| Hook | Stance | Why |
+|------|--------|-----|
+| `security-scan.py` | **fail-closed** | A gate that cannot evaluate must not pass. An exception in the secret scanner is the strongest possible reason *not* to allow the write. |
+| `dangerous-command-blocker.py` | **fail-closed** | Same: an unevaluated destructive command is not a safe one. |
+| `pre-commit-check.py` | fail-open | Workflow convention, not safety. A bug here must not block every Bash command. |
+| `migration-validator.py` | fail-open (`ask`) | Confirmation gate; the write itself isn't destructive. |
+| `deployment-gate.py` | fail-open (`ask`) | Confirmation gate. |
+| all 12 advisory checkers | fail-open | *"The linter's crash should cost you a lint report, not a session."* A fail-closed formatter is an outage generator. |
+| `audit-logger.py` | fail-open | Logging must never block a tool — but see below. |
+
+**The cost of fail-closed is availability**: a bug in a fail-closed gate on `Edit|Write` bricks all
+edits until fixed. That is the correct trade for the small deny tier, and the wrong one everywhere else.
+
+### Silent failure is invisible failure
+
+A fail-open hook that swallows its own exception **looks identical to one that passed** — so a dead
+gate can masquerade as a green one for months. Every fail-open path here therefore reports itself:
+
+```
+HOOK ERROR: code-quality-checker.py failed to run — ValueError: bad regex.
+Its checks did NOT execute, so its rules were not enforced on this edit.
+```
+
+- `_hooklib.hook_error(label, exc)` is the single emitter; `run_post_checker` and the dispatcher
+  both route through it, naming the failing checker so the message is actionable.
+- `audit-logger.py` is the sharpest case: a silent write failure leaves **invisible holes in the
+  audit trail plus false confidence that it is complete** — strictly worse than having no trail. It
+  announces every gap.
+- A healthy hook stays **silent** — the signal must not become noise.
+
+This is enforced by fixture tests (`[fail-open visibility]` in the harness), because a guarantee
+that isn't tested is a guarantee that decays.
+
 ### Exit-code / decision convention
 
 | Hook type | Mechanism | "allow" | "block / warn" |

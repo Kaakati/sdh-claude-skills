@@ -74,16 +74,40 @@ def emit(warnings):
         print(line)
 
 
+def hook_error(label, exc):
+    """Announce a fail-open failure. Loudly.
+
+    "Silent failure is invisible failure. A fail-open hook that swallows its own
+    exceptions looks identical to one that passed" — so a dead gate can masquerade
+    as a green one for months. Advisory hooks fail OPEN (a crash must never block
+    the edit) but never SILENTLY: emit one actionable line naming the checker.
+    """
+    print(
+        f"HOOK ERROR: {label} failed to run — {type(exc).__name__}: {exc}. "
+        "Its checks did NOT execute, so its rules were not enforced on this edit."
+    )
+
+
+def _script_label():
+    """Best-effort name of the running hook, for hook_error."""
+    try:
+        return os.path.basename(sys.argv[0]) or "checker"
+    except Exception:
+        return "checker"
+
+
 def run_post_checker(check):
     """Standalone runner for an advisory PostToolUse checker.
 
-    `check(event)` returns a list of warning lines. Always exits 0; a crash in an
-    advisory checker must never block the tool, so exceptions are swallowed.
+    `check(event)` returns a list of warning lines. Always exits 0 — a crash in an
+    advisory checker must never block the tool (fail-open) — but the crash is
+    reported rather than swallowed, so a dead checker cannot look like a passing one.
     """
     event = load_event()
     try:
         warnings = check(event) or []
-    except Exception:  # advisory: degrade silently, never block the edit
+    except Exception as exc:
+        hook_error(_script_label(), exc)
         warnings = []
     emit(warnings)
     sys.exit(0)

@@ -23,7 +23,7 @@ disable it.
 |---|-------|-----------------|-------|-------|
 | 1 | Context governance | What the agent **knows** | 🟢 Strong | 20 `std-*` + 37 workflow skills; 7 now three-tier (28 refs); rule-per-file granularity restored across 5 skills; CI guards tier discipline |
 | 2 | Capability governance | What each **role** can do | 🟢 Good | Bash hole audited + closed; capability enforced by tool lists (not the dead `permissionMode`) |
-| 3 | Runtime gates | What happens **as each action fires** | 🟢 Strong | 2 fail-closed PreToolUse gates, dispatcher, audit trail, 77 fixture tests |
+| 3 | Runtime gates | What happens **as each action fires** | 🟢 Strong | 2 fail-closed gates; every fail-open path now *visible*; stances decided per hook; 83 fixture tests |
 | 4 | Permission boundaries | The harness's **own** enforcement | 🟢 Guarded | 24 denies (reference) + **sentinel check** now detects the plugin trap |
 | 5 | Organizational policy | What **developers** can grant | 🟠 Thin | `managed-settings.template.json` exists but is minimal/undocumented |
 | 6 | Human-in-the-loop | The **person**, for the irreversible | 🟢 Good | `ask` on deploys, migrations, direct pushes to protected branches |
@@ -190,6 +190,36 @@ a deliberate pattern where a framework has one canonical home (storytelling-ui.m
 version produced 4 false positives on exactly those; fixed before shipping, because a guard that
 cries wolf is the kind teams disable.
 
+### Layer 3 — silent failure eliminated: dead gates can no longer look green — *2026-07-15*
+Ch. 9: *"Silent failure is invisible failure. A fail-open hook that swallows its own exceptions
+looks identical to one that passed"* — so a dead gate masquerades as a green one for months.
+
+**This was a real defect in code from iteration 1.** Proven: a checker raising `RuntimeError`
+exited 0 with empty stdout — literally indistinguishable from a clean pass. Every advisory checker
+routes through `run_post_checker`, and the dispatcher swallowed checker exceptions with a bare
+`except: continue`. A silently broken `code-quality-checker` would have enforced nothing, forever,
+with every signal green.
+
+Fixed via a single emitter, `_hooklib.hook_error(label, exc)`:
+- `run_post_checker` — reports and names the failing script, still exits 0 (fail-open preserved)
+- `post-edit-dispatch` — reports the failing checker instead of `continue`-ing past it; also
+  reports a module that exposes no `check()`
+- `audit-logger` — the sharpest case. Its `except (IOError, OSError): pass` meant a failed write
+  left **invisible holes in the audit trail plus false confidence it was complete** — strictly
+  worse than no trail. It also had **two unguarded paths** (`os.makedirs` and `json.load`) *outside*
+  the try, which crashed with exit 1 and no message. Whole path now guarded; every gap announces.
+- `vague-request-detector` — had zero exception handling; a malformed event dumped a raw traceback
+  at the user. Now one actionable line.
+- A **healthy** hook still emits nothing — the signal must not become noise.
+
+6 fixture tests added (`[fail-open visibility]`), harness 77 → **83**.
+
+### Layer 3 — fail stances decided, not defaulted (Ch. 9) — *2026-07-15*
+Audited all 27 hooks. 12 advisory checkers + 5 gates now have explicit, chosen stances; the table
+is documented in `hooks/README.md` with the reasoning (*"the linter's crash should cost you a lint
+report, not a session"*; *"a fail-closed formatter is an outage generator"*; the availability cost
+of fail-closed is the correct trade only for the small deny tier).
+
 ## OPEN — prioritized backlog
 
 ### P1 · Layer 1 — finish progressive disclosure (13 skills remain single-file)
@@ -232,12 +262,19 @@ for `clean-architecture` (the only plan agent with Bash), and removing Bash fixe
 The other 3 are read-only by tool list anyway, so the field is redundant, not dangerous. Action:
 strip the dead field (silently-ignored controls are theater) and correct the "plan mode" claims.
 
-### P2 · Layer 3 — hook DX + gate-pattern coverage (Ch. 9, Ch. 10, Ch. 25)
-- Map our gates against the book's **six patterns**: completion gate ✅ (Stop), ask/human-in-loop
-  ✅, **three-tier command gate** ⬜ (allow/ask/deny tiers for Bash — partially in permissions),
-  context injection ✅, dispatcher ✅, audit trail ✅.
-- DX: a documented hook dev workflow, a debug switch, and the Ch. 25 symptom→cause table
-  (hook never fires / fires but never blocks / gate blocks everything) as a troubleshooting doc.
+### P2 · Layer 3 — the three-tier command gate + Ch. 25 debugging DX
+- **Gate patterns (Ch. 10)**: completion gate ✅ (Stop), ask/human-in-loop ✅, context injection ✅,
+  dispatcher ✅, audit trail ✅ — **three-tier command gate ⬜** (allow / ask / deny tiers for Bash).
+  Today Bash is split across `permissions.allow` (layer 4) and `dangerous-command-blocker` (layer 3)
+  with no explicit middle `ask` tier. Per the lowest-effective-layer principle, most of this belongs
+  in permissions; audit what the hook must carry that permissions cannot express.
+- **DX (Ch. 9 dev workflow, Ch. 25)**: no documented hook dev loop (capture a real event → develop
+  against the fixture, a sub-second loop, not a live session), no debug switch, and no symptom→cause
+  troubleshooting table (hook never fires / fires but never blocks / gate blocks everything / the
+  model argues with a denial). `run-python.sh` has `CLAUDE_HOOKS_DEBUG` but nothing else uses it.
+- **Raw hooks**: 8 hooks bypass the `_hooklib` runners (`auto-format`, `session-*`, `subagent-context`,
+  `task-completed-checker`, `team-task-validator`, `teammate-idle-checker`). Their stances are now
+  understood but not uniformly enforced through a runner — consider routing them through the lib.
 
 ### P2 · Layer 7 — changelog as an interface (Ch. 13)
 *"When a plugin bump changes what gets denied or how a gate behaves, that is a behavioral change

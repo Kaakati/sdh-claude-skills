@@ -97,4 +97,17 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # Fail OPEN — this is an advisory suggestion hook; a crash must never cost the user
+    # their prompt. But not silently, and never as a raw traceback in the user's face:
+    # report one actionable line and exit clean (Ch. 9, "silent failure is invisible
+    # failure"; a fail-open hook that dies loudly-but-uselessly is its own DX problem).
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as exc:
+        print(
+            f"HOOK ERROR: vague-request-detector failed to run — "
+            f"{type(exc).__name__}: {exc}. Your prompt was not affected."
+        )
+        sys.exit(0)

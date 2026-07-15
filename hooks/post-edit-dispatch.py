@@ -54,9 +54,13 @@ def main():
         try:
             check = _load_check(filename)
             if check is None:
+                hooklib.hook_error(filename, RuntimeError("exposes no check(event) function"))
                 continue
             warnings.extend(check(event) or [])
-        except Exception:  # one bad checker must not break the chain
+        except Exception as exc:
+            # One bad checker must not break the chain (fail-open) — but it must not
+            # do so silently, or a dead gate masquerades as a green one (Ch. 9).
+            hooklib.hook_error(filename, exc)
             continue
     hooklib.emit(warnings)
     sys.exit(0)
