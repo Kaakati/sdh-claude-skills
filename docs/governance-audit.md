@@ -25,7 +25,7 @@ disable it.
 | 2 | Capability governance | What each **role** can do | 🟢 Good | Bash hole closed; dead `permissionMode` removed; capability enforced by `tools`, guarded by CI |
 | 3 | Runtime gates | What happens **as each action fires** | 🟢 Strong | all 6 Ch. 10 gate patterns present; 3 fail-closed gates; fail-open paths visible; 103 fixture tests |
 | 4 | Permission boundaries | The harness's **own** enforcement | 🟢 Guarded | 30 denies (reference); sentinel detects an **absent OR stale** floor by diffing the plugin's own reference |
-| 5 | Organizational policy | What **developers** can grant | 🟠 Thin | `managed-settings.template.json` exists but is minimal/undocumented |
+| 5 | Organizational policy | What **developers** can grant | 🟢 Good | 4 legitimate uses covered + calibrated against maximalism; `docs/org-policy.md`; CI guards the floor from going stale |
 | 6 | Human-in-the-loop | The **person**, for the irreversible | 🟢 Good | `ask` on deploys, migrations, direct pushes to protected branches |
 | 7 | External verification | Everything **outside the session** | 🟢 Good | 5 CI jobs incl. changelog-as-interface enforcement; branch protection still repo-side |
 
@@ -386,6 +386,45 @@ while `data-fetching.md`'s invalidation calls `orderKeys.lists()`. A reader copy
 file; splitting turned it into a cross-file contradiction. Fixed: one factory (the `lists()` version
 its invalidation depends on), owned by `data-fetching.md`, imported by the other.
 
+### Layer 5 — governing the governors: the last thin layer — *2026-07-15*
+I called the work "done" last pass. It wasn't: **layer 5 was the one layer still 🟠**, so the
+seven-layer model was incomplete. Ch. 20: layer 5 is *"the layer teams reach for last and misuse
+first"*, and its discipline is **enforce the intolerable, permit the rest**.
+
+Audited `managed-settings.template.json` against the book's **four legitimate uses** and found real
+defects, not just thinness:
+1. **Its deny floor was STALE** — missing the terraform denies added in iteration 6. The org
+   template had the *same staleness bug we built the sentinel to catch in consumers*.
+2. `companyAnnouncements` pointed at **`.claude/rules/security.md`** — a path deleted in the plugin
+   conversion.
+3. **No audit-trail requirement** — the book's 4th legitimate use was absent.
+
+Rebuilt around the four uses, each with its reasoning inline: forced auth · a non-overridable
+security floor · MCP allowlist (supply-chain vetting made mandatory — *an MCP tool description is a
+prompt the model obeys*) · required audit trail (with the plugin **pinned**, not floating).
+
+**The structural insight — layer 5 is the org-scale answer to the plugin trap.** A plugin cannot
+ship `permissions`, so every project must copy the floor and the sentinel exists to catch those that
+didn't. Deployed at layer 5 the floor simply *exists everywhere*, non-overridably: no copying, no
+drift, no sentinel needed. The sentinel remains the net for teams without managed settings.
+
+**Calibrated against maximalism, deliberately:**
+- The managed floor is the **catastrophic tier only** (secrets, privilege, remote-exec, irreversible
+  infra). The build-artifact denies are **context economy, not security** — putting them in
+  non-overridable policy blocks nothing dangerous and annoys everyone.
+- `allowManagedPermissionRulesOnly` and `allowManagedHooksOnly` stay **false**: the deny list is a
+  *floor*, not a *ceiling*. Teams must stay free to add a project-specific rule. *"An org policy that
+  treats every engineer as an adversary loses them to shadow tooling — the worst outcome, since
+  shadow tooling has NO layers."*
+
+`docs/org-policy.md` — the four uses, an explicit **what does NOT belong at layer 5** table, and the
+maximalism warning first, because that is the failure mode.
+
+**CI guard `managed-floor-sync`**: the managed floor must contain every catastrophic deny from the
+reference floor (it went stale once — it can't again), *and* must NOT contain context-economy denies
+(guarding against overreach in both directions). Verified by simulating the exact staleness: it
+caught all 6 missing terraform rules.
+
 ## OPEN — prioritized backlog
 
 ### P2 · Layer 1 — the 3 remaining `full-guide.md` monoliths (~90% scaffolding)
@@ -403,11 +442,6 @@ the split batch — `rendering.md`'s streaming/Suspense material is the natural 
 are within "~300" tolerance and not worth churning: `variants-and-styling.md` 313 (+4%),
 `middleware-seo-deploy.md` 309, `cross-platform-parity.md` 302. Per the *deliberate non-decisions*
 below, this is a guideline, not a gate — do not shred files to hit a round number.
-
-### P3 · Layer 5 — governing the governors
-`managed-settings.template.json` is minimal. Expand per Ch. 20's layer-5 section: non-overridable
-org policy, MCP-server allowlists, forced authentication — calibrated, not maximal (over-coarse
-policy drives shadow configurations).
 
 ### P3 · Layer 7 — repo-side controls
 Branch protection + required reviews are GitHub settings, not code. Document the required posture

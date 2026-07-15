@@ -237,6 +237,55 @@ jobs:
           print("agent frontmatter OK — no silently-ignored fields; every agent scopes `tools`")
           EOF
 
+  managed-floor-sync:
+    name: Managed security floor is not stale
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Layer-5 managed floor must carry the catastrophic tier
+        # The managed template went stale once already (it missed the terraform denies added
+        # to the reference floor). Layer 5's floor is deliberately a SUBSET — the catastrophic
+        # tier only, never the build-artifact/context denies (that would be maximalism) — so
+        # this checks containment of the security tier, not equality.
+        run: |
+          python - <<'EOF'
+          import json, re, sys
+
+          def deny(path):
+              raw = open(path, encoding="utf-8").read()
+              # strip _comment / _README style annotation keys before parsing
+              return json.loads(raw).get("permissions", {}).get("deny", [])
+
+          project = set(deny(".claude/settings.json"))
+          managed = set(deny(".claude/managed-settings.template.json"))
+
+          # The catastrophic tier: secrets, privilege escalation, remote-exec, irreversible infra.
+          CATASTROPHIC = re.compile(
+              r"\.env|secrets/|master\.key|credentials|sudo|rm -rf|chmod 777|"
+              r"\| bash|terraform destroy|tofu destroy|terraform state (rm|mv|push)|force-unlock"
+          )
+          required = {r for r in project if CATASTROPHIC.search(r)}
+          missing = sorted(required - managed)
+
+          # And the inverse: context-economy denies must NOT be in non-overridable org policy.
+          CONTEXT_ONLY = re.compile(r"dist/|build/|\.next/|coverage/|\.min\.|generated|public/(assets|packs)|tmp/cache")
+          overreach = sorted(r for r in managed if CONTEXT_ONLY.search(r))
+
+          fail = []
+          if missing:
+              fail += [f"managed template is STALE — missing catastrophic deny: {r}" for r in missing]
+          if overreach:
+              fail += [f"managed template overreaches — {r} is a context-economy rule, not a security "
+                       f"one; non-overridable org policy for it is maximalism" for r in overreach]
+          if fail:
+              for x in fail: print("FAIL: " + x)
+              sys.exit(1)
+          print(f"managed floor OK — carries all {len(required)} catastrophic denies, no context-economy overreach")
+          EOF
+
   sentinel-guard:
     name: Sentinel check is present
     runs-on: ubuntu-latest

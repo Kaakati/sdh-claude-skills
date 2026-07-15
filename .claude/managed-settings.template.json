@@ -1,47 +1,69 @@
 {
-  "_comment": "TEMPLATE: Deploy to /etc/claude-code/managed-settings.json (Linux) or C:\\ProgramData\\ClaudeCode\\managed-settings.json (Windows). This file CANNOT be overridden by any user or project configuration.",
+  "_README": "TEMPLATE for IT/platform teams. Deploy to /etc/claude-code/managed-settings.json (Linux/macOS) or C:\\ProgramData\\ClaudeCode\\managed-settings.json (Windows). This file CANNOT be overridden by any user or project configuration. Read docs/org-policy.md BEFORE deploying — layer 5 is the layer teams reach for last and misuse first, and the misuse is worse than the gap.",
 
+  "_PRINCIPLE": "Enforce the intolerable, permit the rest. These controls protect against the ENGINEER's mistake, not the agent's — they are the rules that must hold regardless of what any individual configures. Everything merely serious belongs in the project's own .claude/settings.json where teams can adapt it. An org policy that treats every engineer as an adversary loses them to shadow tooling, which has NO layers at all.",
+
+  "_1_FORCED_AUTHENTICATION": "So nobody runs against production with personal credentials.",
   "forceLoginMethod": "console",
   "forceLoginOrgUUID": "YOUR-ORG-UUID-HERE",
 
+  "_2_NO_BYPASS": "disableBypassPermissionsMode makes the permission layer non-optional. allowManagedPermissionRulesOnly stays FALSE deliberately: this deny list is a FLOOR, not a ceiling — projects must stay free to add their own rules. Setting it true is maximalism, and maximalism is how teams end up outside the governed environment.",
   "disableBypassPermissionsMode": "disable",
   "allowManagedHooksOnly": false,
   "allowManagedPermissionRulesOnly": false,
 
   "autoUpdatesChannel": "stable",
 
+  "_3_THE_NON_OVERRIDABLE_SECURITY_FLOOR": "This is the org-scale answer to the plugin trap. A plugin CANNOT ship `permissions`, so every consuming project must copy the deny floor by hand — and the SessionStart sentinel exists only to catch the ones that didn't. Deployed here, the floor simply EXISTS everywhere and no local override can weaken it: no copying, no drift, no sentinel needed. Keep this list to the CATASTROPHIC tier only — secrets, privilege escalation, remote code execution, irreversible infrastructure. The plugin's fuller floor (build-artifact Read denies etc.) is a context-economy concern, NOT a security one, and belongs in project settings rather than non-overridable org policy.",
   "permissions": {
     "deny": [
       "Read(**/.env)",
       "Read(**/.env.*)",
       "Read(**/secrets/**)",
+      "Read(**/.credentials/**)",
       "Read(**/master.key)",
       "Read(**/credentials.yml.enc)",
       "Read(**/*.pem)",
       "Read(**/*.key)",
+
       "Bash(sudo:*)",
       "Bash(rm -rf /)*",
+      "Bash(rm -rf /*)",
       "Bash(chmod 777:*)",
+
       "Bash(curl * | bash)",
       "Bash(wget * | bash)",
       "Bash(nc:*)",
       "Bash(ncat:*)",
-      "WebFetch(domain:*internal*)"
+      "WebFetch(domain:*internal*)",
+
+      "Bash(terraform destroy:*)",
+      "Bash(tofu destroy:*)",
+      "Bash(terraform state rm:*)",
+      "Bash(terraform state mv:*)",
+      "Bash(terraform state push:*)",
+      "Bash(terraform force-unlock:*)"
     ]
   },
 
+  "_4_MCP_SUPPLY_CHAIN": "Restricting which MCP servers may be connected is a supply-chain control at org scale — server vetting made mandatory rather than advisory. An MCP tool description is a prompt the model obeys, so an unvetted server is an unvetted instruction source. Replace the examples with your actual vetted servers.",
   "allowedMcpServers": [
     {"serverName": "postgres-readonly", "_comment": "Read-only access to staging DB"},
     {"serverName": "jira-connector", "_comment": "Ticket management integration"}
   ],
-
   "deniedMcpServers": [
-    {"serverName": "*", "_comment": "Deny all MCP servers not explicitly allowed"}
+    {"serverName": "*", "_comment": "Default-deny: anything not explicitly allowed above"}
   ],
 
+  "_5_REQUIRE_THE_AUDIT_TRAIL": "The audit trail is the artifact you reconstruct an incident from, so it must not be optional. Enabling the sdh plugin org-wide keeps audit-logger.py registered on every session; it announces any gap rather than failing silently. Pin a version rather than tracking a moving target.",
+  "enabledPlugins": {
+    "sdh@sdh-claude-skills": true
+  },
+
   "companyAnnouncements": [
-    "Security: Review our coding standards at .claude/rules/security.md",
-    "New: Use /requirements-consultant for vague requirements before coding"
+    "Security standards: the `std-security` skill loads automatically on any source file you edit.",
+    "Vague requirement? Run /sdh:requirements-consultant before writing code.",
+    "A `GOVERNANCE GAP` message at session start means this project's permission floor was never copied — fix it before doing sensitive work."
   ],
 
   "env": {
