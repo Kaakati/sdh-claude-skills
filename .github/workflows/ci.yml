@@ -1,0 +1,142 @@
+name: CI
+
+# Layer 7 (external verification) for the plugin repo itself.
+# "A governance repository without CI running its own gate tests is enforcing on its
+# consumers a discipline it does not practice on itself." — The Governed Agent, Ch. 13
+#
+# Runs on Linux to also prove the cross-platform contract (LF line endings + UTF-8
+# hook output), which is otherwise only exercised on a developer's Windows machine.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  hook-fixtures:
+    name: Hook fixture suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test deps
+        run: pip install --quiet pyyaml
+      - name: Run the hook fixture suite (via the cross-platform launcher)
+        run: bash hooks/run-python.sh hooks/tests/run-all.py
+
+  plugin-manifest:
+    name: Plugin manifest & structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate plugin.json / marketplace.json
+        run: |
+          python - <<'EOF'
+          import json, sys, os
+          fail = []
+
+          with open(".claude-plugin/plugin.json", encoding="utf-8") as f:
+              m = json.load(f)
+          if not m.get("name"):
+              fail.append("plugin.json: `name` is required")
+          if not m.get("description"):
+              fail.append("plugin.json: `description` missing")
+
+          with open(".claude-plugin/marketplace.json", encoding="utf-8") as f:
+              mk = json.load(f)
+          for key in ("name", "owner", "plugins"):
+              if key not in mk:
+                  fail.append(f"marketplace.json: `{key}` is required")
+          for p in mk.get("plugins", []):
+              if not p.get("name") or not p.get("source"):
+                  fail.append(f"marketplace.json: plugin entry needs name+source: {p}")
+
+          # Components must live at the plugin root, never inside .claude-plugin/
+          for d in ("skills", "agents", "hooks"):
+              if not os.path.isdir(d):
+                  fail.append(f"missing plugin-root component dir: {d}/")
+              if os.path.isdir(os.path.join(".claude-plugin", d)):
+                  fail.append(f"{d}/ must NOT live inside .claude-plugin/")
+          if not os.path.isfile("hooks/hooks.json"):
+              fail.append("hooks/hooks.json is missing")
+
+          # Hook commands must be plugin-root-relative via ${CLAUDE_PLUGIN_ROOT}
+          with open("hooks/hooks.json", encoding="utf-8") as f:
+              hooks = json.load(f).get("hooks", {})
+          for event, blocks in hooks.items():
+              for b in blocks:
+                  for h in b.get("hooks", []):
+                      cmd = h.get("command", "")
+                      if ".claude/hooks/" in cmd:
+                          fail.append(f"{event}: stale .claude/hooks path in command: {cmd}")
+                      if "hooks/" in cmd and "${CLAUDE_PLUGIN_ROOT}" not in cmd:
+                          fail.append(f"{event}: hook command must use ${{CLAUDE_PLUGIN_ROOT}}: {cmd}")
+
+          if fail:
+              print("\n".join("FAIL: " + x for x in fail)); sys.exit(1)
+          print("plugin manifest + structure OK")
+          EOF
+
+  skills-lint:
+    name: Skill & agent frontmatter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet pyyaml
+      - name: Every SKILL.md / agent has valid frontmatter
+        run: |
+          python - <<'EOF'
+          import glob, sys, yaml
+          fail = []
+          for f in sorted(glob.glob("skills/*/SKILL.md")) + sorted(glob.glob("agents/*.md")):
+              text = open(f, encoding="utf-8").read()
+              if not text.startswith("---"):
+                  fail.append(f"{f}: missing YAML frontmatter"); continue
+              try:
+                  fm = yaml.safe_load(text.split("---", 2)[1]) or {}
+              except Exception as e:
+                  fail.append(f"{f}: invalid YAML frontmatter — {e}"); continue
+              if not fm.get("name"):
+                  fail.append(f"{f}: frontmatter `name` missing")
+              if not fm.get("description"):
+                  fail.append(f"{f}: frontmatter `description` missing")
+          if fail:
+              print("\n".join("FAIL: " + x for x in fail)); sys.exit(1)
+          print("all skill/agent frontmatter OK")
+          EOF
+
+  sentinel-guard:
+    name: Sentinel check is present
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: The plugin must ship the layer-4 sentinel check
+        # "A plugin without this check is distributing a false sense of protection,
+        # which is worse than distributing none." — Ch. 13
+        run: |
+          python - <<'EOF'
+          import sys
+          src = open("hooks/session-start-check.py", encoding="utf-8").read()
+          missing = [t for t in ("PERMISSION_SENTINELS", "check_permission_sentinels", "GOVERNANCE GAP") if t not in src]
+          if missing:
+              print("FAIL: sentinel check missing from session-start-check.py:", missing); sys.exit(1)
+          # And the deny floor it guards must still exist in the reference settings.
+          import json
+          deny = json.load(open(".claude/settings.json", encoding="utf-8"))["permissions"]["deny"]
+          for s in ("Read(**/.env)", "Read(**/secrets/**)", "Bash(sudo:*)", "Bash(curl * | bash)"):
+              if s not in deny:
+                  print(f"FAIL: reference settings.json lost sentinel deny: {s}"); sys.exit(1)
+          print("sentinel check present and consistent with the reference deny floor")
+          EOF

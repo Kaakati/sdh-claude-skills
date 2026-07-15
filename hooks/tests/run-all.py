@@ -403,6 +403,55 @@ def test_vague_request_detector():
     )
 
 
+def test_permission_sentinel():
+    """Layer-4 sentinel (the 'plugin trap'): a plugin cannot ship `permissions`, so
+    the SessionStart hook must verify the deny floor was copied into the consuming
+    project and warn loudly when it wasn't. Silent absence -> visible warning."""
+    print("\n[session-start-check.py — permission sentinel]")
+    global PASS, FAIL
+    import tempfile, os, shutil, json as _json
+
+    def run_session_start(cwd):
+        result = subprocess.run(
+            [sys.executable, os.path.join(HOOKS_DIR, "session-start-check.py")],
+            input=_json.dumps({"cwd": cwd}),
+            capture_output=True, text=True, timeout=15,
+        )
+        return result.returncode, result.stdout
+
+    def case(name, deny, expect_gap, write_settings=True, raw=None):
+        global PASS, FAIL
+        root = tempfile.mkdtemp()
+        try:
+            if write_settings:
+                os.makedirs(os.path.join(root, ".claude"))
+                p = os.path.join(root, ".claude", "settings.json")
+                with open(p, "w", encoding="utf-8") as f:
+                    if raw is not None:
+                        f.write(raw)
+                    else:
+                        _json.dump({"permissions": {"deny": deny}}, f)
+            code, out = run_session_start(root.replace("\\", "/"))
+            got_gap = "GOVERNANCE GAP" in out
+            if code == 0 and got_gap == expect_gap:
+                PASS += 1
+                print(f"  PASS: {name}")
+            else:
+                FAIL += 1
+                print(f"  FAIL: {name} — exit={code} gap={got_gap} expected_gap={expect_gap}")
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    full = ["Read(**/.env)", "Read(**/secrets/**)", "Bash(sudo:*)", "Bash(curl * | bash)"]
+    case("silent when the full permission floor is present", full, expect_gap=False)
+    case("warns when a sentinel deny is missing", full[:2], expect_gap=True)
+    case("warns when the deny list is empty", [], expect_gap=True)
+    case("warns when .claude/settings.json is absent", None, expect_gap=True, write_settings=False)
+    case("warns when settings.json is unparseable", None, expect_gap=True, raw="{ not json")
+    # never blocks the session
+    case("exits 0 even on a gap (informational, never blocks)", [], expect_gap=True)
+
+
 def test_hooklib_primitives():
     """Unit-test the wrapper-agnostic matching primitives in _hooklib directly."""
     print("\n[_hooklib primitives]")
@@ -516,6 +565,7 @@ def main():
     test_pre_commit_check()
     test_accessibility_checker()
     test_api_design_checker()
+    test_permission_sentinel()
     test_hooklib_primitives()
     test_wrapper_agnostic()
     test_vague_request_detector()
