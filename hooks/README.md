@@ -169,7 +169,13 @@ CLAUDE_HOOKS_DEBUG=1 bash hooks/run-python.sh hooks/security-scan.py
 ## Running Tests
 
 ```bash
-python .claude/hooks/tests/run-all.py
+bash hooks/run-python.sh hooks/tests/run-all.py
 ```
 
-The test harness uses `sys.executable` to invoke hook scripts, so it works regardless of whether your system uses `python` or `python3`.
+The harness invokes hook scripts with `sys.executable`, so it works regardless of whether your
+system uses `python` or `python3`; going through `run-python.sh` additionally forces UTF-8 and
+picks a working interpreter on Windows.
+
+It is also a **standing audit**, not just a regression net (Ch. 22) — beyond per-hook behaviour it
+asserts that fail-open paths stay visible, that every `deny` reason names a remedy, and that the
+sentinel detects a *stale* permission floor. CI runs it on every push and PR.
