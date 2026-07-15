@@ -19,3 +19,6 @@ Thumbs.db
 .vscode/settings.json
 *.swp
 *.swo
+
+# Captured hook event fixtures (dev artifacts from capture-event.py)
+hooks/tests/fixtures/

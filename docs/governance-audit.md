@@ -290,6 +290,33 @@ to paste. Behavioural gate changes (destroy/state-surgery/-auto-approve now deni
 gate's behaviour without updating `CHANGELOG.md`. Because a plugin cannot ship `permissions`, an
 undocumented floor change is one consumers can neither see nor copy — it just silently goes stale.
 
+### Layer 3 — hook DX: the dev loop, the capture tool, and the Ch. 25 symptom table — *2026-07-15*
+The explicit half of the mandate ("enhance the DX to the utmost level"), and the last Layer-3 item.
+
+- **`hooks/capture-event.py`** — Ch. 9's step 1 as a first-class tool. Register it temporarily,
+  trigger the tool once, and a *real* event lands in `hooks/tests/fixtures/` (named
+  `PreToolUse-Bash-<ts>.json`). Then develop against the fixture: a **sub-second loop** instead of
+  "edit, start a session, trigger the tool, squint at the output" — a minute-long loop you run fifty
+  times. Verified end-to-end: captured a real event, replayed it into the terraform gate, got the
+  deny. Fixtures are gitignored (dev artifacts).
+- **`docs/hook-development.md`** — the dev loop, the *observe, don't guess* first move (check
+  `/hooks`; run the hook by hand — *"the single most useful diagnostic"*, separating "the hook has a
+  bug" from "the hook isn't being invoked"; read the agent definition, not your memory of it), and a
+  **symptom→cause table** written for THIS repo (hooks live in `hooks/hooks.json` not settings; the
+  `${CLAUDE_PLUGIN_ROOT}` requirement; MSYS-path and cp1252 gotchas that have actually bitten us).
+- Linked from `hooks/README.md`; refreshed stale content there (it still claimed checker crashes are
+  "swallowed" — fixed in iteration 5 — and used pre-plugin `.claude/hooks/` paths).
+
+### Layer 3 — every deny reason must name a remedy (Ch. 25) — *2026-07-15*
+*"The model argues with a denial"* — root cause: the reason names **what** is forbidden but not
+**what to do instead**. *"'Denied' invites retries; 'denied because X, do Y instead' invites Y."*
+
+Audited all 9 deny reasons. One real defect: `pre-commit-check`'s force-push deny stated only the
+prohibition ("Force pushing to main/master/develop/release is prohibited") — an invitation to
+retry variations. Now names the remedy: `git revert <sha>` + a PR for a shared branch, or
+`--force-with-lease` on your *own* feature branch. A standing test
+(`[deny reasons must name a remedy]`) audits every `hooklib.deny()` call so this cannot regress.
+
 ## OPEN — prioritized backlog
 
 ### P1 · Layer 1 — finish progressive disclosure (13 skills remain single-file)
@@ -331,22 +358,6 @@ CLAUDE.md/README advertise "(Opus, plan mode)" — **now a false claim**. It was
 for `clean-architecture` (the only plan agent with Bash), and removing Bash fixed that properly.
 The other 3 are read-only by tool list anyway, so the field is redundant, not dangerous. Action:
 strip the dead field (silently-ignored controls are theater) and correct the "plan mode" claims.
-
-### P2 · Layer 3 — hook DX: the dev loop + Ch. 25 symptom→cause table
-All six Ch. 10 gate patterns are now present (completion ✅, ask ✅, three-tier command gate ✅,
-context injection ✅, dispatcher ✅, audit trail ✅). What remains is **developer experience**:
-- **Ch. 9 dev workflow** — document the loop: capture a real event (a throwaway hook that dumps
-  stdin), then develop against the fixture. "This is a sub-second loop; the alternative — edit,
-  start a session, trigger the tool, squint at the output — is a minute-long loop you will run
-  fifty times." Nothing in `hooks/README.md` teaches this today.
-- **Ch. 25 symptom→cause table** — no troubleshooting doc: hook never fires / fires but never
-  blocks / gate blocks everything / the model argues with a denial / agent edited what it shouldn't
-  (the read-only lie) / sessions feel slow.
-- `CLAUDE_HOOKS_DEBUG` exists in `run-python.sh` but nothing else honours it — a real debug switch
-  across the hooks would pay for itself.
-- **Raw hooks**: 8 bypass the `_hooklib` runners (`auto-format`, `session-*`, `subagent-context`,
-  `task-completed-checker`, `team-task-validator`, `teammate-idle-checker`). Stances understood but
-  not enforced through a runner.
 
 ### P3 · Layer 5 — governing the governors
 `managed-settings.template.json` is minimal. Expand per Ch. 20's layer-5 section: non-overridable

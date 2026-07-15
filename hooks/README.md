@@ -52,9 +52,10 @@ consistent. Key helpers:
 
 The 12 advisory PostToolUse checkers run **in one process** via the dispatcher, which reads
 the event once and calls each checker's `check(event)` in-process. This replaces 12 separate
-hook entries — ~12 fewer Python cold-starts per edit. Each checker is isolated: a crash in
-one is swallowed so it cannot suppress the others. `auto-format.py` stays a separate hook
-entry (it mutates files and may invoke slow formatters with their own timeout).
+hook entries — ~12 fewer Python cold-starts per edit. Each checker is isolated: a crash in one
+cannot suppress the others — but it is **reported**, never swallowed (see *Silent failure* below).
+`auto-format.py` stays a separate hook entry (it mutates files and may invoke slow formatters with
+their own timeout).
 
 ### Wrapper-directory-agnostic detection
 
@@ -113,12 +114,20 @@ that isn't tested is a guarantee that decays.
 `fail_closed=True` — if the check itself errors, they emit a `deny` rather than silently
 allowing the action. Advisory checkers and `ask`-style gates fail open.
 
+## Writing & debugging hooks
+
+See **[docs/hook-development.md](../docs/hook-development.md)** for the development loop
+(capture a real event with `capture-event.py`, then develop against the fixture — a
+sub-second loop), the *observe, don't guess* first move, and the symptom→cause
+troubleshooting table (hook never fires / fires but never blocks / gate blocks everything /
+the model argues with a denial / the read-only lie).
+
 ## Debug Mode
 
 Set `CLAUDE_HOOKS_DEBUG=1` to see which Python interpreter the launcher selects:
 
 ```bash
-CLAUDE_HOOKS_DEBUG=1 bash .claude/hooks/run-python.sh .claude/hooks/security-scan.py
+CLAUDE_HOOKS_DEBUG=1 bash hooks/run-python.sh hooks/security-scan.py
 # stderr: [run-python] Using: python3 (Python 3.12.1)
 ```
 
@@ -128,8 +137,10 @@ CLAUDE_HOOKS_DEBUG=1 bash .claude/hooks/run-python.sh .claude/hooks/security-sca
 |--------|-------|---------|
 | `run-python.sh` | — | Cross-platform Python 3 launcher (UTF-8, interpreter discovery) |
 | `_hooklib.py` | — | Shared library: event parsing, file IO, framework detection, run loops |
+| `capture-event.py` | dev tool | Captures a real event to `tests/fixtures/` so you can develop against a fixture, not a session |
 | `security-scan.py` | PreToolUse | Blocks writes to protected files, detects hardcoded secrets (**fail-closed**) |
 | `dangerous-command-blocker.py` | PreToolUse | Blocks destructive shell commands (**fail-closed**) |
+| `terraform-command-gate.py` | PreToolUse | Three-tier gate: denies destroy/state-surgery/`-auto-approve`, asks on `apply`, allows the read-only surface (**fail-closed**) |
 | `pre-commit-check.py` | PreToolUse | Validates conventional commit format, blocks force pushes |
 | `migration-validator.py` | PreToolUse | Validates migration reversibility, SQL injection, destructive ops |
 | `deployment-gate.py` | PreToolUse | Requires confirmation for deploys |

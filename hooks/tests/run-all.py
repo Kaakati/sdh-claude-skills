@@ -406,6 +406,40 @@ def test_vague_request_detector():
     )
 
 
+def test_deny_reasons_name_a_remedy():
+    """Ch. 25 — "the model argues with a denial". Root cause: the reason names what is
+    forbidden but not what to do INSTEAD. "Denied" invites retries; "denied because X,
+    do Y instead" invites Y. Every deny reason must therefore name a remedy."""
+    print("\n[deny reasons must name a remedy]")
+    global PASS, FAIL
+    import re, glob
+
+    # A remedy tells the agent what to DO: an alternative action, or where to go.
+    REMEDY = re.compile(
+        r"instead|manual|prefer|revert|review it|open a pr|expected:|"
+        r"use `|run `|`git |plan first|outside claude code",
+        re.I,
+    )
+    checked = 0
+    for path in sorted(glob.glob(os.path.join(HOOKS_DIR, "*.py"))):
+        src = open(path, encoding="utf-8").read()
+        for m in re.finditer(r'hooklib\.deny\(\s*((?:\s*(?:f?"[^"]*"|\'[^\']*\')\s*)+)', src):
+            reason = " ".join(re.findall(r'"([^"]*)"', m.group(1)))
+            if not reason.strip():
+                continue
+            checked += 1
+            name = os.path.basename(path)
+            if REMEDY.search(reason):
+                PASS += 1
+                print(f"  PASS: {name} deny names a remedy — {reason[:44].strip()}…")
+            else:
+                FAIL += 1
+                print(f"  FAIL: {name} deny states a prohibition with NO remedy — {reason[:70]!r}")
+    if checked == 0:
+        FAIL += 1
+        print("  FAIL: found no deny reasons to audit (regex drifted?)")
+
+
 def test_terraform_command_gate():
     """Ch. 10 Pattern 3 — the three-tier command gate: DENY the never-legitimate,
     ASK the serious-but-real, ALLOW (fall through) the read-only surface. Fail-closed."""
@@ -757,6 +791,7 @@ def main():
     test_pre_commit_check()
     test_accessibility_checker()
     test_api_design_checker()
+    test_deny_reasons_name_a_remedy()
     test_terraform_command_gate()
     test_fail_open_is_not_silent()
     test_permission_sentinel()

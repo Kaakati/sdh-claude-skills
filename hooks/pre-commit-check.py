@@ -24,9 +24,15 @@ def check(event):
     command = hooklib.tool_input(event).get("command", "")
 
     if re.search(FORCE_PUSH_PATTERN, command):
+        # Name the remedy, not just the prohibition: a denial that says only what is
+        # forbidden invites the model to retry variations; "denied because X, do Y
+        # instead" invites Y (Ch. 25, "the model argues with a denial").
         hooklib.deny(
-            "BLOCKED: Force push to protected branch detected. "
-            "Force pushing to main/master/develop/release is prohibited."
+            "BLOCKED: Force push to a protected branch rewrites history other people have "
+            "already pulled. Do this instead: to undo a bad commit on a shared branch, "
+            "`git revert <sha>` and open a PR — it is reviewable and rewrites nothing. To "
+            "tidy your own work, force-push your FEATURE branch (`git push --force-with-lease "
+            "origin <your-branch>`), then open a PR."
         )
         return
 
