@@ -1369,12 +1369,30 @@ def test_release_hygiene_checker():
     else:
         FAIL += 1
         print(f"  FAIL: the real tree fails its own release gate:\n{out}")
-    if "INERT" in out:
-        PASS += 1
-        print("  PASS: with no tags the gate announces it is inert (not silently green)")
+    # The gate has two legitimate states, and the correct assertion depends on which one the
+    # repo is in. Before v2.0.0 there were no tags, so this asserted the INERT announcement —
+    # and then the release made the announcement correctly disappear, failing a test that had
+    # hard-coded a pre-release world. The gate was right; the test was stale.
+    has_tag = bool(git_tags := subprocess.run(
+        ["git", "tag", "-l", "v*"], cwd=repo, capture_output=True, text=True).stdout.strip())
+    if not has_tag:
+        # No release yet: silence here would be indistinguishable from a passing gate.
+        if "INERT" in out:
+            PASS += 1
+            print("  PASS: with no tags the gate announces it is inert (not silently green)")
+        else:
+            FAIL += 1
+            print("  FAIL: an inert delivery gate stayed quiet — indistinguishable from a pass")
     else:
-        FAIL += 1
-        print("  FAIL: an inert delivery gate stayed quiet — indistinguishable from a passing one")
+        # Released: the gate is live, so it must NOT still be claiming it cannot verify
+        # anything — that would be a stale message telling the reader the opposite of the truth.
+        if "INERT" not in out:
+            PASS += 1
+            print(f"  PASS: a release exists ({git_tags.splitlines()[-1]}), so the delivery gate "
+                  f"is live and no longer announces itself inert")
+        else:
+            FAIL += 1
+            print("  FAIL: a tag exists but the gate still reports itself INERT")
 
     def git(cwd, *args):
         subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, timeout=30)

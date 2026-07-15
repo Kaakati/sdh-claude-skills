@@ -18,38 +18,84 @@ Instead of relying on ad-hoc prompting, this plugin provides:
 
 ## Install
 
+Current release: **`v2.0.0`**. It is a **major**: it denies work that previously succeeded, and
+it requires one manual step (below). Read [`CHANGELOG.md`](CHANGELOG.md#200--2026-07-15) before
+taking it.
+
+### Pin a release (recommended for a team)
+
+Put a small marketplace file in your repo that points at a **tag**:
+
+```json
+// .claude-plugin/marketplace.json  (in YOUR repo)
+{
+  "name": "sdh-pinned",
+  "owner": { "name": "your-team" },
+  "plugins": [
+    {
+      "name": "sdh",
+      "source": {
+        "source": "github",
+        "repo": "Kaakati/sdh-claude-skills",
+        "ref": "v2.0.0"
+      }
+    }
+  ]
+}
+```
+
 ```bash
-# Add this repo as a marketplace, then install the plugin
+/plugin marketplace add ./.claude-plugin
+/plugin install sdh@sdh-pinned
+```
+
+`sha` is also accepted and **wins over `ref`** when both are set — use it if you want the pin to
+survive a tag being moved or deleted upstream.
+
+### Or evaluate it (floats on `main`)
+
+```bash
 /plugin marketplace add Kaakati/sdh-claude-skills
 /plugin install sdh@sdh-claude-skills
 
-# Or test locally without installing
+# Or run it locally without installing
 claude --plugin-dir /path/to/sdh-claude-skills
 ```
 
-> **This floats on `main`.** Fine for evaluating the plugin; wrong for running a team on it — a
-> standards change or a hook bug reaches everyone the moment it is pushed, with no review gate
-> in between. To pin a reviewed release, point a marketplace entry at a tag (`ref`), or at a
-> commit (`sha`, which wins over `ref` when both are set):
->
-> ```json
-> { "name": "sdh",
->   "source": { "source": "github", "repo": "Kaakati/sdh-claude-skills", "ref": "v2.0.0" } }
-> ```
->
-> See [`docs/releasing.md`](docs/releasing.md) for pinning, release channels, and the required
-> branch-protection posture. **No release is tagged yet** — pinning becomes available with the
-> first tag.
+> **This form floats on `main`** — a standards change or a hook bug reaches everyone the moment
+> it is pushed, with no review gate in between. Fine for trying the plugin; wrong for running a
+> team on it. See [`docs/releasing.md`](docs/releasing.md) for pinning, release channels, and the
+> branch-protection posture this repo holds itself to.
 
 Skills are namespaced under the plugin: `/sdh:code-reviewer`, `/sdh:rails-architect`, etc.
 Run `/plugin` to manage it, and `claude plugin validate .` to validate changes.
 
-### What a plugin can't ship — add these to your project `.claude/settings.json`
+## ⚠️ Required: copy the permission floor into your project
 
-A plugin cannot ship `permissions`, `env`, or `worktree` settings. Copy them from this
-repo's [`.claude/settings.json`](.claude/settings.json) into your own project settings to get
-the secret/build-artifact `Read` denies, the agent-teams env flag, and worktree symlinks.
-See [`docs/monorepo-setup.md`](docs/monorepo-setup.md).
+**A plugin cannot ship `permissions`.** Everything else here — skills, agents, hooks — installs
+and activates on its own. The innermost enforcement ring does not, and a project without it looks
+fully protected while the permission layer is simply absent.
+
+Copy the `permissions`, `env`, and `worktree` blocks from this repo's
+[`.claude/settings.json`](.claude/settings.json) into your own project settings. That gives you
+the secret and build-artifact `Read` denies, the agent-teams env flag, and worktree symlinks.
+
+**v2.0.0 adds 6 Terraform denies** that you must copy by hand:
+
+```
+Bash(terraform destroy:*)      Bash(terraform state mv:*)
+Bash(tofu destroy:*)           Bash(terraform state push:*)
+Bash(terraform state rm:*)     Bash(terraform force-unlock:*)
+```
+
+You do not have to remember this: the **SessionStart sentinel** compares your floor against the
+plugin's reference on every session and names the exact rules you are missing — including when a
+floor you copied earlier has gone stale. If you see `GOVERNANCE GAP` at session start, that is
+this check, and it is telling the truth.
+
+An org can make the floor non-optional instead, via managed settings — see
+[`docs/org-policy.md`](docs/org-policy.md). For monorepos, see
+[`docs/monorepo-setup.md`](docs/monorepo-setup.md).
 
 ### Configuration
 
@@ -333,8 +379,10 @@ assets) and symlinks `node_modules`/`vendor/bundle` into worktrees.
 │   ├── pre-commit-check.py           (PreToolUse: validates commits)
 │   ├── migration-validator.py        (PreToolUse: validates migrations)
 │   ├── deployment-gate.py            (PreToolUse: deployment confirmation)
+│   ├── terraform-command-gate.py     (PreToolUse: three-tier terraform gate)
+│   ├── mcp-install-gate.py           (PreToolUse: asks before adding an MCP server)
 │   ├── run-python.sh                 (Cross-platform Python 3 launcher)
-│   ├── auto-format.py                (PostToolUse: formats code)
+│   ├── auto-format.py                (PostToolUse: formats code, safe autocorrect only)
 │   ├── test-runner.py                (PostToolUse: reminds to test)
 │   ├── atomic-design-checker.py      (PostToolUse: validates component hierarchy)
 │   ├── terraform-checker.py          (PostToolUse: validates .tf conventions)
@@ -360,8 +408,10 @@ Every action Claude takes passes through deterministic quality gates:
 | **Before writing migrations** | `migration-validator.py` | Validates reversibility, checks for raw SQL injection, warns on destructive ops |
 | **Before running commands** | `dangerous-command-blocker.py` | Blocks `rm -rf`, `DROP TABLE`, privilege escalation |
 | **Before deployments** | `deployment-gate.py` | Requires confirmation for `git push main`, `terraform apply`, `vercel deploy` |
+| **Before terraform** | `terraform-command-gate.py` | Three-tier gate: **denies** `destroy`/`state rm|mv|push`/`force-unlock`/`apply -auto-approve`, **asks** on `apply`, allows the read-only surface |
+| **Before adding an MCP** | `mcp-install-gate.py` | **Asks** on `claude mcp add` and `.mcp.json` edits — an MCP server is an instruction source, so a human picks it |
 | **Before git commits** | `pre-commit-check.py` | Validates conventional commit format, blocks force pushes |
-| **After editing files** | `auto-format.py` | Runs rubocop, prettier, terraform fmt |
+| **After editing files** | `auto-format.py` | Runs rubocop (**`-a`, safe autocorrect only**), prettier, black, terraform fmt. Missing tool → says so once, exits 0 |
 | **After editing files** | `test-runner.py` | Reminds to run corresponding tests |
 | **After editing files** | Code quality checker | 30-line functions, 4-param max, 3-level nesting, domain-aware file limits |
 | **After editing files** | Error handling checker | Empty catch blocks, `rescue Exception` detection |
