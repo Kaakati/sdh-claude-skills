@@ -152,8 +152,11 @@ def test_deployment_gate():
                  {"command": "git push origin main"})
     assert_warns("warns on force push", "deployment-gate.py", "Bash",
                  {"command": "git push -f origin feature"})
-    assert_warns("warns on terraform apply", "deployment-gate.py", "Bash",
-                 {"command": "terraform apply -auto-approve"})
+    # Terraform is owned by terraform-command-gate.py, not this hook — two hooks deciding
+    # the same command meant a double prompt (approval fatigue) and, on -auto-approve,
+    # contradictory decisions (ask vs deny).
+    assert_silent("delegates terraform entirely to the three-tier gate", "deployment-gate.py",
+                  "Bash", {"command": "terraform apply -auto-approve"})
     assert_warns("warns on vercel deploy", "deployment-gate.py", "Bash",
                  {"command": "vercel deploy --prod"})
     assert_warns("warns on docker push", "deployment-gate.py", "Bash",
@@ -401,6 +404,49 @@ def test_vague_request_detector():
         "skips specific implementation request",
         "Add a created_at index to the orders table in the backend migration",
     )
+
+
+def test_terraform_command_gate():
+    """Ch. 10 Pattern 3 — the three-tier command gate: DENY the never-legitimate,
+    ASK the serious-but-real, ALLOW (fall through) the read-only surface. Fail-closed."""
+    print("\n[terraform-command-gate.py — three-tier command gate]")
+
+    # Tier 1 — DENY the irreversible
+    for name, cmd in [
+        ("denies terraform destroy", "terraform destroy"),
+        ("denies tofu destroy (OpenTofu)", "tofu destroy"),
+        ("denies destroy with flags before subcommand", "terraform -chdir=prod destroy"),
+        ("denies state rm (state surgery)", "terraform state rm aws_db_instance.main"),
+        ("denies state mv", "terraform state mv a b"),
+        ("denies state push", "terraform state push new.tfstate"),
+        ("denies force-unlock", "terraform force-unlock 1234"),
+        ("denies apply -auto-approve", "terraform apply -auto-approve"),
+        ("denies apply --auto-approve", "terraform apply --auto-approve"),
+    ]:
+        assert_blocked(name, "terraform-command-gate.py", "Bash", {"command": cmd})
+
+    # Tier 2 — ASK on a real apply
+    assert_warns("asks on terraform apply (human confirms)", "terraform-command-gate.py", "Bash",
+                 {"command": "terraform apply"})
+    assert_output_contains("apply ask carries the review checklist", "terraform-command-gate.py",
+                           "Bash", {"command": "terraform apply"}, "plan")
+
+    # Tier 3 — ALLOW the read-only surface (must fall through silently)
+    for name, cmd in [
+        ("allows terraform plan", "terraform plan"),
+        ("allows plan -destroy (a PREVIEW, not a destroy)", "terraform plan -destroy"),
+        ("allows validate", "terraform validate"),
+        ("allows fmt", "terraform fmt -check"),
+        ("allows output", "terraform output -json"),
+        ("allows state list (read-only)", "terraform state list"),
+        ("allows state show (read-only)", "terraform state show aws_vpc.main"),
+        ("ignores non-terraform commands", "npm run build"),
+        ("ignores non-Bash tools", None),
+    ]:
+        if cmd is None:
+            assert_silent(name, "terraform-command-gate.py", "Edit", {"file_path": "main.tf"})
+        else:
+            assert_silent(name, "terraform-command-gate.py", "Bash", {"command": cmd})
 
 
 def test_fail_open_is_not_silent():
@@ -671,6 +717,7 @@ def main():
     test_pre_commit_check()
     test_accessibility_checker()
     test_api_design_checker()
+    test_terraform_command_gate()
     test_fail_open_is_not_silent()
     test_permission_sentinel()
     test_hooklib_primitives()

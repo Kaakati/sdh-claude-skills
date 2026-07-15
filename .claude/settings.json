@@ -33,7 +33,13 @@
       "Bash(rm -rf /*)",
       "Bash(chmod 777:*)",
       "Bash(curl * | bash)",
-      "Bash(wget * | bash)"
+      "Bash(wget * | bash)",
+      "Bash(terraform destroy:*)",
+      "Bash(tofu destroy:*)",
+      "Bash(terraform state rm:*)",
+      "Bash(terraform state mv:*)",
+      "Bash(terraform state push:*)",
+      "Bash(terraform force-unlock:*)"
     ],
     "allow": [
       "Read",

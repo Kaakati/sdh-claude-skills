@@ -23,7 +23,7 @@ disable it.
 |---|-------|-----------------|-------|-------|
 | 1 | Context governance | What the agent **knows** | 🟢 Strong | 20 `std-*` + 37 workflow skills; 7 now three-tier (28 refs); rule-per-file granularity restored across 5 skills; CI guards tier discipline |
 | 2 | Capability governance | What each **role** can do | 🟢 Good | Bash hole audited + closed; capability enforced by tool lists (not the dead `permissionMode`) |
-| 3 | Runtime gates | What happens **as each action fires** | 🟢 Strong | 2 fail-closed gates; every fail-open path now *visible*; stances decided per hook; 83 fixture tests |
+| 3 | Runtime gates | What happens **as each action fires** | 🟢 Strong | all 6 Ch. 10 gate patterns present; 3 fail-closed gates; fail-open paths visible; 103 fixture tests |
 | 4 | Permission boundaries | The harness's **own** enforcement | 🟢 Guarded | 24 denies (reference) + **sentinel check** now detects the plugin trap |
 | 5 | Organizational policy | What **developers** can grant | 🟠 Thin | `managed-settings.template.json` exists but is minimal/undocumented |
 | 6 | Human-in-the-loop | The **person**, for the irreversible | 🟢 Good | `ask` on deploys, migrations, direct pushes to protected branches |
@@ -220,6 +220,44 @@ is documented in `hooks/README.md` with the reasoning (*"the linter's crash shou
 report, not a session"*; *"a fail-closed formatter is an outage generator"*; the availability cost
 of fail-closed is the correct trade only for the small deny tier).
 
+### Layer 3 — the three-tier command gate: the last missing Ch. 10 pattern — *2026-07-15*
+**The gap was real and serious.** Terraform had tier-1 (allow, via `permissions`) and tier-2 (ask,
+via `deployment-gate`) but **no deny tier** — probed and confirmed:
+
+| command | before |
+|---|---|
+| `terraform destroy` | **ALLOWED — nothing stopped it** |
+| `terraform state rm aws_db_instance.main` | **ALLOWED** |
+| `terraform force-unlock 1234` | **ALLOWED** |
+| `terraform apply -auto-approve` | only `ask` (the book says deny) |
+
+**Lowest-effective-layer analysis first** (as promised, rather than reflexively writing a hook):
+- read-only surface → already allow-listed in `permissions` (layer 4) ✅ correct, lowest ring
+- deny the irreversible → **added to `permissions.deny`** (layer 4: lower, surer, cannot be coded
+  wrong): `terraform destroy`, `tofu destroy`, `state rm/mv/push`, `force-unlock`
+- what a tool+target pattern **cannot** express → the hook (layer 3): `-auto-approve` is a flag
+  anywhere in the string, not a prefix; and the `ask` tier needs a reasoned checklist
+- The overlap is deliberate: destroy/state-surgery are catastrophic, and *"the catastrophic rules
+  get several"* (Ch. 20). A plugin cannot ship permissions, so if a consumer never copied the floor,
+  the hook is the only thing standing there.
+
+`hooks/terraform-command-gate.py` — **fail-closed** (*"a gate guarding `apply` that crashes must
+deny"*), registered on PreToolUse:Bash, **20 fixture tests**.
+
+**Improved on the book's template:** it regexes a bare `destroy`, which would deny
+`terraform plan -destroy` — a read-only *preview*. Ours matches `destroy` only as a subcommand, so
+the preview falls through. Carries the book's honest caveat: regex over shell strings is defeatable
+by wrappers/aliases; this is defense in depth, not a wall — its value is catching the *model's*
+ordinary mistakes cheaply and deterministically.
+
+### Layer 3/6 — one concern, one owner: removed a double-prompt — *2026-07-15*
+Registering the gate exposed that `deployment-gate` **also** decided `terraform apply`:
+- `terraform apply` → **two prompts for one command** — approval fatigue is exactly how you get
+  "the human who stops reading" (Ch. 20, layer 6)
+- `terraform apply -auto-approve` → the two hooks **disagreed outright** (ask vs deny)
+
+Terraform removed from `deployment-gate` entirely; the dedicated three-tier gate owns that surface.
+
 ## OPEN — prioritized backlog
 
 ### P1 · Layer 1 — finish progressive disclosure (13 skills remain single-file)
@@ -262,19 +300,28 @@ for `clean-architecture` (the only plan agent with Bash), and removing Bash fixe
 The other 3 are read-only by tool list anyway, so the field is redundant, not dangerous. Action:
 strip the dead field (silently-ignored controls are theater) and correct the "plan mode" claims.
 
-### P2 · Layer 3 — the three-tier command gate + Ch. 25 debugging DX
-- **Gate patterns (Ch. 10)**: completion gate ✅ (Stop), ask/human-in-loop ✅, context injection ✅,
-  dispatcher ✅, audit trail ✅ — **three-tier command gate ⬜** (allow / ask / deny tiers for Bash).
-  Today Bash is split across `permissions.allow` (layer 4) and `dangerous-command-blocker` (layer 3)
-  with no explicit middle `ask` tier. Per the lowest-effective-layer principle, most of this belongs
-  in permissions; audit what the hook must carry that permissions cannot express.
-- **DX (Ch. 9 dev workflow, Ch. 25)**: no documented hook dev loop (capture a real event → develop
-  against the fixture, a sub-second loop, not a live session), no debug switch, and no symptom→cause
-  troubleshooting table (hook never fires / fires but never blocks / gate blocks everything / the
-  model argues with a denial). `run-python.sh` has `CLAUDE_HOOKS_DEBUG` but nothing else uses it.
-- **Raw hooks**: 8 hooks bypass the `_hooklib` runners (`auto-format`, `session-*`, `subagent-context`,
-  `task-completed-checker`, `team-task-validator`, `teammate-idle-checker`). Their stances are now
-  understood but not uniformly enforced through a runner — consider routing them through the lib.
+### P2 · Layer 3 — hook DX: the dev loop + Ch. 25 symptom→cause table
+All six Ch. 10 gate patterns are now present (completion ✅, ask ✅, three-tier command gate ✅,
+context injection ✅, dispatcher ✅, audit trail ✅). What remains is **developer experience**:
+- **Ch. 9 dev workflow** — document the loop: capture a real event (a throwaway hook that dumps
+  stdin), then develop against the fixture. "This is a sub-second loop; the alternative — edit,
+  start a session, trigger the tool, squint at the output — is a minute-long loop you will run
+  fifty times." Nothing in `hooks/README.md` teaches this today.
+- **Ch. 25 symptom→cause table** — no troubleshooting doc: hook never fires / fires but never
+  blocks / gate blocks everything / the model argues with a denial / agent edited what it shouldn't
+  (the read-only lie) / sessions feel slow.
+- `CLAUDE_HOOKS_DEBUG` exists in `run-python.sh` but nothing else honours it — a real debug switch
+  across the hooks would pay for itself.
+- **Raw hooks**: 8 bypass the `_hooklib` runners (`auto-format`, `session-*`, `subagent-context`,
+  `task-completed-checker`, `team-task-validator`, `teammate-idle-checker`). Stances understood but
+  not enforced through a runner.
+
+### P2 · Layer 4 — the deny floor grew; consumers must re-copy it
+`permissions.deny` went 24 → 30 (terraform destroy/state-surgery/force-unlock). A plugin cannot
+ship permissions, so **existing consumers who copied the old floor now have a stale one** and are
+missing the new terraform denies. The sentinel only samples 4 rules and will NOT catch this. Options:
+version the floor and have the sentinel compare a version/count, or publish the delta in the
+CHANGELOG (which is itself still an open P2) and treat deny-list changes as interface changes.
 
 ### P2 · Layer 7 — changelog as an interface (Ch. 13)
 *"When a plugin bump changes what gets denied or how a gate behaves, that is a behavioral change
