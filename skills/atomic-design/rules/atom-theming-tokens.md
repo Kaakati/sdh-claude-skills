@@ -59,7 +59,7 @@ class Components::Atoms::Badge < Components::Base
     success: "bg-success text-success-foreground",
     warning: "bg-warning text-warning-foreground",
     error: "bg-error text-error-foreground",
-    neutral: "bg-neutral text-neutral-foreground",
+    neutral: "bg-muted text-muted-foreground",
   }.freeze
 
   def initialize(label:, variant: :neutral, size: :md)
@@ -114,7 +114,7 @@ const variantStyles: Record<BadgeVariant, string> = {
   success: "bg-success text-success-foreground",
   warning: "bg-warning text-warning-foreground",
   error: "bg-error text-error-foreground",
-  neutral: "bg-neutral text-neutral-foreground",
+  neutral: "bg-muted text-muted-foreground",
 };
 
 const sizeStyles: Record<BadgeSize, string> = {
@@ -168,7 +168,7 @@ const variantStyles: Record<BadgeVariant, string> = {
   success: "bg-success text-success-foreground",
   warning: "bg-warning text-warning-foreground",
   error: "bg-error text-error-foreground",
-  neutral: "bg-neutral text-neutral-foreground",
+  neutral: "bg-muted text-muted-foreground",
 };
 
 const sizeStyles: Record<BadgeSize, string> = {
@@ -228,7 +228,7 @@ export function Badge({
     success: { bg: theme.colors.success, text: theme.colors.successForeground },
     warning: { bg: theme.colors.warning, text: theme.colors.warningForeground },
     error: { bg: theme.colors.error, text: theme.colors.errorForeground },
-    neutral: { bg: theme.colors.neutral, text: theme.colors.neutralForeground },
+    neutral: { bg: theme.colors.muted, text: theme.colors.mutedForeground },
   };
 
   const sizeStyles = {
@@ -268,7 +268,10 @@ export function Badge({
 ## Additional Context
 
 **Design token categories that atoms must reference:**
-- **Colors**: `primary`, `secondary`, `success`, `warning`, `error`, `neutral` and their foreground/background variants
+- **Colors**: `primary`, `secondary`, `accent`, `muted`, `success`, `warning`, `error`, `info` and their
+  `-foreground` pairs. These are the names registered in `theming/references/platform-integration.md`;
+  a name that is not registered there (`neutral`, `destructive`) compiles to no CSS at all. A variant
+  may still be *keyed* `:neutral` — it just has to resolve to a registered token.
 - **Spacing**: Use the spacing scale (`spacing[1]`, `spacing[2]`, etc.) not raw pixel values
 - **Typography**: Font sizes, weights, and line heights from the type scale
 - **Radii**: Border radius values from the radii scale (`rounded-sm`, `rounded-lg`, etc.)

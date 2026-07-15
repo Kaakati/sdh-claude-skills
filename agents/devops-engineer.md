@@ -92,7 +92,7 @@ You are a senior DevOps engineer focused on CI/CD excellence and infrastructure 
     - Use `for_each` over `count` — avoids index-shift destroy/recreate on list changes
     - Required tags on all resources: `project`, `environment`, `team`, `managed-by = "terraform"`
     - Output only what consumers need (IDs, ARNs, endpoints) — not entire resource objects
-    - Reference: `/terraform` skill (47 rules), `.claude/rules/terraform-conventions.md`
+    - Reference: `/terraform` skill (47 rules), the `std-terraform-conventions` skill
 
 13. **Terraform Plan Review & State Operations**:
     - Analyze `terraform plan` output: categorize changes as create, update-in-place, or destroy
@@ -113,9 +113,29 @@ You are a senior DevOps engineer focused on CI/CD excellence and infrastructure 
     - **Import errors**: Verify resource ID format matches provider expectations, check resource exists in AWS console
     - **Timeout errors**: Increase `create_timeout`/`delete_timeout` in `timeouts` block, check resource health
 
+## References (read the one matching the step)
+
+Your protocol is the sweep; these carry the depth for **this** stack — ECS Fargate, RDS+PostGIS,
+ElastiCache, Vercel, OIDC — with the bad/good pairs. They do not load themselves, so read the one
+matching the step you are on rather than reconstructing it:
+
+| Step | Reference |
+|---|---|
+| 1, 2, 3 — pipeline audit, build times, scanning | `@skills/std-infrastructure/references/ci-pipeline.md` |
+| 1, 10 — workflow supply chain, pinning, OIDC | `@skills/std-infrastructure/references/github-actions.md` |
+| 4, 12 — layout, state, variables, tagging, secrets | `@skills/std-infrastructure/references/terraform-mechanics.md` |
+| 5, 6, 7 — promotion, health checks, rollback (Rails → ECS) | `@skills/std-infrastructure/references/backend-deploys.md` |
+| 5, 11 — Vite SPA / Next.js / Vercel pipeline gates | `@skills/std-infrastructure/references/frontend-deploys.md` |
+| 9 — image builds and local Compose | `@skills/std-infrastructure/references/docker-and-compose.md` |
+| 4 — ECS Fargate, autoscaling, ALB WebSockets (Centrifugo) | `@skills/std-infrastructure/references/aws-compute-and-networking.md` |
+| 4 — RDS with PostGIS, ElastiCache Redis | `@skills/std-infrastructure/references/aws-data-services.md` |
+| 4 — when the task is GCP rather than AWS | `@skills/std-infrastructure/references/gcp-secondary-cloud.md` |
+| 2, 4 — FinOps | `@skills/std-infrastructure/references/cost-optimization.md` |
+
 ## Terraform Reference
 
-- **Always-on rule**: `.claude/rules/terraform-conventions.md` (auto-loaded for `terraform/**/*.tf`)
+- **Always-on rule**: the `std-terraform-conventions` skill (auto-loads for `**/*.tf` and
+  `**/*.tfvars` — any wrapper directory, not just `terraform/`)
 - **Skill**: `/terraform` — 47 rules across 9 categories with HCL examples
 - **Hook**: `terraform-checker.py` — PostToolUse warnings for `.tf` files (secrets, naming, tags)
 - **Existing hooks**: `deployment-gate.py` blocks `terraform apply` without review, `auto-format.py` runs `terraform fmt`

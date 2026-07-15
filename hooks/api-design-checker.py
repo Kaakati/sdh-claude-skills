@@ -33,11 +33,18 @@ def check_verbs_in_routes(content):
     # Match common route definition patterns:
     # Rails: get '/getUser', resources :createOrders
     # JS/TS: '/api/getUser', '/api/createOrder', router.get('/deleteItem')
+    # `[A-Z]` is the ONLY thing distinguishing `/getUser` (a verb in a path) from `/posts`
+    # (a plural noun that merely starts with "post"). `re.IGNORECASE` made `[A-Z]` match
+    # lowercase too, voiding that discriminator — so `/posts`, `/addresses`, `/listings` and
+    # `/editions` were all warned at with "use plural nouns for resources", which they already
+    # are. No IGNORECASE here: the uppercase letter IS the signal.
+    #
+    # The verb must also start a path SEGMENT (after `/`), not appear anywhere in one — else
+    # `/user/deleteMe` and `/undeleteUser` are indistinguishable.
     route_pattern = re.compile(
-        r"""['"](/[a-zA-Z_/]*\b("""
+        r"""['"](/(?:[a-zA-Z_][\w-]*/)*("""
         + "|".join(ROUTE_VERBS)
-        + r""")[A-Z]\w*)\b""",
-        re.IGNORECASE,
+        + r""")[A-Z]\w*)\b"""
     )
     for match in route_pattern.finditer(content):
         path_segment = match.group(1)
@@ -72,24 +79,61 @@ def check_unwrapped_array_response(content):
     return warnings
 
 
+# The envelope this stack actually commits to — `std-api-design/references/errors-rails.md` and
+# `errors-typescript.md` agree, and `std-api-design/SKILL.md:54` states the casing rule outright:
+# JSON response keys are camelCase. So the key is `requestId`, never `request_id`.
+#
+# The old check grepped the rendered block for the SUBSTRING "request_id" and warned
+# "missing code/request_id". Three things were wrong with that, and they compounded:
+#
+# 1. IT NAMED A REMEDY THAT PRODUCES A VIOLATION. The message told you to add `request_id` to an
+#    API whose stated convention is camelCase. Ch. 25 — a denial must name a remedy, and this one
+#    named the bug.
+# 2. IT PASSED CANONICAL CODE ONLY BY LUCK. errors-rails.md writes `requestId: request.request_id`
+#    — the substring appears on the VALUE side, via the Rails accessor. Change the value to
+#    `requestId: rid` (identical envelope, correct casing) and the hook flagged it. A gate that
+#    flags correct code is a gate people learn to ignore — this file's own sibling checks say so.
+# 3. IT LOOKED FOR KEYS ANYWHERE IN THE BLOCK. `code` matched `status_code`, `error_code`, and any
+#    comment mentioning the word.
+#
+# Now it matches KEY positions (`requestId:` / `"requestId":`), which is the thing the convention
+# is actually about.
+KEY_REQUEST_ID = re.compile(r"""(?:\brequestId\s*:|["']requestId["']\s*:)""")
+KEY_SNAKE_REQUEST_ID = re.compile(r"""(?:^|[{,\s])(?:request_id\s*:|["']request_id["']\s*:)""", re.M)
+KEY_CODE = re.compile(r"""(?:^|[{,\s])(?:code\s*:|["']code["']\s*:)""", re.M)
+
+
 def check_error_response_format(content):
-    """Check error responses for missing code or request_id fields."""
+    """Check rendered error bodies carry `code` and `requestId`, per the canonical envelope.
+
+    Blind spot, stated rather than hidden: this only sees an inline hash literal
+    (`render json: { error: ... }`). The canonical helper in errors-rails.md builds `body` and
+    calls `render json: body`, which this cannot follow — resolving the variable means parsing
+    Ruby, and guessing means false positives. That trade is deliberate: the inline literal is what
+    gets written when someone is NOT using the helper, which is exactly the case worth catching.
+    """
     warnings = []
-    # Rails: render json: { error: ... } without code or request_id
-    error_render = re.compile(
-        r"render\s+json:\s*\{[^}]*\berror\b[^}]*\}", re.DOTALL
-    )
+    error_render = re.compile(r"render\s+json:\s*\{[^}]*\berror\b[^}]*\}", re.DOTALL)
     for match in error_render.finditer(content):
         block = match.group(0)
-        if "code" not in block or "request_id" not in block:
-            missing = []
-            if "code" not in block:
-                missing.append("code")
-            if "request_id" not in block:
-                missing.append("request_id")
+        missing = []
+        if not KEY_CODE.search(block):
+            missing.append("code")
+        if not KEY_REQUEST_ID.search(block):
+            # Distinguish "absent" from "present but snake_case" — different bug, different fix.
+            if KEY_SNAKE_REQUEST_ID.search(block):
+                warnings.append(
+                    "WARNING: Error response uses `request_id`; JSON response keys are camelCase "
+                    "on this stack — use `requestId: request.request_id` per the "
+                    "`std-api-design` skill."
+                )
+                continue
+            missing.append("requestId")
+        if missing:
             warnings.append(
-                f"WARNING: Error response missing {'/'.join(missing)} "
-                f"per the `std-api-design` skill."
+                f"WARNING: Error response missing {'/'.join(missing)}. The envelope is "
+                f"`error`, `code`, `status`, optional `details`, `requestId` per the "
+                f"`std-api-design` skill."
             )
 
     return warnings

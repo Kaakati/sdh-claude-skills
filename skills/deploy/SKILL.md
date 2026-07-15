@@ -212,146 +212,21 @@ curl -s https://{environment}/version | jq .
 - Monitor for at least 30 minutes after deployment.
 - Avoid deploying on Fridays unless the change is critical and low-risk.
 
-## Advanced Deployment Strategies
+## Deep guides (read on demand, do not preload)
 
-### Canary Deployment (ECS)
+- **Canary and blue-green on ECS** — when to pick which, the validation deltas, the abort, and why
+  a shared database is the trap in both → `references/ecs-strategies.md`
 
-Roll out to a small subset of traffic before full deployment:
+  The procedure above is the right one for almost every deploy. Reach for a canary only when the
+  change is risky *and* its failure is statistical (latency, error rate); reach for blue-green when
+  you need an atomic switch back. Neither protects you from a migration.
 
-```bash
-# 1. Deploy canary task definition (new version)
-aws ecs create-service --cluster production \
-  --service-name rails-app-canary \
-  --task-definition rails-app:NEW_REVISION \
-  --desired-count 1
+- **Web frontend deploys — Vercel (Next.js) and S3+CloudFront (Vite SPA)** →
+  `@skills/std-infrastructure/references/frontend-deploys.md`
 
-# 2. Configure ALB weighted target group (10% to canary)
-aws elbv2 modify-rule --rule-arn $RULE_ARN \
-  --actions '[
-    {"Type":"forward","ForwardConfig":{
-      "TargetGroups":[
-        {"TargetGroupArn":"'$PRIMARY_TG'","Weight":90},
-        {"TargetGroupArn":"'$CANARY_TG'","Weight":10}
-      ]
-    }}
-  ]'
-
-# 3. Monitor canary for 15 minutes
-# Check: error rate, latency p95, CPU/memory, business metrics
-# Compare canary metrics vs primary metrics
-
-# 4a. If healthy — shift traffic progressively: 10% → 25% → 50% → 100%
-# 4b. If unhealthy — abort: set canary weight to 0, delete canary service
-```
-
-#### Canary Validation Criteria
-- Error rate delta < 0.5% compared to primary
-- Latency p95 delta < 50ms compared to primary
-- No new error types in logs
-- Business metrics (conversion, transactions) within normal range
-
-### Blue-Green Deployment (ECS)
-
-Maintain two identical environments, switch traffic atomically:
-
-```bash
-# 1. Deploy new version to green (inactive) environment
-aws ecs update-service --cluster production \
-  --service rails-app-green \
-  --task-definition rails-app:NEW_REVISION
-
-# 2. Wait for green to stabilize
-aws ecs wait services-stable --cluster production --services rails-app-green
-
-# 3. Run smoke tests against green
-curl -s https://green.api.example.com/health | jq .
-
-# 4. Switch ALB listener to green target group
-aws elbv2 modify-listener --listener-arn $LISTENER_ARN \
-  --default-actions '[{"Type":"forward","TargetGroupArn":"'$GREEN_TG'"}]'
-
-# 5. Monitor for 15 minutes
-
-# 6a. If stable — green is now primary. Update blue for next deployment.
-# 6b. If issues — switch listener back to blue (instant rollback)
-aws elbv2 modify-listener --listener-arn $LISTENER_ARN \
-  --default-actions '[{"Type":"forward","TargetGroupArn":"'$BLUE_TG'"}]'
-```
-
-#### Blue-Green Prerequisites
-- Two identical ECS services (blue + green) behind the same ALB
-- Shared RDS database (migrations must be backward-compatible)
-- Shared Redis/ElastiCache instance
-- DNS or ALB listener swap for traffic routing
-
-## Web Frontend Deployments
-
-### Vercel Deployment (Next.js)
-
-#### Git-Based (Recommended)
-1. Connect GitHub repository in Vercel dashboard.
-2. Configure environment variables per environment (preview, production).
-3. Every push creates a preview deployment. Merges to `main` deploy to production.
-
-#### CLI-Based
-```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Deploy preview (from next/ directory)
-cd next && vercel
-
-# Deploy to production
-vercel --prod
-
-# Rollback to previous deployment
-vercel rollback
-```
-
-#### `vercel.json` Configuration
-```json
-{
-  "headers": [
-    { "source": "/(.*)", "headers": [
-      { "key": "X-Frame-Options", "value": "DENY" },
-      { "key": "X-Content-Type-Options", "value": "nosniff" },
-      { "key": "Strict-Transport-Security", "value": "max-age=63072000" }
-    ]}
-  ],
-  "redirects": [
-    { "source": "/old-path", "destination": "/new-path", "permanent": true }
-  ]
-}
-```
-
-### S3 + CloudFront Deployment (Vite SPA)
-
-```bash
-# 1. Build the Vite SPA
-cd web && npm run build
-
-# 2. Sync built files to S3 (with cache headers)
-aws s3 sync dist/ s3://$BUCKET_NAME/ \
-  --exclude "index.html" \
-  --cache-control "public, max-age=31536000, immutable"
-
-# 3. Upload index.html with no-cache
-aws s3 cp dist/index.html s3://$BUCKET_NAME/index.html \
-  --cache-control "no-cache, no-store, must-revalidate"
-
-# 4. Invalidate CloudFront cache for index.html
-aws cloudfront create-invalidation \
-  --distribution-id $CF_DISTRIBUTION_ID \
-  --paths "/index.html"
-```
-
-#### S3 + CloudFront Prerequisites
-- S3 bucket with static website hosting enabled (or OAI for private bucket)
-- CloudFront distribution with custom error response: 404 → `/index.html` (SPA routing)
-- ACM certificate for HTTPS
-- Route 53 CNAME record pointing to CloudFront distribution
-- IAM role for CI/CD with `s3:PutObject` and `cloudfront:CreateInvalidation` permissions
-
-#### Rollback (S3)
-- Revert to previous git commit and redeploy, or
-- Maintain versioned S3 objects and restore previous version
+  That reference owns this, and it auto-loads for infrastructure work. It is decision-shaped
+  (*"how do I deploy the Vite SPA"*, *"how do I deploy Next.js"*, *"what gates the web pipeline"*)
+  and covers `vercel.json`, the `output: 'standalone'` ECS alternative, and the pipeline gates.
+  This body carried a second copy until it drifted from it — the copy's HSTS header had lost
+  `includeSubDomains; preload`, which is exactly what the preload list requires, so following the
+  duplicate produced a header that looks right and qualifies for nothing.

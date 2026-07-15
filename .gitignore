@@ -1,7 +1,7 @@
 # Claude Code personal files
 CLAUDE.local.md
 .claude/settings.local.json
-.claude/audit/
+**/.claude/audit/
 hooks/__pycache__/
 hooks/tests/__pycache__/
 

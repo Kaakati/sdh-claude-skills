@@ -14,14 +14,98 @@ All notable changes to the `sdh` plugin are documented here, following
 
 ## [Unreleased]
 
-### Fixed
-- **The release-hygiene gate cried wolf on test-only changes**, turning `main` red the day after
-  v2.0.0. It treated everything under `hooks/` as shipped behaviour, but `hooks.json` never
-  references `hooks/tests/` — a consumer's session cannot execute it, so a test change delivers
-  nothing a version bump would carry. The gate now excludes the plugin's own CI and names the
-  offending files instead of their top-level directory. A real hook change still requires a bump.
-  *(Repo-internal: no effect on consumers.)*
+## [3.0.0] - 2026-07-15
 
+**MAJOR because this release changes what gets denied and removes a gate.** Read the *Breaking*
+section before upgrading — per the preamble above, that is this file's job.
+
+### Breaking
+
+- **New denial: `redis-cli` FLUSHALL/FLUSHDB against a remote host.** On this stack Redis is *both*
+  the Rails cache backend *and* the Sidekiq queue store, so flushing production does not clear a
+  cache — it **destroys every enqueued job**, irreversibly and with no error. `incident-responder`
+  holds Bash and its own protocol said *"clear stuck queues only as last resort (loses jobs)"*;
+  that parenthetical was the only thing in the way, and prose is not enforcement.
+  **Scoped deliberately:** the block requires a remote target (`-h`/`-u`, no localhost in the
+  segment). `redis-cli FLUSHALL` on a dev box is untouched, and read-only production commands
+  (`GET`, `INFO`, `LLEN`) still work — an incident responder must be able to diagnose.
+  **If a script of yours runs a remote FLUSH, it will now be denied** with a message naming the
+  remedy (run it manually, outside Claude Code).
+- **Removed: `monitoring-checker.py`'s `request_id` warning.** It warned when a log line did not
+  literally contain `request_id` — but that id is attached by Rails via `config.log_tags`, so it is
+  **not in the source line at all**. Every correctly-configured app tripped it on every
+  parenthesised `Rails.logger.info(...)`, and no per-call edit could ever fix a misconfigured one:
+  the remedy is one line of config. It was also dead for the dominant idiom (its pattern required
+  whitespace after the method name). **If you relied on this warning, you were relying on a false
+  positive** — the mechanism now lives in `std-monitoring/references/request-tracing.md`.
+  `monitoring-checker.py` still checks for sensitive data in logs, which *is* a property of the call
+  site.
+- **`std-error-handling` now auto-loads.** It shipped with no `paths:`, so it loaded on **nothing,
+  ever** — while `error-handling-checker.py` named it as the remedy five times. It now auto-loads on
+  `**/*.{rb,py,ts,tsx,js,jsx}` (mirroring that hook's own scope). **Expect more context per task on
+  those files.**
+- **`compliance-auditor`'s output format changed.** It signed Claude as **"Auditor"** on a
+  "Compliance Audit Report" with a *Compliant* count. It is now a **readiness self-assessment**:
+  *prepared by* (unverified), a **required** named human reviewer, and evidence-based statuses
+  (*Evidence found* / *No evidence in scope*) rather than compliance determinations. **If you parse
+  or template its output, it has changed shape.** A SOC 2 attestation comes from a licensed CPA
+  firm; a repo-reading agent cannot make that determination and no longer implies it can.
+
+### Added
+
+- **`rails-routes-checker.py`** — warns when `Sidekiq::Web` is mounted with no authentication. An
+  unwrapped mount publishes every job's *arguments* (user ids, emails, tokens ride along routinely)
+  and lets any visitor retry or kill jobs. It reads `config/initializers/` before warning, because
+  the idiomatic protection for an **API-only** app is `Sidekiq::Web.use Rack::Auth::Basic` there,
+  not in `routes.rb` — a routes-only check would have flagged correctly-secured apps.
+- **`refactor-specialist` gained `Bash`.** It held Write/Edit and no Bash while its protocol
+  demanded *"Run the test suite"* and a *"pass/fail count"* — full power to mutate, none to verify,
+  and the only way to comply was to invent the number. It was the only agent in the plugin that
+  could write but not verify. It must now never report a test result it did not observe.
+- **All 13 agents are wired to their references** (was: 9 of 13 pointed at nothing, against 116
+  reference files). Plus new gates: the token registry, the error envelope's single shape, agent
+  capability/pointer resolution, the palette recipe's contrast caps, required-tag parity, and the
+  Centrifuge API. **246 tests, up from 214.**
+
+### Fixed
+
+- **13 preset contrast pairs shipped below WCAG AA** — worst `--success` at **2.54:1** against a
+  4.5:1 requirement. An earlier fix corrected `design-tokens.md` and gated it, but the gate **read
+  one file**: `theme-presets.md` carried the same defaults, copied, and kept them. Presets exist to
+  be pasted wholesale. **If you copied a preset, re-copy it.** Traced upstream to the generator:
+  `brand-identity`'s recipe prescribed lightness ranges with **no foreground named**, and the entire
+  Success and Info ranges fail against near-white — the recipe was the bug and the palettes
+  inherited it. Now foreground-aware caps, gated.
+- **Design tokens that compiled to nothing.** `bg-destructive` is not a token on this stack —
+  `error` is registered, `destructive` is not — so it emitted **no CSS at all**, silently: a Delete
+  button rendered transparent with inherited text. Same for `bg-neutral` (`muted` is the registered
+  one), in the rule literally titled *"Atoms Must Use Design Tokens"*. `destructive`/`neutral` remain
+  valid variant **keys**; only the token names changed. Gated.
+- **The API error envelope had three incompatible shapes** across four files — `error` as string vs
+  object, `code` as HTTP status vs machine-readable string, `details` as object vs array,
+  `request_id` vs `requestId`. `std-error-handling` said *"do not duplicate"* thirty lines after
+  duplicating it. One shape now: `error`, `code`, `status`, `details`, `requestId`, owned by
+  `std-api-design`. Gated.
+- **`api-design-checker.py` flagged correct code.** It grepped for the substring `request_id` and
+  told you to add it — to an API whose stated convention is **camelCase**. It passed canonical code
+  only by luck (`requestId: request.request_id` carries the substring on the *value* side). It now
+  matches key positions and distinguishes absent from present-but-snake_case.
+- **`api-designer` taught a default page size of 20**; `std-api-design` owns it at **25** and said so
+  three times. The odd family out was the one a designer actually opens. It also taught offset
+  pagination as the simple default when the owner's rule is *cursor by default*.
+- **Two design agents globbed hardcoded wrapper directories** (`web/`, `mobile/`, `backend/`) in a
+  plugin whose central monorepo claim is wrapper-agnosticism — so in any repo not using those names
+  they found nothing and **reported clean**. Fabricated coverage is worse than an error.
+- **`react-native-dev` taught a Centrifugo hook that could not run** — `centrifuge.subscribe(channel)`
+  is not this client's API (`getSubscription() ?? newSubscription()` is), and the shape it taught
+  had the exact handler-stacking leak its own reference exists to prevent.
+- **`web-design-guidelines` shipped none of its advertised "100+ rules"** — it fetches them from an
+  unpinned third-party URL. It now **fails closed** to the pinned local skills rather than reviewing
+  from training data, and names each finding's source.
+- Plus: `deploy` 357→232 (its frontend half was a drifted copy whose HSTS had lost
+  `includeSubDomains; preload`), `doc-generator` 334→50, `test-generator` 316→215, and CLAUDE.md's
+  own description of three hooks (two claimed to be **Haiku agents**; both are deterministic command
+  hooks that spawn no model).
 
 ## [2.0.0] — 2026-07-15
 

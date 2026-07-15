@@ -34,4 +34,4 @@ The architecture-advisor agent operates in **plan mode** — it researches the c
 The agent produces Architecture Decision Records in the standard ADR format:
 `ADR-NNN: Title` with Status, Context, Decision, Consequences, and Alternatives Considered.
 
-See `.claude/agents/architecture-advisor.md` for the full advisory protocol and ADR template.
+See `agents/architecture-advisor.md` for the full advisory protocol and ADR template.

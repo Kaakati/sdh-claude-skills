@@ -182,126 +182,29 @@ mobile/tests/
     test-database.ts              # Test infrastructure utilities
 ```
 
-### Web Frontend Tests (Vitest + React Testing Library)
+## Deep guides (read on demand, do not preload)
 
-#### Component Tests (Vite SPA + Next.js Client Components)
-```tsx
-// web/src/components/OrderTable.test.tsx
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { describe, it, expect } from 'vitest';
-import { OrderTable } from './OrderTable';
-import { createQueryWrapper } from '../../tests/utils';
+The body is the workflow. The idiom for each target lives in `std-testing`'s references — which
+auto-load for `**/*.test.*` / `**/*.spec.*` — and they are decision-shaped, with the bad/good
+pairs. Read the one matching what you are testing rather than reconstructing it:
 
-describe('OrderTable', () => {
-  it('should render order rows when orders are provided', () => {
-    // Arrange
-    const orders = [{ id: '1', status: 'pending', totalAmount: 100 }];
+- **Vitest + RTL setup, which query to reach for, MSW, providers, Zustand, Framer Motion,
+  ApexCharts** → `@skills/std-testing/references/react-components.md`
+- **Next.js Server Components, server actions, `generateMetadata`, route handlers** →
+  `@skills/std-testing/references/nextjs-server.md`
+- **React Native: RNTL, navigation, Reanimated, MMKV, Centrifugo** →
+  `@skills/std-testing/references/react-native.md`
+- **Unit vs integration, mock boundaries, test data builders, the edge-case matrix, Sidekiq
+  jobs** → `@skills/std-testing/references/test-strategy.md`
+- **Naming, the AAA structure, fixtures, mock/stub/spy guidance, test data, CI integration** →
+  `references/testing-standards.md`
 
-    // Act
-    render(<OrderTable orders={orders} />, { wrapper: createQueryWrapper() });
-
-    // Assert
-    expect(screen.getByRole('table')).toBeInTheDocument();
-    expect(screen.getByText('pending')).toBeInTheDocument();
-  });
-
-  it('should show empty state when no orders exist', () => {
-    render(<OrderTable orders={[]} />, { wrapper: createQueryWrapper() });
-    expect(screen.getByText(/no orders/i)).toBeInTheDocument();
-  });
-});
-```
-
-#### Query Priority (React Testing Library)
-Use this order: `getByRole` > `getByLabelText` > `getByText` > `getByTestId`.
-
-#### TanStack Query Hook Tests with MSW
-```tsx
-import { renderHook, waitFor } from '@testing-library/react';
-import { http, HttpResponse } from 'msw';
-import { server } from '../../tests/msw-server';
-import { useOrders } from '../orders';
-import { createQueryWrapper } from '../../tests/utils';
-
-describe('useOrders', () => {
-  it('should fetch orders from the API', async () => {
-    // Arrange
-    server.use(
-      http.get('*/api/v1/orders', () => HttpResponse.json([{ id: '1', status: 'pending' }])),
-    );
-
-    // Act
-    const { result } = renderHook(() => useOrders(), { wrapper: createQueryWrapper() });
-
-    // Assert
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data).toHaveLength(1);
-  });
-});
-```
-
-#### Next.js Server Component Tests
-Test Server Components as async functions — call and assert on returned JSX:
-
-```tsx
-import { describe, it, expect, vi } from 'vitest';
-import OrdersPage from '@/app/orders/page';
-
-vi.mock('@/api/client', () => ({
-  railsApi: { get: vi.fn().mockResolvedValue([{ id: '1', status: 'pending' }]) },
-}));
-
-describe('OrdersPage (Server Component)', () => {
-  it('should fetch and render orders', async () => {
-    // Act — call as async function
-    const page = await OrdersPage();
-
-    // Assert — Server Component returns JSX
-    expect(page).toBeTruthy();
-  });
-});
-```
-
-#### Next.js Server Action Tests
-Test server actions as async functions with FormData:
-
-```tsx
-import { describe, it, expect, vi } from 'vitest';
-import { createOrder } from '@/actions/orders';
-
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
-vi.mock('next/navigation', () => ({ redirect: vi.fn() }));
-
-describe('createOrder', () => {
-  it('should return validation errors for invalid input', async () => {
-    // Arrange
-    const formData = new FormData();
-
-    // Act
-    const result = await createOrder(null, formData);
-
-    // Assert
-    expect(result?.errors?.customerName).toBeDefined();
-  });
-});
-```
-
-#### Test Wrapper Utility
-```tsx
-// tests/utils.tsx
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter } from 'react-router-dom';
-
-export function createQueryWrapper() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>{children}</BrowserRouter>
-    </QueryClientProvider>
-  );
-}
-```
+This body carried its own copy of the web-frontend material until it drifted from the owner. The
+copy compressed RTL's query priority to one line — `getByRole > getByLabelText > getByText >
+getByTestId` — which drops `getByPlaceholderText` and, more importantly, the reason: a
+`getByTestId` test passes even when the "button" is a non-focusable `<div>` with no accessible
+name, so it cannot detect the accessibility regression it was supposed to catch. A summary of a
+decision guide is not a smaller version of it; it is the part that does not tell you why.
 
 ## Output
 
@@ -310,7 +213,3 @@ When generating tests, provide:
 2. Any required test fixtures or factories.
 3. A brief summary of what is covered and any known gaps.
 4. Setup instructions if new test infrastructure is needed.
-
-## Deep guides (read on demand, do not preload)
-
-- Naming, the AAA structure, fixtures, mock/stub/spy guidance, test data, CI integration → `references/testing-standards.md`

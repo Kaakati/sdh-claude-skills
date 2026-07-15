@@ -14,7 +14,9 @@ import _hooklib as hooklib
 
 
 # Only check these extensions
-ALLOWED_EXTENSIONS = (".tsx", ".jsx")
+# .css/.scss included: `outline: none` is CSS-declaration syntax and lives there. Excluding
+# them while matching only CSS syntax is what made this check unreachable on this stack.
+ALLOWED_EXTENSIONS = (".tsx", ".jsx", ".css", ".scss")
 
 
 def check_non_semantic_clickable(content):
@@ -81,15 +83,41 @@ def check_input_without_label(content):
     return warnings
 
 
+# Removing the outline is only a defect when nothing visible replaces it — the docstring always
+# said so, and the code never checked. `focus-visible:outline-none focus-visible:ring-2` is this
+# repo's OWN recommended idiom (std-design-system/references/component-variants.md:79): it
+# removes the browser outline and draws a ring. Warning on that would flag the correct pattern.
+FOCUS_REPLACEMENT = re.compile(
+    r"ring-\d|ring-\[|ring-offset|box-shadow|outline\s*:\s*(?!none|0)\S|outline-\d|"
+    r"outline-\[|border-\d",
+    re.IGNORECASE,
+)
+# Two syntaxes, because this stack has two. CSS declarations (`outline: none`) live in
+# .css/.scss; Tailwind (`outline-none`, `focus:outline-none`) lives in .tsx/.jsx className
+# strings. The old pattern only matched the CSS form — and the file scope only allowed .tsx/.jsx,
+# so the two were disjoint and the check could never fire on this stack at all.
+FOCUS_REMOVED = re.compile(r"outline\s*:\s*(?:none|0)\b|\boutline-none\b")
+
+
 def check_focus_indicator_removed(content):
-    """Check for outline:none or outline:0 without visible focus replacement."""
+    """Flag a removed focus indicator only when nothing visible replaces it."""
     warnings = []
-    pattern = re.compile(r"outline\s*:\s*(none|0)\b")
-    if pattern.search(content):
+    lines = content.split("\n")
+    for i, line in enumerate(lines):
+        if not FOCUS_REMOVED.search(line):
+            continue
+        # Look at the surrounding declaration/element, not just the one line: in CSS the
+        # replacement is usually the next declaration; in JSX it is usually the same className.
+        window = "\n".join(lines[max(0, i - 3):i + 4])
+        if FOCUS_REPLACEMENT.search(window):
+            continue
         warnings.append(
-            "WARNING: Focus indicator removed (outline:none/0) "
-            "without visible replacement per the `std-accessibility` skill."
+            f"WARNING: Focus indicator removed (line {i + 1}) with no visible replacement "
+            f"nearby. Keyboard users lose all focus feedback. Add a ring "
+            f"(e.g. `focus-visible:ring-2 focus-visible:ring-offset-2`) per the "
+            f"`std-accessibility` skill."
         )
+        break  # one warning is enough
     return warnings
 
 

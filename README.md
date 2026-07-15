@@ -18,9 +18,15 @@ Instead of relying on ad-hoc prompting, this plugin provides:
 
 ## Install
 
-Current release: **`v2.0.0`**. It is a **major**: it denies work that previously succeeded, and
-it requires one manual step (below). Read [`CHANGELOG.md`](CHANGELOG.md#200--2026-07-15) before
-taking it.
+Current release: **`v3.0.0`**. It is a **major**: it adds a denial (remote `redis-cli FLUSHALL`),
+removes a gate (`monitoring-checker`'s `request_id` warning), and makes `std-error-handling`
+auto-load on every source file. Read [`CHANGELOG.md`](CHANGELOG.md#300---2026-07-15) before taking
+it.
+
+**Upgrading from v2.0.0?** The **permission floor is unchanged** — you do not need to re-copy
+anything. The new denial lives in a hook, not in `permissions`. The one thing to redo: **if you
+copied the design tokens or a theme preset, re-copy them** — 13 preset contrast pairs shipped below
+WCAG AA (worst 2.54:1) and are fixed in this release.
 
 ### Pin a release (recommended for a team)
 
@@ -37,7 +43,7 @@ Put a small marketplace file in your repo that points at a **tag**:
       "source": {
         "source": "github",
         "repo": "Kaakati/sdh-claude-skills",
-        "ref": "v2.0.0"
+        "ref": "v3.0.0"
       }
     }
   ]
@@ -80,7 +86,8 @@ Copy the `permissions`, `env`, and `worktree` blocks from this repo's
 [`.claude/settings.json`](.claude/settings.json) into your own project settings. That gives you
 the secret and build-artifact `Read` denies, the agent-teams env flag, and worktree symlinks.
 
-**v2.0.0 adds 6 Terraform denies** that you must copy by hand:
+**The floor has been unchanged since v2.0.0**, which added these 6 Terraform denies. Copy them by
+hand if you have not already — v3.0.0 requires nothing new here:
 
 ```
 Bash(terraform destroy:*)      Bash(terraform state mv:*)
@@ -365,7 +372,7 @@ assets) and symlinks `node_modules`/`vendor/bundle` into worktrees.
 │   ├── terraform/                    (47 Terraform IaC rules, 9 categories)
 │   ├── test-generator/
 │   ├── theming/                      (Design tokens, dark mode, presets)
-│   ├── web-design-guidelines/        (100+ accessibility/UX rules)
+│   ├── web-design-guidelines/        (fetches rules from an upstream URL; no rules shipped)
 │   ├── brand-identity/               (Brand archetypes, color system, brand book)
 │   ├── ui-ux-patterns/               (Screen patterns, heuristic evaluation)
 │   ├── marketing-assets/             (Ad specs, email templates, landing pages)
@@ -385,6 +392,7 @@ assets) and symlinks `node_modules`/`vendor/bundle` into worktrees.
 │   ├── auto-format.py                (PostToolUse: formats code, safe autocorrect only)
 │   ├── test-runner.py                (PostToolUse: reminds to test)
 │   ├── atomic-design-checker.py      (PostToolUse: validates component hierarchy)
+│   ├── rails-routes-checker.py       (PostToolUse: unauthenticated Sidekiq::Web mount)
 │   ├── terraform-checker.py          (PostToolUse: validates .tf conventions)
 │   ├── design-token-checker.py       (PostToolUse: validates design token usage)
 │   ├── audit-logger.py               (PostToolUse: compliance logging)
@@ -419,6 +427,7 @@ Every action Claude takes passes through deterministic quality gates:
 | **After editing files** | Clean architecture checker | Layer boundary violation detection |
 | **After editing files** | i18n checker | Hardcoded user-facing string detection |
 | **After editing files** | `atomic-design-checker.py` | Validates component hierarchy, composition rules, naming |
+| **After editing files** | `rails-routes-checker.py` | Flags `Sidekiq::Web` mounted without authentication |
 | **After editing files** | `terraform-checker.py` | Validates .tf file conventions (secrets, naming, tags, providers) |
 | **After editing files** | `design-token-checker.py` | Validates design token usage (colors, spacing, focus, motion) |
 | **After any tool use** | `audit-logger.py` | Logs execution to JSON-lines for compliance |
@@ -558,7 +567,7 @@ repeatable workflows. The command column below omits the `sdh:` prefix for brevi
 | `/phlex-dev` | phlex-developer | Phlex view components with Atomic Design and Tailwind |
 | `/terraform` | — | Terraform IaC best practices (47 rules, 9 categories) |
 | `/theming` | — | Cross-platform design tokens, dark/light mode, presets |
-| `/web-design-guidelines` | — | Web interface design review (100+ accessibility/UX rules) |
+| `/web-design-guidelines` | — | Web interface design review — **fetches** rules from an unpinned upstream URL (needs WebFetch); falls back to `std-accessibility` |
 | `/brand-identity` | — | Brand archetypes, color system, typography, brand book (Opus) |
 | `/ui-ux-patterns` | — | Screen patterns, heuristic evaluation, visual hierarchy |
 | `/marketing-assets` | — | Ad specs (Google/Meta/TikTok/LinkedIn), email, landing pages |

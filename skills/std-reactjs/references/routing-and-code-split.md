@@ -7,8 +7,15 @@ Load-bearing rules restated (hold even if you read nothing else):
 2. **`<Suspense>` lives at the layout level**, not wrapped around each `<Route>`.
 3. **Auth guards are route-level** (loader or a guard layout element) — never an `if (!user)`
    scattered inside a page body.
-4. **Initial JS budget: < 300KB.** Verify with `vite-bundle-visualizer` before shipping a new
-   heavy dependency.
+4. **Initial JS budget: < 300KB minified, uncompressed** — the same thing
+   `build.chunkSizeWarningLimit: 300` compares against and what `dist/assets/*.js` shows on disk,
+   so the number in the config and the number in this rule are one number. **State the unit
+   whenever you restate the budget**: gzipped and uncompressed are *different measures* of the same
+   bundle, and converting between them needs that bundle's actual compression ratio — which varies
+   with its content and is not a constant you can carry in your head. So "150KB" and "300KB" may
+   describe the same artifact or wildly different ones, and a reader given both without units
+   cannot tell which. Read the build output: it prints both. Verify with `vite-bundle-visualizer` before
+   shipping a new heavy dependency.
 
 ---
 

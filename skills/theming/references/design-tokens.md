@@ -69,7 +69,7 @@ All tokens are declared in `:root` for global availability. Dark mode overrides 
 
 | Token | Purpose | Light Value (HSL) | Dark Value (HSL) |
 |-------|---------|-------------------|------------------|
-| `--success` | Success states, confirmations | `142.1 76.2% 36.3%` | `142.1 70.6% 45.3%` |
+| `--success` | Success states, confirmations | `142.1 76.2% 28%` | `142.1 70.6% 45.3%` |
 | `--success-foreground` | Text on success backgrounds | `355.7 100% 97.3%` | `144.9 80.4% 10%` |
 | `--warning` | Warning states, caution | `37.7 92.1% 50.2%` | `43.3 96.4% 56.3%` |
 | `--warning-foreground` | Text on warning backgrounds | `26 83.3% 14.1%` | `26 83.3% 14.1%` |
@@ -141,16 +141,16 @@ Every color token has a `-foreground` counterpart. This ensures accessible text 
 
   /* Muted */
   --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
+  --muted-foreground: 215.4 16.3% 44%;
 
   /* Semantic */
-  --success: 142.1 76.2% 36.3%;
+  --success: 142.1 76.2% 28%;
   --success-foreground: 355.7 100% 97.3%;
 
   --warning: 37.7 92.1% 50.2%;
   --warning-foreground: 26 83.3% 14.1%;
 
-  --error: 0 84.2% 60.2%;
+  --error: 0 84.2% 47%;
   --error-foreground: 0 0% 98%;
 
   --info: 199.4 95.5% 53.8%;
@@ -208,7 +208,7 @@ Every color token has a `-foreground` counterpart. This ensures accessible text 
   --error: 0 62.8% 30.6%;
   --error-foreground: 0 85.7% 97.3%;
 
-  --info: 199.4 80% 46%;
+  --info: 199.4 80% 35%;
   --info-foreground: 200 100% 95%;
 
   /* Borders & Ring */
@@ -420,22 +420,31 @@ In dark mode, shadows are less visible. Increase opacity or use a colored glow i
 | Large text (>= 18px, or >= 14px bold) | **3:1** | 1.4.3 Contrast (Minimum) |
 | UI components and graphical objects | **3:1** | 1.4.11 Non-text Contrast |
 
-### Verified Foreground / Background Pairs
+### Measured Foreground / Background Pairs
 
-The following token pairs meet WCAG AA contrast requirements:
+**Computed from the `:root` and `.dark` blocks in this file** with the `contrastRatio()`
+helper in `../../std-design-system/references/defining-tokens.md`, not asserted. A test
+recomputes this table from those blocks and fails CI if any cell drifts or drops below AA —
+because the previous version of this table was headed *"Verified"* and **9 of its 10 ratios
+were wrong**, three of them claiming "Passes AA" while measuring below 4.5:1 (`--success`
+was 3.00:1). The word "Verified" was the most dangerous thing on the page: the numbers had
+never been computed, and these are the **default** tokens teams copy.
 
 | Background Token | Foreground Token | Light Ratio | Dark Ratio | Status |
 |-----------------|-----------------|-------------|------------|--------|
-| `--primary` | `--primary-foreground` | 12.6:1 | 12.6:1 | Passes AA & AAA |
-| `--secondary` | `--secondary-foreground` | 11.8:1 | 8.1:1 | Passes AA & AAA |
-| `--accent` | `--accent-foreground` | 11.8:1 | 8.1:1 | Passes AA & AAA |
-| `--background` | `--foreground` | 18.1:1 | 15.4:1 | Passes AA & AAA |
-| `--card` | `--card-foreground` | 18.1:1 | 15.4:1 | Passes AA & AAA |
-| `--muted` | `--muted-foreground` | 4.6:1 | 4.5:1 | Passes AA |
-| `--success` | `--success-foreground` | 4.6:1 | 5.2:1 | Passes AA |
-| `--warning` | `--warning-foreground` | 5.8:1 | 6.1:1 | Passes AA |
-| `--error` | `--error-foreground` | 5.1:1 | 7.3:1 | Passes AA |
-| `--info` | `--info-foreground` | 5.4:1 | 5.0:1 | Passes AA |
+| `--primary` | `--primary-foreground` | 17.06:1 | 17.06:1 | Passes AA & AAA |
+| `--secondary` | `--secondary-foreground` | 16.30:1 | 13.98:1 | Passes AA & AAA |
+| `--accent` | `--accent-foreground` | 16.30:1 | 13.98:1 | Passes AA & AAA |
+| `--card` | `--card-foreground` | 20.01:1 | 19.12:1 | Passes AA & AAA |
+| `--muted` | `--muted-foreground` | 4.81:1 | 5.71:1 | Passes AA |
+| `--success` | `--success-foreground` | 4.70:1 | 6.54:1 | Passes AA |
+| `--warning` | `--warning-foreground` | 6.79:1 | 8.73:1 | Passes AA |
+| `--error` | `--error-foreground` | 4.82:1 | 9.16:1 | Passes AA |
+| `--info` | `--info-foreground` | 6.82:1 | 4.80:1 | Passes AA |
+
+All pairs clear **4.5:1** (WCAG 1.4.3, normal text) in both modes. `--success`, `--error`,
+`--muted-foreground` and dark `--info` were darkened to get there — fixing only the table
+would have left defaults documented as failing and still shipped.
 
 ### Contrast Validation Process
 

@@ -72,28 +72,28 @@ POST   /api/v1/orders/{orderId}/cancel  # Cancel order (action)
 ## Error Format
 
 ### Standard Error Response
+
+The envelope is owned by `std-api-design` → `references/errors-rails.md` /
+`references/errors-typescript.md`, which auto-load on controller and route work. Match them
+exactly — a client cannot parse two shapes:
+
 ```json
 {
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Human-readable description of what went wrong.",
-    "details": [
-      {
-        "field": "email",
-        "code": "INVALID_FORMAT",
-        "message": "Must be a valid email address."
-      },
-      {
-        "field": "age",
-        "code": "OUT_OF_RANGE",
-        "message": "Must be between 0 and 150."
-      }
-    ],
-    "requestId": "req-550e8400-e29b",
-    "documentation": "https://docs.example.com/errors/VALIDATION_ERROR"
-  }
+  "error": "Human-readable description of what went wrong.",
+  "code": "VALIDATION_ERROR",
+  "status": 422,
+  "details": [
+    { "field": "email", "message": "Must be a valid email address." },
+    { "field": "age", "message": "Must be between 0 and 150." }
+  ],
+  "requestId": "req-550e8400-e29b"
 }
 ```
+
+`error` is flat, not nested. A nested `error: { message: ... }` reads well but forces every
+consumer — the fetch wrapper, the Sentry hook, the RN toast — to reach through a level for the
+one field they all need, and it makes `error` mean two different things depending on the
+endpoint that failed.
 
 ### Error Code Naming
 - Uppercase with underscores: `RESOURCE_NOT_FOUND`
@@ -116,41 +116,18 @@ SERVICE_UNAVAILABLE       — Dependent service is down
 
 ## Pagination Patterns
 
-### Offset Pagination
-```
-GET /users?page=2&pageSize=20
+Owned by `std-api-design`. Do not restate the shape here — this file already carried a third copy
+of it, and the copies disagreed: the example below used `pageSize=20` while the owner pins
+**default 25, maximum 100**. Three sources said 25, one said 20, and the odd one out was the
+family a designer actually reads.
 
-{
-  "data": [...],
-  "pagination": {
-    "page": 2,
-    "pageSize": 20,
-    "totalItems": 243,
-    "totalPages": 13
-  }
-}
-```
+- **Cursor is the default**; offset only for small, stable, non-appended datasets.
+- Default **25**, max **100**, via `?limit=` — always clamped server-side.
+- Wrapped: `{ "data": [...], "pagination": {...} }`, never a bare array.
 
-### Cursor Pagination
-```
-GET /events?cursor=eyJpZCI6MTAwfQ&limit=20
-
-{
-  "data": [...],
-  "pagination": {
-    "cursor": "eyJpZCI6MTIwfQ",
-    "hasMore": true,
-    "limit": 20
-  }
-}
-```
-
-### Defaults
-- Default `pageSize` / `limit`: 20
-- Maximum `pageSize` / `limit`: 100
-- Default sort: by creation date descending
-
----
+Server → `@skills/std-api-design/references/pagination-rails.md` (uses `pagy`; hand-rolled offset
+arithmetic reintroduces the N+1 count `pagy` exists to avoid).
+Client → `@skills/std-api-design/references/pagination-clients.md`.
 
 ## Filtering and Sorting
 

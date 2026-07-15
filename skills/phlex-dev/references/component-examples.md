@@ -24,7 +24,7 @@ class Components::Atoms::Button < Components::Base
       variant: {
         primary: "bg-primary text-primary-foreground shadow hover:bg-primary/90",
         secondary: "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
-        destructive: "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
+        destructive: "bg-error text-error-foreground shadow-sm hover:bg-error/90",
         outline: "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline"
@@ -83,7 +83,7 @@ class Components::Atoms::Input < Components::Base
     variants: {
       state: {
         default: "border-input",
-        error: "border-destructive focus-visible:ring-destructive"
+        error: "border-error focus-visible:ring-error"
       }
     },
     defaults: { state: :default }
@@ -134,7 +134,7 @@ class Components::Atoms::Label < Components::Base
       class: "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
     ) do
       plain @text
-      span(class: "text-destructive ml-1") { "*" } if @required
+      span(class: "text-error ml-1") { "*" } if @required
     end
   end
 end
@@ -153,7 +153,7 @@ class Components::Atoms::Badge < Components::Base
       variant: {
         default: "border-transparent bg-primary text-primary-foreground shadow",
         secondary: "border-transparent bg-secondary text-secondary-foreground",
-        destructive: "border-transparent bg-destructive text-destructive-foreground shadow",
+        destructive: "border-transparent bg-error text-error-foreground shadow",
         outline: "border-border text-foreground"
       }
     },
@@ -288,7 +288,7 @@ class Components::Molecules::FormField < Components::Base
   def render_error
     p(
       id: "#{@name}-error",
-      class: "text-sm text-destructive",
+      class: "text-sm text-error",
       role: "alert"
     ) { @error }
   end

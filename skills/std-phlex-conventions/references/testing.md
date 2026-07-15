@@ -64,7 +64,7 @@ RSpec.describe Components::Atoms::Button, type: :component do
     html = render described_class.new(label: "Delete", variant: :destructive)
 
     classes = button_in(html)[:class]
-    expect(classes).to include("bg-destructive")
+    expect(classes).to include("bg-error")
     expect(classes).not_to include("bg-primary")
   end
 end
@@ -93,7 +93,7 @@ RSpec.describe Components::Atoms::Button, type: :component do
     {
       primary: "bg-primary",
       secondary: "bg-secondary",
-      destructive: "bg-destructive",
+      destructive: "bg-error",
       outline: "border-input",
       ghost: "hover:bg-accent"
     }.each do |variant, expected_class|

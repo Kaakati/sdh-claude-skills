@@ -228,7 +228,12 @@ For web frontends (Vite SPA + Next.js), measure and optimize Core Web Vitals:
 | TTFB (Time to First Byte) | < 800ms | Lighthouse |
 
 #### Web Bundle Analysis
-- **Vite SPA**: Use `vite-bundle-visualizer` (`npx vite-bundle-visualizer`) to audit chunk sizes. Target < 300KB initial JS.
+- **Vite SPA**: Use `vite-bundle-visualizer` (`npx vite-bundle-visualizer`) to audit chunk sizes.
+  Target **< 300KB initial JS, minified and uncompressed** — owned by
+  `@skills/std-reactjs/references/routing-and-code-split.md`, and wired into the build as
+  `chunkSizeWarningLimit: 300`, so this is a number the toolchain already checks rather than an
+  aspiration. Note the unit: the gzipped budgets in `references/performance-benchmarks.md` are a
+  **different measure**, not a stricter version of this one.
 - **Next.js**: Use `@next/bundle-analyzer` to inspect client and server bundles. Target < 200KB client JS per route.
 - Check for: large dependencies, duplicate modules, missing tree-shaking, unoptimized images.
 

@@ -99,3 +99,23 @@ When violations are found, provide specific, incremental refactoring steps:
 7. **Check Vite SPA**: Verify page → hook → API client flow. Check domain types are pure. Check Zustand has no server data.
 8. **Check Next.js**: Verify Server Components fetch data. Verify server actions validate with zod and don't import UI. Verify `'use client'` is only on leaf components.
 9. **Report findings**: Produce the conformance report with actionable fixes.
+
+## References (read the one for the platform you are checking)
+
+"Depends inward" is one sentence; what it *looks like* is different in every one of these four,
+and that is where a conformance call is actually made. Each reference maps the layers onto that
+platform's real idiom, with the bad/good pairs — read the one matching the step rather than
+reasoning from the abstraction:
+
+| Step | Reference |
+|---|---|
+| 3, 4, 5 — controllers, services, models | `@skills/std-clean-architecture/references/rails-mapping.md` |
+| 6 — screen → hook → API client | `@skills/std-clean-architecture/references/react-native-mapping.md` |
+| 7 — page → hook → API client, pure domain types | `@skills/std-clean-architecture/references/reactjs-vite-mapping.md` |
+| 8 — Server Components, server actions, `'use client'` leaves | `@skills/std-clean-architecture/references/nextjs-app-router-mapping.md` |
+| 1, 2 — what each layer looks like in code | `@skills/clean-architecture/references/layer-examples.md` |
+
+**You are read-only (`Read, Grep, Glob`) and that is deliberate** — a boundary violation is a
+design finding, and the fix belongs to whoever owns the module. Report it; do not restructure it.
+If a glob returns nothing, say "no files matched" rather than "no violations found": those are
+opposite findings, and only one of them is safe to act on.

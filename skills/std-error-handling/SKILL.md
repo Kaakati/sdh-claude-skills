@@ -1,6 +1,13 @@
 ---
 name: std-error-handling
 description: Error handling standards across Rails, React Native, Sidekiq, and API responses — Result objects, custom errors, retry/discard, consistent error JSON. Use when handling errors.
+paths:
+  - "**/*.rb"
+  - "**/*.py"
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.js"
+  - "**/*.jsx"
 ---
 
 # Error Handling Standards
@@ -28,20 +35,13 @@ description: Error handling standards across Rails, React Native, Sidekiq, and A
 - Log errors to crash reporting (Sentry, Crashlytics)
 
 ## API Error Response Format
-All API errors must follow this structure:
-```json
-{
-  "error": "Human-readable error message",
-  "code": 422,
-  "type": "validation_error",
-  "details": {
-    "field": ["specific error"]
-  },
-  "request_id": "uuid-for-tracing"
-}
-```
 
-Error types: `validation_error`, `authentication_error`, `authorization_error`, `not_found`, `rate_limited`, `server_error`
+Owned by `std-api-design` — see the "Related, owned elsewhere" pointer at the end of this file.
+This skill auto-loads on every `.rb`/`.ts`/`.tsx` file, so a second copy of the envelope here is
+a second source of truth on nearly every task. It had already drifted from the owner on every
+axis that matters — `code` as an integer rather than the string error code, the HTTP status in
+`code` rather than `status`, `details` as an object rather than an array, and `request_id` in an
+API whose keys are camelCase.
 
 ## Background Jobs (Sidekiq)
 - **Sidekiq already retries: 25 times over ~20 days, by default.** Not configuring retries is not

@@ -185,7 +185,7 @@ On-demand skills available via slash commands:
 - `/react-best-practices` — React/Next.js performance optimization (57 rules, 8 categories)
 - `/composition-patterns` — React composition patterns (compound components, context, React 19)
 - `/react-native-best-practices` — React Native/Expo performance best practices (35+ rules)
-- `/web-design-guidelines` — Web interface design review (100+ accessibility/UX rules)
+- `/web-design-guidelines` — Web interface design review. **Ships no rules**: fetches them at run time via WebFetch from an unpinned third-party URL (`vercel-labs/web-interface-guidelines@main`). Falls back to `std-accessibility` + `/accessibility-auditor` when the fetch fails, and defers to house conventions where the two disagree
 - `/atomic-design` — Atomic Design methodology for component hierarchy across all frontend platforms
 - `/phlex-dev` — Phlex view components with Atomic Design, Tailwind, Stimulus, Turbo (routes to phlex-developer agent)
 - `/theming` — Cross-platform design tokens, dark/light mode, WCAG AA contrast
@@ -218,10 +218,11 @@ Active hooks are configured in `hooks/hooks.json` (commands run via `${CLAUDE_PL
 - **Test coverage checker** — Enforces the `std-testing` skill (warns when source files lack corresponding test files)
 - **Clean architecture checker** — Enforces the `std-clean-architecture` skill (layer boundary violations, dependency direction)
 - **i18n checker** — Enforces the `std-i18n` skill (hardcoded user-facing strings in .tsx/.jsx/.erb files)
-- **Accessibility agent hook** — Enforces the `std-accessibility` skill (semantic HTML, alt text, label associations, focus indicators, ARIA misuse) — Haiku agent with Read/Grep/Glob tools, scoped to browser-React .tsx/.jsx (Vite/Next, detected by marker; React Native is skipped) under any wrapper dir
-- **API design agent hook** — Enforces the `std-api-design` skill (URL nouns, data wrapper, error format, HTTP status codes) — Haiku agent with Read/Grep/Glob tools, scoped to `app/controllers` (.rb), `src/api`, and `src/actions` under any wrapper dir
-- **Monitoring prompt** — Enforces the `std-monitoring` skill (request_id in logs, sensitive data logging) — scoped to .rb under `app/controllers` and `app/jobs` under any wrapper dir
+- `accessibility-checker.py` — Enforces the `std-accessibility` skill (semantic HTML, alt text, label associations, focus indicators, ARIA misuse). A **deterministic command hook** dispatched in-process by `post-edit-dispatch.py` — *not* an agent: it spawns no model, costs no tokens, and adds no latency. Scoped to `.tsx`/`.jsx`/`.css`/`.scss` (the CSS extensions matter — `outline: none` is a CSS declaration); React Native is skipped by marker detection, under any wrapper dir
+- `api-design-checker.py` — Enforces the `std-api-design` skill (URL nouns, data wrapper, the `error`/`code`/`status`/`details`/`requestId` envelope, HTTP status codes). A **deterministic command hook** dispatched by `post-edit-dispatch.py` — *not* an agent. Scoped to `app/controllers`, `src/api`, and `src/actions` under any wrapper dir
+- `monitoring-checker.py` — Enforces the `std-monitoring` skill: **sensitive data in log statements only**. A command hook, not a prompt. It deliberately does **not** check for `request_id` on a log line — that id is attached by Rails via `config.log_tags`, so it is not in the source and the remedy is config, not an edit at the call site (see `std-monitoring/references/request-tracing.md`). Scoped to `.rb` under `app/controllers` and `app/jobs`, any wrapper dir
 - `atomic-design-checker.py` — Validates Atomic Design hierarchy (atom independence, molecule composition, organism boundaries, naming) across Phlex, ReactJS, Next.js, React Native
+- `rails-routes-checker.py` — Flags `Sidekiq::Web` mounted in `config/routes.rb` with no authentication (reads `config/initializers/` first, since the API-only idiom protects the Rack app there rather than in routes)
 - `terraform-checker.py` — Validates Terraform .tf files (hardcoded secrets, snake_case naming, required tags, backend config, provider versions)
 - `design-token-checker.py` — Validates design token usage (hardcoded colors, arbitrary spacing, missing focus-visible, missing prefers-reduced-motion) in component/style files
 - `audit-logger.py` — Logs all tool executions for compliance (JSON-lines)

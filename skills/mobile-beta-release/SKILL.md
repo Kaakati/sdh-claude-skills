@@ -21,6 +21,31 @@ they behave alike and planning the release around the faster one.
 Android build is already on testers' phones. If your QA cycle assumes both land together, it
 doesn't. Use **internal** testers for the tight loop and reserve external for the wider round.
 
+### Which of these facts expire
+
+**The shapes above are stable; the numbers are store policy and they move.** Apple has raised the
+external-tester ceiling before (2,000 → 10,000) and the internal one (25 → 100). Nothing in this
+skill records when it was last checked, because nothing here ever was — the Apple wording quoted in
+`references/testflight.md` is verbatim, which makes it *sourced* but not *dated*, and a quote is
+exactly as confident the day it goes stale as the day it was right.
+
+| Stable — the reason to read this skill | Expires — check before you rely on it |
+|---|---|
+| Internal is fast, external is reviewed | The tester ceilings (**100** / **10,000**) |
+| A TestFlight build has a finite life; a Play build does not | The **90-day** window |
+| The first build of an external group goes to Beta App Review | Review turnaround, and what triggers a re-review |
+| Build numbers must increase, forever, per platform | Track names and their availability |
+
+Check the ceiling and the window in **App Store Connect** and the **Play Console** — the consoles
+show your app's real limits, which beat any doc. **Do not restate a number from memory** if it is
+not in the table above: asked about a platform or a tier not covered here, say so rather than
+producing a plausible figure, because a recalled limit is indistinguishable from a checked one once
+it is in a release plan.
+
+**The planning advice survives either way**, which is the point of separating them: *use internal
+for the tight loop, reserve external for the wider round* stays true whether the ceiling is 10,000
+or 25,000.
+
 ## Decision: which track does this build belong on?
 
 | Who needs it | iOS | Android |

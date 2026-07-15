@@ -158,7 +158,7 @@ export function NewOrderForm({ productId }: { productId: string }) {
       <label htmlFor="quantity">Quantity</label>
       <input id="quantity" name="quantity" type="number" defaultValue={1} required />
       {state?.ok === false && state.fieldErrors?.quantity && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-sm text-error">
           {state.fieldErrors.quantity[0]}
         </p>
       )}
@@ -169,7 +169,7 @@ export function NewOrderForm({ productId }: { productId: string }) {
       </select>
 
       {state?.ok === false && state.formErrors?.length ? (
-        <p role="alert" className="text-sm text-destructive">{state.formErrors[0]}</p>
+        <p role="alert" className="text-sm text-error">{state.formErrors[0]}</p>
       ) : null}
 
       <SubmitButton />

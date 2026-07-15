@@ -32,7 +32,7 @@ In addition to the agent's web-specific review (Step 11), verify:
 - Skip navigation link for keyboard users
 - Next.js: `next/image` with `alt`, `next/link` for navigation
 
-See `@rules/accessibility.md` for the full WCAG 2.1 AA standard.
+See the `std-accessibility` skill for the full WCAG 2.2 AA standard.
 
 ## Supplementary: Accessibility Check (React Native)
 

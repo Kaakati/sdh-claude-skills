@@ -33,6 +33,1329 @@ disable it.
 
 ## DONE
 
+### Ch22 — auditing this loop's own output, deliberately — *2026-07-15*
+
+Last iteration found that **this loop had produced three defects of the class it audits for**, each
+surfaced by accident while looking at something else. That is a measurable defect rate in my own
+work, so this pass audited the branch itself rather than the next skill: **91 files, 5,834
+insertions.** It found two more.
+
+**4th self-inflicted defect — a gate claim narrower than the sentence around it.** I wrote in
+`i18n/SKILL.md` (commit `f80c64a`): *"No user-facing literal in a component, view, or **serializer**.
+`i18n-checker.py` warns on this."* But `i18n-checker.py` is
+`ALLOWED_EXTENSIONS = (".tsx", ".jsx", ".erb")` — **a Panko serializer is `.rb` and is never
+inspected.** The rule names three things; the hook covers two. A developer puts a literal in a
+serializer, gets no warning, and concludes they are fine — and that is the copy that reaches the API
+consumer rather than the page. Now states exactly where the gate ends.
+
+**5th — I asserted a number after saying I would not.** Fixing the bundle-budget units, I told the
+user *"I won't assert a conversion ratio I can't verify"* — then wrote *"differ by roughly 3-4x"*
+into **three** files as bare fact. The rule of thumb is not fabricated, but it varies with bundle
+content, and **it was not load-bearing**: the argument is that gzipped and uncompressed are
+*different measures*, which is stronger without a number. Removed from all three; the point now
+rests on *"converting between them needs that bundle's real compression ratio"* and *"the Vite build
+output prints both."*
+
+**A new finding in an already-passed skill.** `performance-benchmarks.md` has a **"Backend
+(Node.js)"** table (heap, RSS, worker count, GC pause) — and this stack's backend is **Rails**, with
+its own table directly below. Not wrong, **mis-titled**: the only long-running Node process here is
+**Next.js self-hosted on ECS** (`output: 'standalone'` — the documented alternative in
+`frontend-deploys.md`). On **Vercel**, the primary target, those numbers mean nothing — *you do not
+tune an RSS ceiling on a serverless function, and reading them as budgets there sends you hunting
+for a knob that does not exist.* Retitled and scoped. Worth noting the skill was already marked
+done: **a pass is not a proof.**
+
+**What checked out**, recorded so a later iteration does not re-litigate it: every API claim I added
+traces to a verified owner (`contrastRatio()` → `defining-tokens.md:218`; `newSubscription()`/
+`getSubscription()` → `realtime-centrifugo.md`, and gated; `JTIMatcher` → `authorization.md`;
+`Sidekiq::Job` → `background-jobs.md`). Every hook claim I added is true of the hook as it stands —
+including `terraform-command-gate.py` *"is a three-tier gate"* (its docstring: *"three-tier command
+gate… Ch. 10 Pattern 3"*).
+
+**The pattern in my own defects is consistent and worth naming:** all five are *scope* errors, not
+fabrications — a gate that covers less than the sentence claims, a test scoped to one file, a stale
+claim about a hook I myself changed, an unverified package manager, a ratio stated without its
+variance. **Not "I made something up" but "I claimed more coverage than I had"** — which is exactly
+the defect this sweep keeps finding in the plugin. The lens works on its author.
+
+### Layer 3 — the plugin's own description of its hooks was wrong in three places — *2026-07-15*
+
+`log-search` and `toolchain` were the target; the lens was *"does the skill agree with the repo's
+own CI"* rather than freshness. It found something better, including **two defects I caused**.
+
+**CLAUDE.md described three hooks as things they are not.** This is the plugin's own map of its
+governance — someone asking *"what runs on every `.tsx` edit?"* got three wrong answers:
+
+| CLAUDE.md said | Reality |
+|---|---|
+| *"Accessibility **agent** hook — **Haiku agent** with Read/Grep/Glob"* | `accessibility-checker.py`'s own docstring: *"deterministic command hook"* |
+| *"API design **agent** hook — **Haiku agent**"* | `api-design-checker.py`: *"deterministic command hook"* |
+| *"Monitoring **prompt** — request_id in logs, sensitive data"* | A command hook, and **the request_id check was removed** (by this loop, correctly) |
+
+The Haiku claim is not cosmetic: it tells a reader that every `.tsx` edit spawns a model, with the
+cost and latency that implies. It spawns nothing. Corrected against the code, including two scope
+errors the prose had drifted past (`accessibility-checker` also covers `.css`/`.scss` — which
+matters, because `outline: none` is a CSS declaration).
+
+**A stale claim I created.** `std-monitoring/references/request-tracing.md:16` still said
+*"`monitoring-checker.py` **warns when it doesn't**"* include `request_id` — after this loop removed
+that check early on. The removal was right (the id is injected by `config.log_tags`, so it is not in
+the source line; every correct app tripped it). Updating the file that *depends on* the claim was
+missed. It now states the opposite, with the reason: **the id's presence is your configuration's
+job, not a gate's** — which is precisely why that reference has to be right.
+
+**A defect I introduced, found by my own lens.** `toolchain`'s headline rule is *"CI and your laptop
+must run the same commands"* — and its own example block mixed **`pnpm exec`** and **`npx`** on
+adjacent lines (two different managers' runners), while `ci-pipeline.md` runs **npm** throughout
+(`npm ci`, `npx tsc`, `npm audit`). **CLAUDE.md pins no package manager.** I had then written
+`pnpm vitest run` / `pnpm jest` into `refactor-specialist` this sweep — asserting a manager the repo
+does not pin, and contradicting CI. (Tellingly, `test-generator`, which I also wrote, names the
+*library* with no runner prefix. I was inconsistent with myself.)
+
+Fixed without deciding the maintainer's question: **the lockfile tells you the runner** —
+`package-lock.json` → `npx`, `pnpm-lock.yaml` → `pnpm exec`, `yarn.lock` → `yarn`. That is
+deterministic, checkable, and requires no pin. *"If the lockfile and CI disagree, that is the
+finding"* — say so rather than picking a side. `refactor-specialist` now says run the
+`package.json` script, so you run what CI runs rather than a command you composed.
+
+**`log-search` needed nothing** and that is recorded rather than padded: it agrees with
+`std-monitoring` on `request_id`, states its precondition honestly (*"This file assumes those
+exist"* / *"When it is missing, that is the finding"*), and already points at the owner.
+
+**A gate was measured and rejected.** All 22 hooks named in docs exist on disk — so a
+"named hook exists" check finds nothing, **and would pass while the real defect persists**: the
+failures here were hooks that exist but do not do what the doc says. That is the
+*partial-coverage-looks-like-coverage* pattern this sweep keeps finding, and shipping it would have
+been committing it.
+
+### BP pass — the mobile skills: one already right, one dated nothing — *2026-07-15*
+
+**`mobile-signing` avoids the freshness trap by construction, and that deserves recording rather
+than "improving".** It says *"Apple distribution certificate → **expires**; rebuild/reissue before
+it does"* and *"put the dates in a calendar the team reads"* — it never asserts a **period**. The
+actionable advice does not depend on a number that can move, so there is nothing to go stale. Its
+irreversibility table is mechanism, not policy: *Play App Signing converts the only unrecoverable
+failure into a recoverable one*; `.p8` downloads exactly once; the upload key is not the app signing
+key. None of that expires. **Nothing to add that would not be padding.**
+
+**What it did need was one reconciliation.** `std-infrastructure` says *"Prefer no credential at
+all. CI authenticates by **federation, not keys** — OIDC to AWS"* and *"no long-lived AWS keys in
+CI"* — while this skill's entire subject is long-lived secrets in CI (`.p8`, keystore,
+service-account JSON). **That is a real exception, not an oversight**, and knowing which matters:
+Apple's App Store Connect API key *is* a `.p8` private key and there is no OIDC path to App Store
+Connect to prefer instead. So the rule cannot be satisfied and the mitigation moves to what can be
+controlled — least privilege, rotation, never echoing, ephemeral keychains — and *"time spent
+hunting for the OIDC option on the Apple side is time not spent rotating the key you actually
+have."* Stated conservatively: if a federated path exists for a given provider, prefer it, but
+confirm at that provider's docs rather than assuming the AWS answer transfers.
+
+**`mobile-beta-release` is where the volatile numbers live** — 100 internal, 10,000 external, 90-day
+expiry — and **nothing dates them.** `testflight.md` quotes Apple *verbatim*, which makes them
+**sourced but not dated**, and that is a subtler trap than `platform-specs.md`'s: a quote reads as
+*more* authoritative while being equally uncheckable, and it is exactly as confident the day it goes
+stale as the day it was right. These numbers have moved before (external 2,000 → 10,000; internal
+25 → 100).
+
+No numbers changed — unverifiable from here, and asserting a fix would be the defect. What was added
+is the **split between what expires and what does not**, which keeps the skill's value intact rather
+than blanket-warning over it:
+- *Stable*: internal is fast / external is reviewed; a TestFlight build has a finite life and a Play
+  build does not; build numbers increase forever.
+- *Expires*: the ceilings, the 90-day window, review turnaround, track names.
+
+Check them in **App Store Connect** and the **Play Console** — the consoles show your app's real
+limits, which beat any doc. And *"the planning advice survives either way"*: **use internal for the
+tight loop, reserve external for the wider round** holds whether the ceiling is 10,000 or 25,000.
+
+**A file could not be read** (`ci-signing-secrets.md`, permission denied), so no claim is made about
+whether it reconciles the OIDC tension internally — the note went in the body, which was readable.
+Asserting a deficiency in a file I could not open would have been this sweep's own recurring defect.
+
+### BP pass — the fixed conversion rate, and the specs with no expiry — *2026-07-15*
+
+**`sprint-planner` contradicted itself on the same screen.** Its Story Point Reference mapped points
+to **duration** (`1` = *< 2 hours*, `5` = *1-2 days*, `13` = *3-5 days*) — eleven lines above the
+first estimation guideline: ***"Compare, don't calculate."***
+
+Two reasons the duration column had to go, and the second is the one that bites:
+1. **A 5 is "1-2 days" for whom?** Seniors on a familiar codebase and a team onboarding deliver
+   different hours for the same relative size. That is not noise to correct — it is why points exist
+   instead of hours.
+2. **It made velocity circular.** The skill measures velocity (Step 1, and a *Velocity Tracking*
+   section) precisely to **discover** what a point is worth for *this* team, empirically. If the
+   table already declares a 5 is 1-2 days, velocity can only measure how wrong the table is. You
+   cannot fix a conversion rate a priori **and** claim to be measuring it.
+
+This is the sweep's recurring shape with the polarity flipped: usually an assertion stands where a
+measurement is *absent*; here the measurement **existed** and the assertion pre-empted it.
+
+**The repo's own position corroborates the fix** — checked rather than asserted:
+`technical-rfc:114` already says *"Estimate effort in **developer-days (not story points)**"*, and
+`doc-generator/process-docs.md` treats velocity as committed/completed points. Both correct.
+`sprint-planner` was the only place conflating the two tools. The table keeps its **examples as
+anchors** (the genuinely useful part) and drops the conversion; estimation is explicitly the team's,
+because *"an estimate produced by reading a ticket is a guess wearing a Fibonacci number."*
+
+**`marketing-assets` ships the most volatile facts in the plugin with no expiry date.** Google 30/90,
+Meta 125/40, TikTok 100, LinkedIn 150/70 — and `platform-specs.md` opened by calling itself
+***"Complete"***, undated and unsourced. "Complete" belongs to the same word-class as the
+*"Verified"* contrast table and the *"contrast-verified"* tokens: **a property nobody checked.**
+
+Deliberately **no new factual claims** — the numbers were not corrected, because they cannot be
+verified from here and asserting a fix would be the exact defect. What changed is the epistemic
+frame: it is a **cached copy, not the source of truth**; it is undated *by construction* (nothing
+here was ever checked against a platform); verify anything a campaign depends on, because a stale
+limit is a truncated headline in production or an upload rejected on launch day; **do not extend the
+table from memory** (asked about Pinterest you will produce a plausible unsourced number
+indistinguishable from the rows above it); and *recommended* ≠ *maximum* — a table cell hides which,
+and Meta's truncation point is not the uploader's hard cap.
+
+**No gate for either.** Measured first: `sprint-planner` was the only points→time mapping, and
+platform-spec freshness is not decidable without the network. Both are judgement, and the sweep's
+line holds — gate the data a hook enforces; write down the judgement calls.
+
+### Layer 2+6 — the skill that signed Claude as the Auditor — *2026-07-15*
+
+The highest-consequence instance of the pattern this sweep keeps finding — *an assertion where a
+computation or an authority belongs*. `compliance-auditor`'s output template:
+
+```
+# Compliance Audit Report — [Framework]
+**Date**: YYYY-MM-DD | **Auditor**: Claude | **Scope**: [System/Component]
+```
+
+…with a quotable **Compliant** count and an *"overall compliance posture"*. **And no epistemic
+limit anywhere in 212 lines** — no "not an audit", no "not legal advice", no counsel. Measured:
+`security-auditor` has a capability boundary, `incident-responder` an authority boundary,
+`requirements-consultant` an epistemic one. The skill producing **regulatory** documents had none,
+and it was the **only** one in the repo signing Claude as an authority.
+
+**Why it matters more than the wording.** A SOC 2 attestation is issued by a licensed CPA firm; a
+PCI-DSS assessment by a QSA. That document is what gets forwarded — into a vendor questionnaire, a
+customer security review, a board deck — and it reads as an attestation. The counts make it
+quotable ("47 Compliant / 3 Non-Compliant") long after the context is gone.
+
+**The decisive detail is in the skill's own control list.** It says "For each applicable control,
+verify implementation in **code and infrastructure**… Mark each control as: **Compliant**" — while
+SOC 2 CC1's controls are *"Background checks for personnel"*, *"Security awareness training program
+in place"*, and CC3's is *"Annual risk assessment conducted"*. **None of those exist in a
+repository.** The skill asked for a determination about an organization from an agent that can see
+one repo, which forces a choice between inventing a pass and inventing a gap.
+
+Fixed by changing what is claimed rather than by disclaiming it:
+- **Evidence, not compliance.** *Evidence found* / *Partial* / *No evidence found* / **No evidence
+  in scope** / *N/A*. "Evidence found at `file:line`" is an observation; "Compliant" is a
+  determination — and they look identical in a table cell.
+- **"No evidence in scope" is not a gap.** The org may do background checks perfectly; a repo read
+  cannot see them, and marking them Non-Compliant manufactures a false gap that costs someone a week.
+- **SOC 2 Type II is operating effectiveness over 3-12 months.** A repository read is one instant:
+  it can show a control *exists*, never that it *operated*. The skill named "Type I & Type II" and
+  never drew the distinction.
+- **Third-party certifications are not recalled.** "AWS is SOC 2 certified" from memory is training
+  data with no date or scope — cite the trust portal or record an open item.
+- Retitled a **readiness self-assessment**, *prepared by* (unverified) with a **required named
+  reviewer**, and "overall compliance posture" removed: the largest risks are routinely in the
+  controls this review cannot see.
+
+**No gate.** Measured first: `compliance-auditor` was the only skill signing as an authority, and
+the class — *an output template that attests to what the agent cannot determine* — is judgement,
+not a mechanical invariant. The other auditors correctly present "findings".
+
+### Layer 1 — the recipe that generated the failing presets — *2026-07-15*
+
+Traced the 13 failing preset pairs to their **source**. `brand-identity` is the generator, and its
+recipe (`references/color-theory.md`) prescribed semantic-colour lightness *ranges* with **no
+foreground named**:
+
+```
+Success: HSL(142, 70-76%, 36-45%)
+Error:   HSL(0, 62-84%, 30-60%)
+Info:    HSL(199, 80-95%, 46-54%)
+```
+
+…then, one step later: *"Create foreground pairs meeting WCAG 4.5:1 contrast."*
+
+**Measured against the usual near-white `*-foreground`, the entire Success range and the entire
+Info range fail** — best case **3.40:1** and **3.12:1**. Steps 1-5 made step 6 unsatisfiable. The
+presets were built from this recipe and inherited its arithmetic: `--success: 36.3%` is the
+prescribed range's *floor*. **The recipe was the bug; fixing the presets without fixing it would
+just regenerate them.**
+
+The ranges are now **foreground-aware caps**, which is the missing concept — a lightness range means
+nothing until you say what sits on it. Success ≤ 29%, Error ≤ 48%, Info ≤ 35%. **Warning is the
+proof the old table was malformed**: amber takes a *dark* foreground (no lightness in the usable
+amber range clears 4.5:1 against white), so quoting it beside three white-foreground ranges was
+comparing different things.
+
+Two further defects in the same recipe:
+- *"Output all colors… meeting WCAG AA"* asked the model for a property **it cannot compute by
+  inspection** — a gamma-corrected luminance ratio. It now must emit the **measured ratio beside
+  each pair**, which is what makes the claim falsifiable.
+- *"Generate dark mode by **inverting lightness**"* is a plausible-looking rule that produces
+  failures: flipping `success 36% → 64%` yields a light green that now needs a *dark* foreground, so
+  the pair changes character rather than its numbers. The dark halves of all three presets failed on
+  exactly this. Dark mode is a separate set of pairs, measured independently.
+
+**The gate caught an error in my own caps — and that is the point of it.** I derived them with
+`min(caps)` formatted `:.0f`, which **rounds to nearest**: 29.7 → "30". A cap must be **floored**.
+At 76% saturation, `L=30%` measures **4.43:1** (fails) and `L=29%` measures 4.69:1. One percent,
+and the gate refused it before it shipped. The published caps are now set by the **most saturated**
+end of each range — higher saturation needs lower lightness — and floored.
+
+**`figma-handoff`** feeds the same registry from the other side. Its risk is structural rather than
+live (its examples map to `--primary`/`--secondary`, both registered): a Figma file names styles for
+designers (`Brand/Green/500`), and transliterating them mints `--brand-green-500`, which compiles to
+**no CSS at all**. It now maps onto the registry, treats an unmatched style as a **finding rather
+than a naming exercise**, and states that a designer's fill is a brand decision, not a contrast
+measurement — verified: `#10B981` on white is **2.54:1**.
+
+### BP pass — `web-design-guidelines`: the 100+ rules that were never in the plugin — *2026-07-15*
+
+Went looking for "partial coverage that looks like coverage" in a 100+-rule skill and found
+something else: **the plugin ships none of them.** 81 lines, no `rules/`, no `references/` — it
+fetches the rule set *and its output format* at run time from a third-party `main` branch.
+
+CLAUDE.md, the README (twice) and the skill's own description all advertised **"100+
+accessibility/UX rules"**. The plugin contains a URL. Fixed in all four places.
+
+**Two of the repo's own rules, contradicted at once** — which is what makes this a finding rather
+than a preference:
+- `std-infrastructure`: *"Pin every version. `latest` is never allowed in a committed file."* The
+  URL targets `main`; the skill said *"Fetch the latest"* / *"Fetch fresh guidelines before each
+  review."*
+- `mcp-install-gate.py` exists so **a human picks an instruction source**. This fetches
+  instructions, from a third party, ungated, every run — a wider hole than the one the plugin built
+  a gate for, one directory over. Measured: it is the **only** skill doing this.
+
+**The live hazard was the missing fail-closed clause**, not the pin. *"Apply all rules from the
+fetched guidelines"* with no fallback means that when `WebFetch` is denied, offline, or the repo
+moves, the model has a skill saying "review for compliance", no rules, and a great deal of
+training-data knowledge about web guidelines. It produces plausible findings in a terse `file:line`
+format and the reader assumes they came from the source. **That is `requirements-consultant`'s
+Phase 0 in a different costume** — and worse, because the format looks authoritative. It now must
+say the fetch failed, fall back to the **pinned local** skills (`std-accessibility` auto-loads and
+is already in context; the WCAG checklist and ARIA patterns are on disk), defer to house
+conventions where upstream disagrees, and **name the source of every finding** — "upstream
+guideline" and "house convention" are different claims and a `file:line` hides which.
+
+**A gate was written, verified, and withheld.** A detector for committed floating raw URLs matches
+**exactly one** file and correctly ignores the repo's 8 ordinary `github.com` doc links. It is not
+shipped because the skill's *purpose* is the thing the rule forbids — pinning to a SHA makes it
+reproducible **and stale**, defeating "latest guidelines". Pin / vendor / float-consciously is a
+maintainer's decision (P2, with the detector ready to ship alongside it). A gate that fails on a
+finding only the maintainer can resolve leaves the suite red, and that is how gates become noise.
+
+### BP pass — the three React rules-skills, and the version nobody pinned — *2026-07-15*
+
+`react-best-practices` (57 rules), `react-native-best-practices` (36), `composition-patterns` — all
+three named **no owner**, and two named **no React version**, while their `std-*` counterparts
+auto-load on the same files.
+
+**The rules themselves are in better shape than expected, and that is worth recording** — I went
+looking for React 18 rot and did not find it: **no `forwardRef`**, **no `useFormState`**, and
+`rerender-memo` already carries the caveat that *React Compiler makes manual `memo()`/`useMemo()`
+unnecessary*. The rules are 19-aware. Only the anchor was missing.
+
+**The real finding is that React is pinned for one of three React platforms** — `std-nextjs` says
+"React 19 minimum"; the Vite SPA and React Native say nothing. Recorded as a P3 (maintainer's call,
+like ActiveJob): inventing a pin would be this loop deciding version policy for a stack it does not
+own, and **RN's React lags web**, so the Next.js answer does not transfer. All three skills now say
+*read `package.json` before applying a version-specific rule*, and `react-best-practices` carries
+the honest table — 19 for Next, *not pinned* for the other two.
+
+**A second axis nobody states:** `rerender-memo`'s Compiler caveat turns on whether the **build**
+enables the Compiler, not on a React version. A rule that is right or wrong depending on a babel
+plugin needs to say so.
+
+**Wiring, with the reason each pointer earns its place** rather than a list: `std-reactjs` owns
+*what state goes where* (a compound component whose context holds server data has invented a second
+cache); `std-nextjs` owns the Server/Client boundary (*context requires a Client Component, so
+reaching for a provider is a rendering decision before it is a composition one*); RN testing is
+Jest, not Vitest.
+
+**A gate was considered and declined**, for the third time in this sweep and for the same reason:
+"every `React \d+` equals the pinned major" flags **correct prose** — `react19-no-forwardref` says
+"React 18" legitimately, explaining what changed. Measured: 2 of 21 occurrences are that shape. The
+correction contains the words the gate looks for.
+
+### BP pass — why the auditor never caught the presets — *2026-07-15*
+
+Follow-up to the 13 failing preset pairs: **why did the plugin's own `accessibility-auditor` not
+find them?** Because it lists contrast under *"Chrome DevTools · Contrast checker · **Manual**"*.
+
+**Token contrast is arithmetic on two static HSL values in a file.** It does not need a browser —
+finding all 13 took a 20-line script. Nobody opens DevTools 36 times, so the failure survived not
+because it was subtle but because **checking it by hand does not scale and therefore does not
+happen**. The auditor now carries the iterating test (`describe.each` over themes × `it.each` over
+pairs) and marks it *not manual*, with the two traps a page-level pass misses: a `-foreground`
+token is verified against its **solid** surface (so it says nothing about `bg-success/10`), and
+**presets are copies** — every theme is its own case.
+
+**The mechanism already existed and nothing pointed at it.** `std-design-system/references/defining-tokens.md`
+has a working `contrastRatio()` and Vitest wiring. But it hand-writes **two** `it()` cases
+(`foreground`/`background`, `brand`) — partial coverage, which is the same shape as the failure
+itself.
+
+**A coverage edge worth naming:** `std-accessibility` owns "color contrast" and its `paths:` are
+`.tsx`/`.jsx` **only** — it does **not** auto-load on `globals.css` or a token file. Contrast gets
+decided where tokens are *defined*, which is `std-design-system`'s territory (`**/globals.css`,
+`**/styles/**`, `**/tailwind.config.*`). Neither is wrong; auditing a colour system means opening
+both, and now the auditor says so.
+
+**A contradiction found — in the advice, against the artifact.** `defining-tokens.md` said the fix
+for a low-contrast surface is *"**always** to darken the foreground, not to brighten the surface —
+the surface color is the brand decision."* But `design-tokens.md`'s canonical defaults and all three
+presets were repaired by darkening the **surface**. Checked before rewriting: **`--primary` was
+never touched in any of them** — every adjustment was `success`/`error`/`info`, i.e. **semantic
+status** tokens. So the rule is real but the "always" is overreach, and it now splits by what the
+token *is*: darken the **foreground** for a brand token (you do not restyle the logo to pass a
+checker); darken the **surface** for a semantic one ("green means success" is the convention,
+*which* green is not — Tailwind ships `green-700` for exactly this). Left absolute, it told you to
+do the opposite of what this repo's own shipped tokens do.
+
+**`atomic-design`** needed a pointer, not a section: it owns the **hierarchy**, and its
+`atom-theming-tokens.md` rule already cites the registry (fixed in an earlier pass). Added the
+owner note — `std-design-system` auto-loads on the same files — and the distinction that matters:
+*"uses a token" and "uses a registered token" are different claims, and only the second renders.*
+
+### Layer 1 — the fix that never propagated: 13 preset pairs still below AA — *2026-07-15*
+
+**The most consequential finding of the sweep, and it was this loop's own miss.** An earlier
+iteration fixed `design-tokens.md`'s failing contrast tokens (`--success` 36.3% → 28%, `--error`
+60.2% → 47%, …) and gated them with `test_contrast_table_matches_the_tokens`. **That test only ever
+read `design-tokens.md`.** `theme-presets.md` carried the same defaults, copied — and still had
+them.
+
+Measured, not suspected: **13 pairs below WCAG AA across all 6 preset blocks** (3 presets ×
+light/dark). Worst offenders `--success` at **2.54:1** (Modern) and `--info` at **2.99:1**
+(Corporate dark) — against a 4.5:1 requirement.
+
+**A preset is worse than a spec.** `theme-presets.md` says outright: *"Copy the relevant `:root`
+and `.dark` blocks into your project's token stylesheet."* It exists to be taken wholesale. So a
+team picks Modern, ships it, and this plugin's **own `accessibility-auditor` fails the result** —
+the same shape as the original "Verified" table that was never computed.
+
+All 13 solved by minimal lightness shifts; **36 pairs across 6 blocks now clear AA, worst 4.55:1.**
+
+**Two lessons, both about the gate rather than the tokens:**
+
+1. **A check scoped to one file proves nothing about the copy beside it.** The right scope is the
+   *invariant* — "no shipped token pair is below AA" — not the file you happened to be fixing.
+   That is now the scope.
+2. **Corporate was not a preset — it was the spec under another name.** It shares
+   `design-tokens.md`'s hue and saturation on every token, so my solver's minimal fixes (28.6%,
+   48.6%, 45.5%) would have left *one token with two values* — recreating the drift class this
+   sweep keeps finding, in the act of fixing it. Corporate now carries the canonical numbers
+   verbatim, and a second check pins that agreement. It fires on a **1% divergence that still
+   passes AA**, deliberately: it catches drift *before* it becomes a contrast failure. Modern and
+   Minimal are genuinely different palettes and are not compared.
+
+### BP pass — `terraform`: the tag list three sources state and nothing gated — *2026-07-15*
+
+First skill past the user-skill ↔ `std-*` duplication surface, which is now exhausted. `terraform`
+is **rules-shaped** (47 rules across 9 categories + 2 references), so it needed a different lens:
+not "does the body duplicate a reference" but **"is the hook-enforced data consistent with the
+prose that documents it."**
+
+**`terraform-checker.py` enforces `REQUIRED_TAGS = ["project", "environment", "team",
+"managed-by"]`.** That list is also stated by `std-terraform-conventions` (which **auto-loads on
+every `**/*.tf`**) and by `terraform/rules/resource-required-tags.md`. Three sources, agreeing
+today, **ungated**.
+
+Gated now, and the justification is the distinguishing one: **a hook enforces it.** Last iteration
+a third number-gate was *declined* for Sidekiq's retry default — 17 restatements, no drift, and
+the anchor was upstream docs, so a gate would have added surface for a defect that does not exist.
+The tag list is different in kind: add a fifth tag to the hook alone and the developer reads the
+skill, writes the four it documents, is warned anyway, and concludes the hook is noise. That is not
+hypothetical — it is precisely what `code-quality-checker`'s 200-line limit did, which is why
+`test_limits_match_the_skill_that_documents_them` exists. This is that test's sibling, importing
+the list from the hook rather than restating it. Verified to fail on a hook-only fifth tag, in
+**both** skills.
+
+**Two overlaps checked and found clean** — recorded, because a checked-and-clean overlap is a
+result and stops a later iteration re-litigating it:
+- `terraform/references/repository-layout.md` and
+  `std-infrastructure/references/terraform-mechanics.md` answer the **same two questions** (where a
+  `.tf` file goes; where tags come from). They **agree** — `default_tags` on the provider, same four
+  tags — and `repository-layout.md` already cross-cites `rules/resource-required-tags.md` as
+  authoritative. Correct ownership hygiene, not duplication to unwind.
+
+**Wiring:** `terraform` named neither owner. Now points at `std-terraform-conventions` with the
+distinction that matters — *it auto-loads on `.tf`, so you do not need it open while editing; open
+it when **planning** infrastructure that does not exist yet, because nothing auto-loads for a file
+you have not created* — plus `terraform-mechanics.md` and both hooks.
+
+### BP pass — `rails-architect` wired; `db-migration` skipped because it was already right — *2026-07-15*
+
+**`rails-architect`** named **no owner at all** — not `std-rails-conventions`, not `std-database`,
+not `std-error-handling` — the same "names nowhere" case as `react-native-dev`. Now wired to the
+six that own its sections (authorization, locking, Sidekiq, the error envelope, pagination,
+tracing).
+
+**The Sidekiq section was the gap that mattered.** It said *"Idempotent jobs — safe to retry"* and
+nothing else about retries — omitting the fact that decides whether that sentence is a nicety or a
+survival requirement: **Sidekiq already retries 25 times over ~20 days, by default.** Nobody
+configures that; it *is* the default, so "no retry policy" means three weeks of them, and
+`retry_on ..., attempts: 5` runs **30** attempts rather than 5 because ActiveJob's retries stack on
+top of Sidekiq's rather than replacing them. That is now in the body, because it changes what you
+write on every job, with the depth pointed at rather than copied.
+
+**Two claims checked and found clean** — worth recording, because the absence of a defect is also a
+result:
+- The **PostGIS example is correctly parameterised** (`ST_DWithin(..., ?, ?)` with bound args), not
+  the interpolation bug flagged as a class in `security-auditor`.
+- The **Panko serializer is a proper allowlist**. No field leak.
+
+**`backend/app/jobs/` and `backend/app/services/`** were hardcoded wrappers in *instructions* —
+fixed to `app/jobs/` / `app/services/`. The Reference Architecture **tree was left alone**: it is
+inside a fenced block, i.e. an illustration of shape, and flagging it would flag correct
+documentation — the same call made for `phlex-developer`'s Atomic Design tree.
+
+**`ApplicationJob` vs `Sidekiq::Job` was deliberately not touched.** `rails-architect`'s example
+uses `< ApplicationJob`; the open P3 records that the repo has not decided, that
+`background-jobs.md` recommends native, and that **the decision is the maintainer's, not the
+loop's.** Converting it unilaterally would be this loop overriding a call it explicitly deferred.
+
+**`db-migration` was skipped, and that is the finding.** It is already exemplary: it points at
+`../std-database/references/locking-and-timeouts.md` in four places, states outright *"that
+mechanism is owned by … and is not repeated here"*, and carries a *"Related, owned elsewhere — do
+not duplicate"* section. An earlier iteration did this work. Per the mandate — *skip a skill rather
+than pad it* — there was nothing to add that would not be filler.
+
+**A gate was considered and declined.** The Sidekiq retry default is restated **17 times across the
+repo and agrees everywhere**, with `background-jobs.md:18` quoting Sidekiq's own docs as the
+anchor. A third number-gate (after page size and PR size) for a number with no drift adds test
+surface for a defect that does not exist. The number-gates that shipped each had a live
+contradiction behind them.
+
+### BP pass — `react-native-dev` taught a Centrifugo hook that could not run — *2026-07-15*
+
+The sharpest defect this sweep has found in a *code example*. `react-native-dev`'s Section 5
+shipped a `useChatMessages` hook built on:
+
+```typescript
+const sub = centrifuge.subscribe(`chat:${roomId}`);
+```
+
+**That is not this client's API.** Subscriptions are *created* with `newSubscription()` and
+retrieved with `getSubscription()`; `.subscribe()` is a method on the **Subscription object**, not
+a channel-taking method on the client. The example could not run at all.
+
+And the shape it taught had the exact leak its own owner
+(`std-react-native/references/realtime-centrifugo.md`) exists to prevent. Measured against that
+reference, the snippet was wrong **four** ways:
+
+1. wrong creation call (`getSubscription(ch) ?? newSubscription(ch)` is the idiom — `newSubscription`
+   **throws** if the channel is already registered, and a remounting screen calls it twice);
+2. never called `sub.subscribe()`, so nothing started;
+3. cleaned up with `sub.unsubscribe()` while leaving its own handler attached — *"every remount
+   stacks another one and the cache update runs N times per message"*;
+4. never called `centrifuge.removeSubscription(sub)`, so the channel stayed in the registry and the
+   next `newSubscription` threw on navigation.
+
+The one thing it got right was the headline rule — pushing publications into the Query cache via
+`setQueryData` rather than a second store. That is why it looked fine.
+
+**Gated, and the scoping is the interesting part.** The check reads **fenced code only**. That is
+load-bearing rather than incidental: the fix's own prose says the words
+`centrifuge.subscribe(channel)` in order to warn against them, and a naive check flags the
+correction. This is the same trap that killed the market-research gate two iterations ago
+(markdown emphasis defeats a negation lookbehind) — but here the defect is *always code*, so code
+is all the gate reads, and the prose is free to explain itself. It also fails loudly if
+`getSubscription(` disappears entirely, rather than passing vacuously.
+
+`react-native-dev` named `std-react-native` **nowhere** — worse than `nextjs-dev`/`reactjs-dev`,
+which at least named the skill. Now wired to both owner references, plus the two facts that decide
+what you write: `staleTime` is per query (not one default — the thing I nearly mis-filed as a
+defect last iteration), and RN testing is **Jest, not Vitest**.
+
+**`phlex-dev`** (63 lines) needed no split — its References section named the *skill* and none of
+`std-phlex-conventions`' six references. Now indexed, with the two token facts that bite at
+styling time (unregistered token → **no CSS at all**; `-foreground` on a tint → invisible).
+
+### BP pass — `nextjs-dev` + `reactjs-dev`: two budgets, two units, one stated — *2026-07-15*
+
+**A suspicion was checked and withdrawn first.** `staleTime` looked like the page-size pattern:
+five values across the repo (30s, 60s, 5min). It is not a defect — `staleTime` is deliberately
+**per query**, and `std-reactjs/references/data-fetching.md:74` has the decision table
+(`| Data | staleTime | Rationale |`). `users` at 5min and `orders` at 1min is that table working.
+Only the *QueryClient default* must agree, and those differ per platform for a reason (React
+Native is offline-first, `retry: 3`). Claiming this would have been a false finding.
+
+**The real one is subtler than a wrong number — it is a missing unit.** The Vite initial-JS budget
+is stated in three places:
+
+| Source | Figure | Unit stated? |
+|---|---|---|
+| `std-reactjs/references/routing-and-code-split.md:10` (**owner**) | `< 300KB` | **no** |
+| `performance-profiler/SKILL.md:231` | `< 300KB` | **no** |
+| `performance-profiler/references/performance-benchmarks.md:61` | `< 150KB` | **gzipped** |
+
+The owner's 300 is what `chunkSizeWarningLimit: 300` compares against — **minified,
+uncompressed**. The benchmark table's 150 is **over the wire**. Those differ by roughly 3-4x, so
+they are **not competing budgets and neither is stricter** — but a developer handed "150KB" and
+"300KB" *inside the same skill*, with neither unit stated, cannot tell whether they conflict and
+will pick whichever is convenient. All three now state their measure, and the benchmark table says
+outright that it is a different one.
+
+**Gated where it is mechanical.** The prose budget must equal `chunkSizeWarningLimit` — the
+`test_limits_match_the_skill_that_documents_them` shape: a documented budget that disagrees with
+the thing that actually warns is worse than none, because the developer writes to the doc, the
+build complains anyway, and concludes the warning is noise. Units cannot be gated, so they are
+stated instead. Verified to fail on a drifted config.
+
+**`nextjs-dev` named no version.** `std-nextjs` devotes a section to *"This targets Next.js 15+ —
+and 14 answers differently"* (`fetch` no longer cached, `GET` handlers no longer cached, `cookies`
+and `params` now async) and says plainly: *"guidance that does not say which major it means is
+guidance you cannot check."* `nextjs-dev` — the skill you open to **build** the feature — said
+nothing about the version. Its code was correct for 15 (`params: Promise<{id}>` + `await params`,
+verified), so this was a missing anchor rather than wrong code; it now carries the version and the
+two consequences.
+
+**Both were `test-generator`'s wiring bug.** Each named its std counterpart *skill* and none of its
+**references** — `nextjs-dev` missed 4, `reactjs-dev` missed 7, while their own 3-file reference
+sets duplicate those topic-for-topic. Now indexed, framed as *the three files above are worked
+patterns; these answer which pattern and why*.
+
+### BP pass — `api-designer`: the page size that was 20 in the only file anyone reads — *2026-07-15*
+
+Chosen by **measuring the duplication surface** rather than picking a skill: for each user-invoked
+skill that pairs with a `std-*` counterpart, compare body size to reference count. `api-designer`
+was the outlier — **235-line body, 1 reference**, against `std-api-design`'s 120-line body and
+**7 references**. That imbalance is what the last three duplications looked like, and it was again.
+
+**A hard numeric contradiction, 3-to-1:**
+
+| Source | Default page size |
+|---|---|
+| `std-api-design/SKILL.md:88` (**auto-loads** on controllers) | **25** |
+| `std-api-design/references/pagination-rails.md:7` | **25** |
+| `std-api-design/references/pagination-clients.md:19` | **25** |
+| `api-designer/SKILL.md:162` (+ its collection example, + its `api-conventions.md`) | **20** |
+
+The odd family out was **the one being read**. A developer opens `/api-designer` to design an API,
+ships a 20-default, and `std-api-design` auto-loads on their controller saying 25. Nothing fails.
+
+**A framing contradiction underneath the number.** `api-designer` presented *"Offset Pagination
+(simple)"* first and cursor second, as if offset were the easy default. The owner's load-bearing
+rule is the reverse: *"Cursor-based pagination is the default. Offset-based is acceptable only for
+small, stable datasets that are not appended to in real time."* Offset is not the simple one — on
+an appended-to table it silently skips and repeats rows as the offsets shift under the reader. The
+skill was teaching the wrong default *and* the wrong reason.
+
+Its "Deep guides" also pointed only at its own `api-conventions.md` — so, like `test-generator`, it
+duplicated seven references and named none of them. Now all seven are indexed, Step 5 carries the
+owner's actual rules (cursor default, 25/100, always clamp, `pagy` — CLAUDE.md pins it), Step 7
+defers to `versioning-and-deprecation.md`, and the collection example uses the owner's **cursor**
+shape (`nextCursor`/`hasMore`/`limit`) rather than an offset shape at the wrong size.
+
+**Gated.** The number is data with an owner — same as the error envelope, same remedy, same gate.
+Scoped to lines that literally say "default page size": every unqualified number in an API doc
+(`limit=20` in a URL example, `"pageSize": 25` in a body) is not a statement of the default, and
+asserting they all match would flag correct examples. Verified to fail on the original 20.
+
+### Layer 1 — `test-generator` 316 → 215, and the SLA that contradicted itself — *2026-07-15*
+
+**`test-generator` was the `deploy` pattern again.** Its "Web Frontend Tests (Vitest + RTL)"
+section (~120 lines) duplicated `std-testing/references/react-components.md` (which owns Vitest
+config, query priority, MSW, providers, Zustand, Framer Motion, ApexCharts) *and*
+`nextjs-server.md` (Server Components, server actions) — both decision-shaped, both in a skill
+that **auto-loads** on `**/*.test.*`. Its own "Deep guides" pointed at neither: it indexed only
+`testing-standards.md`, so the body duplicated four references and never mentioned them.
+
+**The drift is the same shape as the HSTS one.** The body compressed RTL's query priority to one
+line — `getByRole > getByLabelText > getByText > getByTestId` — which silently drops
+`getByPlaceholderText` and, worse, the reason the owner gives: *a `getByTestId` test passes even
+when the "button" is a non-focusable `<div>` with no accessible name*, so it cannot detect the
+accessibility regression it exists to catch. **A summary of a decision guide is not a smaller
+version of it — it is the part that does not tell you why.**
+
+### Layer 1 — `onboarding`: the number that had no owner — *2026-07-15*
+
+`onboarding` (304) was **not split, deliberately.** It is read once, end to end, by a new
+developer; Ch. 7's signal is *sections never needed together*, and linear reading is the point
+here. 304 is 1% over a guideline, and the audit's own rule is not to shred files to hit a round
+number. **The duplication check found something worth more than 4 lines:**
+
+**A contradiction inside one skill.** The body said reviews land *"within **24 hours**"*; its own
+`references/dev-handbook.md` said *"Review SLA: within **4 business hours**"*. Aimed squarely at
+the one reader who has no way to tell which is right — a new developer, on day one, whose whole
+job that week is believing the docs.
+
+**Neither was authoritative, because the number has no owner.** `std-git-workflow` pins the PR
+process (400 lines, squash merge, Conventional Commits) and says **nothing** about a review SLA;
+CLAUDE.md names PR requirements and no SLA either. So it was invented twice, differently. A team's
+SLA is not the plugin's to assert — and `onboarding` is a *template* (`{repository-url}`,
+`{install-command}`), so it is now `{review-sla}` in both places, with the reason stated: *a number
+that appears only in an onboarding doc is a number nobody agreed to.*
+
+**The PR size limit got the opposite treatment, because it does have an owner.** `std-git-workflow`
+owns 400; `onboarding` restates it and agrees today. Now gated. Scoped to lines mentioning a PR —
+a bare `under (\d+) lines` also matches the **200-line file limit** in `std-react-native` and
+`phlex-developer`, which is different data already covered by
+`test_limits_match_the_skill_that_documents_them`, and asserting all of them agree would have
+failed on correct docs.
+
+**Bodies: done.** `deploy` 232, `doc-generator` 50, `test-generator` 215, `onboarding` 304 (kept).
+
+### Layer 1 — `doc-generator` 334 → 50: seven templates, and a task needs one — *2026-07-15*
+
+The cleanest Ch. 7 split in the repo, because the signal was structural rather than a line count:
+`doc-generator`'s body was **seven independent templates** — ADR, API endpoint docs, runbook,
+technical spec, changelog, retrospective, change management — and **a changelog task never needs
+the retrospective template.** ~315 lines loaded so that ~40 could be used.
+
+Grouped by lifecycle rather than one file per template (Ch. 7's merge signal: short and always
+needed together should merge — a spec usually follows an ADR, and the three process artifacts are
+one habit):
+
+| Reference | Templates | Lines |
+|---|---|---|
+| `design-docs.md` | ADR + Technical Specification | 115 |
+| `operational-docs.md` | API endpoint docs + Runbook | 120 |
+| `process-docs.md` | Changelog + Retrospective + Change management | 181 |
+
+**The duplication check ran first this time** (last iteration's lesson), and it found one real
+case and one false lead:
+
+- **False lead — runbooks.** `incident-response/references/runbooks.md` looked like a duplicate.
+  It holds *specific* runbooks (Redis OOM, Sidekiq backup); `doc-generator`'s is the *template*
+  for writing a new one. Instances vs template — not duplication. The two now point at each other.
+- **Real — the ADR template**, in `architecture-advisor` *and* `doc-generator`, with CLAUDE.md
+  pinning the shape a third time. **Unlike the HSTS case, neither copy was wrong** — the drift was
+  cosmetic (`ADR-[NUMBER]` vs `ADR-NNN`; the advisor spells out `Alternative 1/2`). So it was
+  **not** resolved by deletion: both legitimately need it inline, since the ADR is
+  `architecture-advisor`'s output contract on *every* task, which is exactly where Ch. 7 puts a
+  body. Deleting its copy to satisfy a principle would have made that agent worse.
+
+**Gated instead of merged.** A test holds the two **section sets** in sync, compared at `##` level
+(the contract) and allowing `###` sub-detail to differ (editorial). The reason is concrete: ADRs
+get grepped — `rg '^## Status' docs/adr/` only works if every ADR has the same headings, so a
+template that quietly gains or loses one breaks that silently. CLAUDE.md's four named sections must
+also be a subset of both. Verified to fail on a renamed section.
+
+The body keeps exactly one rule, because it applies to every document type: **do not document what
+you did not read.** Documentation is believed — that is its function, and why invention costs more
+here than in code. A wrong endpoint parameter fails loudly the first time someone calls it; a wrong
+runbook step fails at 3am. Write `Unknown: <question>` and leave it: an explicit gap gets filled,
+a confident guess never gets questioned, because it does not look like a gap.
+
+**Bodies remaining:** `test-generator` 316, `onboarding` 304.
+
+### Layer 1 — `deploy` 357 → 232, and the duplicate that had quietly lost its HSTS — *2026-07-15*
+
+`deploy` was the worst body in the repo: **357 lines, zero references**, loading in **full** on
+every deploy task — including the routine staging deploy that needs none of it. Two clean Ch. 7
+split signals (*sections never needed together*), not a line count:
+
+**1. It was duplicating a reference, and the copy had drifted.** `deploy/SKILL.md`'s "Web Frontend
+Deployments" covered Vercel and S3+CloudFront — which
+`std-infrastructure/references/frontend-deploys.md` already owns, decision-shaped, and which
+**auto-loads** for infrastructure work. Two sources of truth, and the body's copy was the weaker
+one:
+
+| | `deploy/SKILL.md` (deleted) | `frontend-deploys.md` (owner) |
+|---|---|---|
+| HSTS | `max-age=63072000` | `max-age=63072000; includeSubDomains; preload` |
+| Schema | — | `$schema` for editor validation |
+| Referrer-Policy | — | `strict-origin-when-cross-origin` |
+| `_next/static/` cache | — | `immutable`, 1 year |
+
+**The HSTS line is the point.** Without `includeSubDomains; preload` the header **does not qualify
+for the preload list at all** — so following the duplicate produced a header that looks right and
+buys nothing. Nobody edited it wrong; it was written once and the owner moved on. That is what a
+second copy does. The same section also carried `cd next && vercel` (a hardcoded wrapper dir, in an
+executable instruction — the defect this loop keeps finding, here in a *skill*, which the
+agents-only gate does not scan) and `npm i -g vercel` (a global install on a pnpm stack). All three
+went with the duplicate.
+
+**2. Canary/blue-green (~72 lines) is real, and is nobody else's.** Verified: nothing in
+`std-infrastructure` covers it. So it *moved* to `deploy/references/ecs-strategies.md` (157 lines)
+rather than being deleted — a routine deploy never needs it, and reaching for a canary when a
+rolling update would do buys two services to reason about exactly when you want fewer. The
+reference is self-contained per Ch. 7 and adds what the body's snippets never said: **the shared
+database is the trap in both.** "Instant rollback" is a claim about *traffic*, not data — the
+listener swap takes milliseconds, the schema does not come back with it. So expand/contract across
+two deploys, and a `NOT NULL` column shipped with the code that fills it means the canary looks
+fine while **primary** is what breaks.
+
+**Gate extended, no live defect found.** CI's skills-lint validates the pointers a skill *body*
+indexes; my earlier test covered *agents*. Nothing validated the pointers **one reference makes to
+another** — 21 such cross-links exist, all resolving today. Now gated (79 pointers across 130
+files), because a reference is where a stale pointer hides longest: nothing loads it until someone
+needs it, and by then they are mid-task. Verified to fail on a dangling pointer inside a reference.
+
+**Bodies remaining:** `doc-generator` 334, `test-generator` 316, `onboarding` 304.
+
+### Layer 2 — the ADR that invents a price; and the wiring closes — *2026-07-15*
+
+**Closes the P2 wiring item: 0 of 13 agents now point at nothing** (was 9). 58 pointers gated,
+all resolving.
+
+**`architecture-advisor` had the `requirements-consultant` defect, one rank more expensive.** It
+holds `Read, Grep, Glob` — no web — with **no epistemic boundary at all**, and its protocol asked
+for: *"Hiring market for chosen technology stack"* (step 5), *"Does a well-maintained open-source
+solution exist?"*, *"total cost of ownership (maintenance, upgrades, security patches)"*, *"risk of
+vendor lock-in"* (step 6). A repository does not tell you how many engineers there are — a small
+team and a large one produce the same file tree.
+
+Worse than the consultant's case, because **an ADR is a permanent record**. A scoping doc is read
+once and superseded; an ADR is cited for years by people who reasonably assume the TCO in it was
+checked. Same remedy, adapted: step 5's org facts are **inputs — ask**, though "this team already
+runs Sidekiq" *is* readable from what is committed and should be cited. Step 6 splits cleanly —
+for a domain the stack **already pins**, CLAUDE.md's *Library Preferences* is the standing answer
+and citing it is real; for a domain it does not pin, emit a spike, and put any belief under
+**Alternatives Considered** as an assumption to verify, never under **Decision** as a finding.
+
+**A wrong pointer was caught before shipping.** `doc-generator/references/doc-templates.md` sounds
+exactly like where an ADR template lives. It is model/table documentation — associations,
+validations, scopes. Pointing there would have sent the agent to confidently irrelevant material,
+which is the harm this whole item is about. The filename was not evidence.
+
+**`refactor-specialist`** got one pointer, not five: `std-testing/references/test-strategy.md` is
+decision-shaped and answers what its step 2 actually turns on (*which level of test*, *how do I
+build test data*), and its *"mocking a chain vs. simplifying the code"* section is a **refactoring**
+decision — if a test needs four mocks to construct, that is the design talking. It also got the
+runner table, because last iteration gave it `Bash` and **a green run of the wrong suite proves
+nothing** (RN is Jest, not Vitest).
+
+**`requirements-consultant` was nearly skipped, and the honest answer was one sentence.** Its job
+is asking a human questions; the depth it needs is their answers. But Phase 5 *does* sketch a
+stack-framed architecture, so the layer shape it should follow has a home — one routing note to
+`std-clean-architecture/references/` and to `architecture-advisor` for the real design. Four
+platform mappings for a sketch would have been padding, and *"a requirements doc that hardens into
+an architecture nobody agreed to is how scope arrives pre-decided."*
+
+**Deliberately not gated: "every agent must have ≥1 pointer."** It would have forced exactly the
+padding the mandate warns against — `requirements-consultant` legitimately had none until Phase 5
+justified one. The gate checks that pointers **resolve**, not that they exist.
+
+### Layer 2+3 — the agent told to lose jobs, with nothing stopping it — *2026-07-15*
+
+`incident-responder` had **no capability boundary at all** — while holding `Bash`, running at
+`model: opus, maxTurns: 30`, and carrying a protocol that explicitly instructs production
+mutations: *"Rollback to previous ECS task definition"*, *"Kill long-running queries"*,
+*"Restart Sidekiq workers"*, and **"Clear stuck queues only as last resort (loses jobs)"**.
+
+`security-auditor` — **identical** tool list (`Read, Grep, Glob, Bash`) — has had an explicit
+"Capability boundary (read this first)" section since an earlier pass, citing Ch. 8's Bash hole.
+The repo established the pattern, and the one agent whose protocol actually tells it to break
+production was the one without it.
+
+**What was gated, measured rather than assumed:**
+
+| Protocol step | Gate |
+|---|---|
+| Rollback ECS task definition | ✅ `deployment-gate.py:45` asks (`aws ecs update-service`) |
+| `DROP`/`TRUNCATE`/unfiltered `DELETE` | ✅ `dangerous-command-blocker.py` denies |
+| **"Kill long-running queries"** | ❌ `pg_terminate_backend` matched nothing |
+| **"Clear stuck queues (loses jobs)"** | ❌ `redis-cli FLUSHALL` matched nothing |
+
+**Why the last one is the serious one.** On this stack Redis is *both* the Rails cache backend
+*and* the Sidekiq queue store (CLAUDE.md). `FLUSHALL` against production does not clear a cache —
+it destroys every enqueued job, irreversibly, with no error. The protocol's own **"(loses jobs)"**
+was the only thing standing in the way, and that is prose. Ch. 7's placement test: a rule that
+must hold whether or not it is read is a gate.
+
+**Scoped, not blanket.** The block requires a *remote* target (`-h`/`-u`, no localhost in the
+segment): `redis-cli FLUSHALL` on a dev box is ordinary daily work, and read-only production
+commands (`GET`, `INFO`, `LLEN`) must keep working or an incident responder cannot diagnose. Ten
+shapes tested, all correct. It lives in `dangerous-command-blocker` rather than a new hook because
+that is already the repo's home for irreversible data operations, and its denial already names the
+remedy: *"requires manual execution outside Claude Code."*
+
+**`pg_terminate_backend` was deliberately NOT gated.** Killing a runaway query is a standard,
+reversible incident action — the query aborts and the app retries. Gating it would flag correct
+work under exactly the pressure where a false alarm costs most. The boundary covers it in prose,
+which is the right layer for a judgement call.
+
+The new boundary section is adapted rather than copied: unlike a reviewer, an incident responder
+*must* be able to mitigate. So: diagnose freely (reading is never gated); never take an
+**irreversible** action on your own authority — propose the command, the blast radius, and the
+cost of being wrong; know which of your own steps are gated and **do not route around one**; and
+say what you could not check, because a report that omits its gaps reads as an all-clear.
+
+### BP pass — `incident-responder` + `clean-architecture` wired — *2026-07-15*
+
+**9 → 3** agents now point at nothing; **49** pointers gated, all resolving.
+
+`incident-responder` got the 9 references that carry the queries and thresholds for its own
+protocol — CloudWatch Insights, GCP Logging, request tracing, lock contention, the Sidekiq Dead
+set, ECS rollback — because mid-incident is the worst possible time to re-derive an Insights query
+from memory. Two facts were lifted into the body because they change a *diagnosis* rather than a
+fix, and both were verified against the references themselves: **Sidekiq already retries 25 times
+over ~20 days by default** (`background-jobs.md:5`), so "the job never ran" and "the job is still
+retrying" look identical from outside; and a waiting `ALTER TABLE` **queues every query behind
+it** (`locking-and-timeouts.md:26`), so a migration with no `lock_timeout` presents as a
+whole-table outage, not a slow migration.
+
+`clean-architecture` got the four platform mappings plus layer examples, one per protocol step.
+"Depends inward" is one sentence, but what it *looks like* differs in all four platforms — which
+is exactly where the conformance call gets made. Also given the fail-closed clause the two design
+agents got: "no files matched" ≠ "no violations found".
+
+**Remaining (3):** `architecture-advisor`, `refactor-specialist`, `requirements-consultant`.
+
+### BP pass — `phlex-developer` + `devops-engineer`; and the gate that missed a synonym — *2026-07-15*
+
+Continues the P2 wiring. **19 → 6** agents now point at nothing; 35 pointers gated, all resolving.
+
+**`phlex-developer`** *had* a "Reference Files" section — naming **skills, not references**. It
+knew `std-phlex-conventions` existed and none of its six reference files (1,473 lines: primitives,
+composites, variants/tokens, Stimulus, Turbo, testing), nor `phlex-dev`'s two (1,577 lines). Now a
+table mapping each reference to the protocol step that needs it, plus the two token facts that
+bite hardest at step 7 — `destructive`/`neutral` are variant **keys**, not tokens, and a class
+naming an unregistered token compiles to **no CSS at all**; a `-foreground` token is verified
+against its **solid** surface, so it is invisible on a 10% tint.
+
+**`devops-engineer`** was well-wired at the *governance* layer (it named the autoload, the
+checker, `deployment-gate.py`) and pointed at **none of `std-infrastructure`'s 10 references** —
+ECS Fargate, RDS+PostGIS, OIDC, Vercel, Compose — which are precisely its job. All ten mapped onto
+its own numbered steps.
+
+**My own gate had a hole, and this is how it was found.** `phlex-developer` step 3 said
+*"**Search** `backend/app/components/`"* — the same hardcoded-wrapper defect I fixed in the two
+design agents last iteration, sailing straight past the gate I wrote for it, because my verb list
+was `Glob|Read|Grep` and "Search" is not in it. An instruction to go look somewhere is the defect
+**however it is phrased**. Verb list widened (`Search|Scan|Look in|Inspect`), and fenced blocks are
+now stripped first — `phlex-developer` draws its Atomic Design tree as a `backend/app/components/`
+diagram, which is an illustration of *shape*; flagging it would be flagging correct documentation.
+Measured: exactly one hit across 13 agents, no false positives.
+
+**Also extended to directory pointers.** `monorepo-architect` points at
+`skills/monorepo-architect/references/` as a directory rather than naming files — legitimate but
+weaker, and it dangles just as silently if the skill is renamed. Worth recording *how* that was
+verified: my first sabotage (`/references/` → `/nope/`) **passed**, because breaking the path made
+the pointer stop looking like a pointer (35 → 34 checked) — it fell out of scope rather than
+failing. The test was right and the sabotage was wrong; re-run against the realistic failure (skill
+renamed, `/references/` intact) it fails correctly. A test that "passes" because its subject
+vanished is not a passing test.
+
+**Remaining (6):** `architecture-advisor`, `clean-architecture`, `incident-responder`,
+`monorepo-architect` (directory-level only), `refactor-specialist`, `requirements-consultant`.
+
+### BP pass — `code-reviewer` + `test-generator`: 116 references nobody told the agents about — *2026-07-15*
+
+The systemic finding, measured across all 13 agents: **9 had zero pointers to any reference.**
+The repo carries **116 reference files** of verified, stack-specific depth, and the agents that do
+the work were never told they exist. `SubagentStart` injects tech-stack and team context — not
+references — so nothing closes the loop implicitly.
+
+This is a Ch. 7 wiring failure, not a content failure. Tier 2 was written; Tier 1 had no pointer.
+And the failure mode is the quiet one: an agent that never learns a reference exists does not
+error — it reviews without the material and reports as though it had it.
+
+**`code-reviewer`** was the sharpest case. A prior iteration put every defect this loop verified
+into `references/pr-review-guide.md` (325 lines: Rails red flags, N+1, migration safety, PostGIS,
+React Native, Sidekiq, plus *"Checks earned from real defects"*). The **skill** indexes it at
+`:112`. The **agent** — which actually performs the review — named it nowhere, and `agent:
+code-reviewer` in the skill frontmatter routes the work to the agent. The material was written,
+indexed, and unreachable by the thing that needed it.
+
+Its step 11 was also "Web-Specific" in a four-platform repo: no Rails, no React Native, no Phlex.
+It now covers all four, each check grounded in something already pinned — the Pundit policy
+nobody called, `policy_scope` for `index`, `includes` for N+1, `pagy` on lists, the Panko
+allowlist, the one error envelope — and points at the depth rather than restating it.
+
+**`test-generator`** named **zero** of the stack's test tools — not `rspec`, not `vitest`, not
+`factory_bot`, not `msw` — in a repo pinned to all of them, while four `std-testing` references
+sat unreferenced. Now carries the runner table, verified against `std-rails-conventions:97`
+(`rspec-rails` + `factory_bot_rails` + `shoulda-matchers`) and
+`std-testing/references/react-native.md:15` (**Jest**, not Vitest — *"there is no DOM"*), plus the
+rule that decides whether coverage here is real: **mock at the network boundary (MSW), not the
+client** — stubbing `axios` or the query hook tests your mock instead of TanStack Query's cache
+and retry behaviour.
+
+**Gate — and a hole found by measuring rather than trusting.** CI's skills-lint validates the
+references a **skill body** indexes; it globs `skills/*/SKILL.md` and never looks at `agents/*.md`.
+Verified by injecting `@skills/std-database/references/DOES-NOT-EXIST.md` into an agent: **all 231
+tests stayed green.** The sibling `@rules/` check is a different thing — it proves an agent does
+not point into the *pre-plugin* layout, not that today's target exists. The new test accepts both
+spellings CI accepts, and that mattered: scoping it to the `@skills/` form alone silently missed
+the two **bare** pointers in `security-auditor` (8 pointers checked vs 15). Verified to fail on a
+dangling pointer in each form.
+
+**Remaining:** 9 agents still point at nothing. Recorded in OPEN — wiring them needs per-agent
+verification that the reference is actually the right one, which is the slow part, not the typing.
+
+### BP pass — `security-auditor`: auditing a stack it wasn't looking at — *2026-07-15*
+
+The audit protocol was generic OWASP. It told the agent to run **`cargo audit`** — there is no
+Rust in this stack — and to check LDAP injection and XXE, while the two libraries this stack
+actually authenticates and authorizes with, **`pundit`** and **`devise-jwt`**, appeared nowhere.
+Ch. 5: attention spent on LDAP is attention not spent on the Pundit action that never authorized.
+
+**Everything added was verified against something the repo already commits to**, not invented:
+
+| Addition | Where the repo already pins it |
+|---|---|
+| `bundle exec brakeman --no-pager --exit-on-warn` | `std-infrastructure/references/ci-pipeline.md:122` |
+| `bundle exec bundler-audit check --update` | `ci-pipeline.md:123` |
+| `verify_authorized` / `policy_scope` for `index` | `std-rails-conventions/references/authorization.md` |
+| `devise-jwt` does not revoke by default | same reference, `:178` |
+| `params.permit!`, SQL interpolation, Panko field leaks | `std-security`, CLAUDE.md stack |
+
+The agent now runs **what CI runs**, so a finding and the merge gate agree rather than diverging
+(Layer 3 ↔ Layer 7). Deep material was **pointed at, not copied** — `authorization.md` already
+carries the bad/good pairs (Ch. 7).
+
+**A claim was corrected mid-write.** The standard Sidekiq recipe is
+`authenticate :user do ... end`, and I had written it — but Devise's route helper needs Warden's
+**session middleware**, which an **API-only** Rails app (CLAUDE.md's shape) does not load by
+default. The blog-post recipe can be present and authenticate nobody. `Sidekiq::Web.use
+Rack::Auth::Basic` in an initializer is the fit here, and the guidance now says to verify the
+recipe rejects an anonymous request rather than assume it.
+
+### Layer 3 — new hook: `rails-routes-checker.py` (unauthenticated `Sidekiq::Web`) — *2026-07-15*
+
+**`Sidekiq::Web` was covered nowhere in the repo** — not in `std-security`, not in the
+security-auditor, despite CLAUDE.md committing to Sidekiq. `mount Sidekiq::Web => '/sidekiq'`
+with nothing wrapping it publishes every job's **arguments** (user ids, emails, tokens ride along
+routinely) and lets any visitor retry or kill jobs. Two lines, no error, looks finished.
+
+Ch. 7's placement test made it a **hook**, not a bullet in an agent: it must hold whether or not
+anybody runs an audit.
+
+**The false-positive path is the whole design.** The idiomatic protection for an API-only app is
+*not* in `routes.rb` — it is `Sidekiq::Web.use Rack::Auth::Basic` in
+`config/initializers/sidekiq.rb`. A routes.rb-only check would have flagged correctly-secured
+apps, i.e. this repo's own recurring failure. So the checker reads the sibling initializers from
+disk before warning, and returns "guarded" on an unreadable tree — silence beats a false
+accusation. Four fixtures pin it: bare mount warns; `authenticate` block silent; initializer-
+protected silent; no-mount silent.
+
+**A gap I created and closed in the same pass:** the hook named `std-security`, which auto-loads
+on `**/*.rb` (so the pointer resolves) but **said nothing about Sidekiq** — a remedy naming a
+document that lacks the remedy. `std-security` now carries the rule and the API-only caveat.
+Worth noting: `test_file_scoped_hooks_name_a_loadable_skill` would *not* have caught this — it
+proves a named skill can load, not that it covers the topic. Recorded below as a known limit.
+
+### Layer 2 — the consultant asked to research a market it cannot see — *2026-07-15*
+
+`requirements-consultant` holds `Read, Grep, Glob` — no WebSearch, no WebFetch — and its Phase 0
+said *"Name 3+ competitors and their approach"*, *"What is the industry-standard UX pattern"*,
+and *"Evaluate cost, reliability, and vendor lock-in"* for third-party services. It can read this
+repository and nothing else, so every one of those answers would come from training data,
+presented as research.
+
+**This is the most expensive thing this agent could fabricate.** Market claims are confident in
+tone (training data is full of competitor names), stale by construction (pricing and features
+move faster than any cutoff), unverifiable without redoing the work — which is the whole cost
+Phase 0 exists to save — and they land directly in **build/buy and scope decisions**.
+
+**The skill's phase count gave it away.** `SKILL.md` claimed a *"six-phase protocol"* and
+documented Phases 1-6; the agent defines Phase 0 through 6 — **seven**. The undocumented phase
+was exactly the broken one: Phase 0 was bolted on later and the skill never updated. A phase the
+skill does not document is a phase nobody reviews.
+
+**The file already knew the answer.** Phase 0's own feasibility bullet said *"What are the
+technical unknowns? List spike stories for each"* — spike stories were already the established
+idiom two lines below the market section. Drift, not design, same signature as the design agents.
+
+Phase 0 now emits a **research brief, not research results**: spike stories with an owner and the
+decision each unblocks. The split is by what the agent can honestly do — stack fit and technical
+unknowns it *can* answer from the repo (citing files); competitor names, pricing and SLAs it
+cannot; timeline/team-size/budget are **inputs it does not have and must ask for**, not infer from
+a repository. Compliance stays as triage → flag → named sign-off, never a ruling. Repo precedent
+supports the read-only shape: only `phlex-developer` holds a web tool (WebFetch, for Phlex docs),
+and no agent has WebSearch.
+
+**A gate was prototyped and deliberately rejected.** A detector for "web-less agent told to
+research the market" flagged **my own fix**: the prohibition reads *"Do \*\*not\*\* name
+competitors"*, and a negation lookbehind cannot see past markdown emphasis (`** ` sits between
+`not` and `name`). Contorting the prose to satisfy a brittle regex is tail-wagging-dog, and a gate
+that flags the correct fix is the exact failure this suite keeps catching elsewhere. The agent's
+epistemic boundary is stated in its body instead — *"You have `Read`, `Grep` and `Glob` — the
+repository, and nothing else"* — which is context that applies to every Phase 0 task, i.e. exactly
+where Ch. 7's placement test puts it. **What did ship is the phase-count check**: the number is
+data, prose cannot be imported, so it is counted rather than restated.
+
+### Layer 2 — the agent that could change code but not test it — *2026-07-15*
+
+`refactor-specialist` shipped `Read, Grep, Glob, Write, Edit` — **no Bash** — while its own
+protocol said *"Run the test suite to confirm it passes"*, *"Execute the relevant test suite
+after every change"*, *"NEVER refactor without tests… the single most important rule"*, and
+required it to report **"Test results (pass/fail count)"**. It could not run any of them.
+
+That is the worst combination on offer: **full power to mutate, zero power to verify, and a
+protocol demanding a number it cannot obtain.** The only way to comply was to invent one — and
+the entire safety argument for the agent is that the tests were green before and after. Ch. 8's
+removed-capability trap: taking the tool away does not remove the instruction that needs it, it
+just makes it unsatisfiable, and the model still has to answer.
+
+**Measured across all 13 agents, it was the only one that could write but not verify.**
+`devops-engineer`, `phlex-developer` and `test-generator` all pair Write/Edit with Bash; the six
+read-only agents correctly have neither. An outlier, not a design decision — so granting Bash
+restores the repo's own pattern rather than inventing one, and Ch. 11's lowest-effective-layer is
+satisfied because Bash is already governed by four PreToolUse gates
+(`dangerous-command-blocker`, `pre-commit-check`, `deployment-gate`, `terraform-command-gate`).
+
+Bash alone was not the whole fix — the protocol now forbids reporting a result it did not
+observe (*"I could not run the tests" is a usable report; an invented green is worse than no
+refactoring*), and treats a red baseline as a stop condition, since you cannot tell your
+regression from theirs.
+
+### Layer 2 — two design agents globbed directories the plugin swore off — *2026-07-15*
+
+`design-system-architect` and `design-critique` globbed `web/src/components/**`,
+`next/src/components/**`, `mobile/src/components/**`, `backend/app/components/**`. The plugin's
+central monorepo claim is that it is **wrapper-directory agnostic**. In any repo not using those
+four names — `apps/web-client`, `frontend`, a flat layout — the globs match nothing, and **an
+auditing agent that finds nothing reports clean**. A fabricated clean bill is worse than an
+error: nobody investigates it.
+
+Both files were **internally inconsistent**, which is what proves drift rather than design —
+`design-system-architect` already globbed `**/globals.css` and `**/styles/**` correctly two lines
+above the hardcoded ones. Both now locate packages by **marker file** (`next.config.*`,
+`vite.config.*`, `metro.config.js`, `Gemfile`) and search from the marker's directory, mirroring
+`_hooklib.detect_framework`. The marker is not optional detail: it is the only thing separating a
+React Native component from a browser React one — both are `.tsx` under `**/src/components/`, and
+no directory name distinguishes them. Both agents now must report "no components found" rather
+than clean.
+
+**The gate is deliberately narrow.** A blanket ban on `backend/app/` would flag **301
+occurrences across 46 files**, nearly all legitimate — an example needs a concrete path, and
+`e.g. backend/app/models/user.rb` reads better than a glob. Only a hardcoded wrapper inside an
+instruction the agent *executes* (Glob/Read/Grep) is the defect. Gating the prose would have been
+this repo's own recurring failure: a gate that flags correct code is a gate people learn to
+ignore.
+
+### Layer 1+3 — one error envelope, three shapes, and a gate enforcing a fourth — *2026-07-15*
+
+Four files described the same API error body, disagreeing on **every axis a client parses**:
+
+| Source | `error` | `code` | status | `details` | id key |
+|---|---|---|---|---|---|
+| `std-error-handling/SKILL.md` | string | **`422` (int)** | in `code` | **object** | `request_id` |
+| `std-api-design/errors-*.md` *(owner)* | string | `"VALIDATION_ERROR"` | `status` | array | `requestId` |
+| `api-designer/SKILL.md` + `api-conventions.md` | **object** | string | *absent* | array | `requestId` |
+
+A client written against one breaks on the others. `std-error-handling` auto-loads on **every**
+`.rb`/`.ts`/`.tsx` file, so its copy — the most divergent — was the one most likely to be read.
+
+The contradiction was **self-aware**: `std-error-handling/SKILL.md` said *"owned elsewhere — do
+not duplicate: the API error envelope →"* about 30 lines after duplicating it. That pointer also
+settled ownership, so this needed no judgement call: `std-api-design`'s two references (Rails and
+TypeScript) already agreed with each other, and `SKILL.md:54` states the casing rule outright
+(*"Use camelCase for JSON response keys"*). Three-to-one on ownership and internal consistency.
+
+**The gate enforced a fourth shape — and flagged correct code.** `api-design-checker.py` grepped
+the rendered block for the **substring** `request_id` and warned *"missing code/request_id"*:
+
+- **It named a remedy that produces a violation.** It told you to add `request_id` to an API whose
+  stated convention is camelCase. Ch. 25 — the denial named the bug.
+- **It passed canonical code only by luck.** `errors-rails.md` writes `requestId: request.request_id`;
+  the substring appears on the **value** side, via the Rails accessor. Write `requestId: rid` —
+  the identical envelope, correct casing — and the gate fired. *Measured, not theorised.*
+- **`code` matched anywhere**, so `status_code:` satisfied it.
+
+Now it matches **key positions**, and separates absent from present-but-snake_case (different bug,
+different remedy). One claim was **checked and withdrawn**: I expected the hook to reject the
+canonical helper outright; it does not — the helper's `render json: body` never matches the
+literal-hash regex at all. That blind spot is now stated in the docstring rather than hidden: the
+inline literal is what gets written when someone is *not* using the helper, which is exactly the
+case worth catching, and resolving the variable means parsing Ruby.
+
+**Gate:** the envelope is data, so the test re-parses it from the owner rather than restating it,
+and asserts `std-error-handling` keeps no copy at all. Verified to fail on both original defects.
+
+### Layer 1 — the tokens that compiled to nothing, and the alert nobody could read — *2026-07-15*
+
+**A Tailwind utility naming an unregistered token compiles to NOTHING** — no error, no warning,
+no CSS. `bg-destructive` on a Delete button renders transparent with inherited text. It reads
+like a token, reviews like a token, and silently is not one. That is the whole failure mode: it
+survives review precisely because it looks right.
+
+Four registries (Tailwind v4 `@theme`, Tailwind v3 `colors`, RN light, RN dark) unanimously
+define `error` and `muted`. **None define `destructive` or `neutral`.** Yet the docs taught:
+- `bg-destructive` in 4 files, and
+- `bg-neutral text-neutral-foreground` across all four platform examples of the rule literally
+  titled **"Atoms Must Use Design Tokens"**.
+
+`std-design-system` and `std-phlex-conventions` **both auto-load for `**/app/components/**/*.rb`**
+and disagreed — one said `bg-error`, the other `bg-destructive`. An agent could not comply with
+both. In every case `destructive`/`neutral` was correct as the variant **key** and wrong as the
+**token**; the canonical Button in `theming/references/platform-integration.md:162` already had
+it right (`destructive: "bg-error ..."`), which is what made the drift invisible.
+
+**The alert nobody could read.** `success: "bg-success/10 text-success-foreground"` measures
+**1.05:1** — near-white on near-white. A `-foreground` token is contrast-verified against its
+**solid** surface, never a 10% tint. The `warning` row passed at 13.52:1 by pure coincidence (its
+foreground happens to be dark brown), and that symmetry is exactly what made the bug look
+deliberate. The semantic token is no rescue either: `text-warning` on its own tint is **1.99:1**.
+`text-foreground` measures ~17:1 — the tint and border carry the meaning, the text inherits the
+page's already-verified body colour.
+
+**Why nothing caught it:** `design-token-checker.py` has no allowlist, so it parsed
+`bg-destructive` as a well-formed token class and passed. The registry is **data**, and prose
+cannot be imported — so the new test recomputes it from `platform-integration.md` rather than
+restating it.
+
+**The gate's scope is the point.** A first pass over raw prose reported `to-many` (from
+"many-to-many") and `gray` (from `bg-gray-100`) — 41 names, almost all English. A gate that flags
+correct code is a gate people learn to ignore, so the check is confined to class strings inside
+fenced code, and exempts tokens a file registers itself (`defining-tokens.md` defines `--brand`
+then demos `bg-brand` — that is the file working as intended). Verified to fail on the real bug
+before being trusted.
+
+### Layer 4 — a hook naming a skill that could never load — *2026-07-15*
+
+`error-handling-checker.py` names the `std-error-handling` skill **five times** as the remedy for
+what it flags. That skill shipped with **no `paths:`** — it auto-loaded on nothing, ever. Ch. 25
+says a denial must name a remedy; a remedy with no delivery mechanism is not one. Its `paths:` now
+mirror the checker's own `SOURCE_EXTENSIONS`, which turn out to be exactly `std-code-standards`'
+six patterns — derived, not guessed.
+
+**`std-git-workflow` and `std-agent-teams` stay pathless, deliberately.** `pre-commit-check.py`
+fires on `git commit`, where there is no file to key on. Ch. 7's placement test settles it: a rule
+that must hold whether or not it is read is a hook, not context — and the hook already names the
+skill when it denies. Inventing a `paths:` to satisfy a checker would be fabricating a trigger.
+So the new test exempts Bash-scoped hooks by design rather than by omission.
+
+**Autoload coverage, measured** (20 std-* skills vs. real stack paths): source code is well
+covered — a Phlex component loads 7 skills, a Next page 7. **Configuration files are the blind
+spot**: `.rubocop.yml`, `Fastfile`, `Matchfile`, `package.json`, `turbo.json`,
+`pnpm-workspace.yaml`, `tsconfig.json` matched nothing. `tsconfig.json` is now claimed by
+`std-reactjs`, which already stated a rule *about that file* (`"strict": true`, `@/`→`src/`) and
+already loaded on `vite.config.*` — the other half of the same alias rule. `.mcp.json` needed
+nothing: `mcp-install-gate.py` already covers it at the hook layer and names `mcp-advisor`.
+`.rubocop.yml` was rejected for `std-infrastructure` — every rubocop mention there is "run it in
+CI", which says nothing about writing that file.
+
+**`paths:` cannot read a marker file.** CLAUDE.md describes framework detection as marker-based
+(`next.config.*`, `metro.config.js`) and that is true of *hooks* (`_hooklib.is_react_native`) —
+but skill autoload is a pure glob, and `app/` is owned by Next's App Router, Expo Router, and
+Rails simultaneously. Measured off-stack false-loads, all real, none reachable from the stack
+CLAUDE.md commits to (Rails API-only, `@react-navigation`, App Router):
+`app/javascript/**/*.tsx` → std-nextjs; `mobile/app/(tabs)/*.tsx` → std-nextjs;
+`src/pages/**/*.tsx` (Next Pages Router) → std-reactjs, never std-nextjs. Loading the *wrong*
+framework skill is worse than loading none — it is confident, on-topic, and wrong. A new test
+pins the six canonical stack paths to exactly one framework skill each, so a later path edit
+cannot quietly undo it. Adopting any of those shapes needs a marker-aware hook, not a cleverer
+glob.
+
+### Layer 1 — 19 dangling pointers, and a "Verified" table that was fabricated — *2026-07-15*
+Batch 3 from the adversarial audit. Both findings are shapes this loop already fixed once — and
+both survived because the earlier sweep stopped one directory short.
+
+**19 pointers into a layout that has not existed since the plugin conversion.** Neither
+`.claude/rules/` nor `.claude/agents/` exists. The repo fixed this class **in hooks only** three
+iterations ago and scoped the regression test to *hook messages* — so `agents/` and `skills/`
+were never swept. The worst instance is `phlex-developer.md:59`: step **9 of 9** is *"Verify
+compliance — check against `@rules/phlex-conventions.md`"*. The compliance step pointed at
+nothing, so it no-opped and the agent reported a check it never performed.
+
+Two needed a **meaning** change, not a path:
+- `devops-engineer.md:118` claimed the terraform rules auto-load for `terraform/**/*.tf`. The
+  skill declares `**/*.tf` — an agent trusting the old text concludes a `.tf` outside a
+  `terraform/` wrapper is unguarded, contradicting this repo's wrapper-agnostic detection.
+- `code-reviewer/SKILL.md:35` said **WCAG 2.1** AA; the house standard is 2.2.
+
+The pointer test now covers `agents/`, `skills/` and every reference — not just hooks.
+
+**The `theming` contrast table was fiction.** Headed *"Verified Foreground / Background Pairs"*,
+and **9 of its 10 ratios were wrong**. Recomputed independently from the file's own `:root`
+block, with the formula validated against two published values first (21.00 white/black, 4.54 for
+#767676 on white):
+
+| token | claimed | actual |
+|---|---|---|
+| `--success` | 4.6 "Passes AA" | **3.00** |
+| `--error` | 5.1 "Passes AA" | **3.61** |
+| `--muted` | 4.6 "Passes AA" | **4.34** |
+| `--info` (dark) | 5.0 | **2.99** |
+| `--warning` | 5.8 | 6.79 |
+| `--primary` | 12.6 | 17.06 |
+
+Errors run in **both** directions, which rules out a systematic miscalculation — the numbers were
+never computed. And these are the **default** tokens, copied verbatim into `theme-presets.md`: a
+team trusting the word "Verified" shipped body text that this plugin's own
+`accessibility-auditor` fails at 4.5:1.
+
+**Fixed both halves**, because fixing only the table would leave defaults *documented* as failing
+and still shipped: `--success` to 28% L (4.70:1), `--error` to 47% (4.82), `--muted-foreground`
+to 44% (4.81), dark `--info` to 35% (4.80) — each with headroom so downstream rounding cannot
+push a "passing" token back under. The table is now **regenerated from the tokens** and headed
+"Measured". `test_contrast_table_matches_the_tokens` recomputes it, validates the formula before
+trusting a cell, and fails on drift **or** on any default dropping below AA — proven by reverting
+`--success` in a scratch copy (2 failures, correctly). **214/214.**
+
+### Layer 3 — a 97-agent audit found 7 broken gates in our own hooks — *2026-07-15*
+Ran an adversarial audit workflow: 6 independent lenses over skills/references/hooks/agents, then
+**3 refuters per finding**, each told to refute and to default to refuted when uncertain. 97
+agents, 885 tool calls. That design was chosen because this loop's dominant failure has been
+**false positives** — 8 caught so far. It worked: every surviving finding was reproduced
+end-to-end before any edit.
+
+**P0 — gates that fired on correct work, every session.** The repo states the principle in
+`migration-validator.py:23` — *"a gate that flags correct code is a gate people learn to ignore"* —
+and violated it three times:
+- `api-design-checker`: `re.IGNORECASE` voided `[A-Z]`, the **only** thing separating `/getUser`
+  from `/posts`. So `/posts`, `/addresses`, `/listings`, `/editions` were each told *"Use plural
+  nouns for resources"* — which they are. On every API-client file in Vite and Next. Fixing it
+  cost **zero** detection and *gained* `/api/deleteItem`, which the old char class missed by
+  accident.
+- `task-completed-checker`: `"test" in text` matches "la-test-". **Exit 2, a hard reject** —
+  "Deploy the latest build" was blocked against a remedy that cannot exist.
+- `teammate-idle-checker`: "add" matches "address", "fix" matches "prefix" — *review* vocabulary.
+  And it told teammates to "implement the changes" while four bundled agents ship
+  `tools: Read, Grep, Glob` and are placed as teammates by the Review/Design templates:
+  **structurally incapable** of complying.
+
+**P1 — gates that silently did not fire (false assurance).**
+- `hooks.json` routed `migration-validator` on `"Write"` while the hook accepts `("Write",
+  "Edit")` — so the canonical Rails path (`rails g migration`, then Edit) **never reached the
+  gate**. Now `Edit|Write`, plus a generic test asserting every hook's matcher covers the tools
+  its `check()` accepts.
+- `terraform-checker`: `\w` cannot match `-`, so a kebab-named resource was invisible to the
+  naming check — *and*, because the tags check derives its resource list from the same pattern,
+  an all-kebab file yielded an empty list and **the tags check skipped entirely**.
+- `monitoring-checker`: **removed** the request_id-per-line check. It asked source lines to
+  contain a string Rails injects via `config.log_tags` — a false positive on every correctly
+  configured app, and on a broken one the remedy is config, not the call site (Ch. 7 placement
+  test). It was also dead: a trailing `\s` meant only paren-less Ruby matched.
+- `accessibility-checker`: matched CSS `outline: none` while reading only `.tsx/.jsx`, where the
+  idiom is Tailwind `outline-none` — matcher and scope **disjoint**, so it could never fire.
+  Widened both, and — the part a naive fix would have broken — it now honours its own docstring
+  by checking for a *replacement*, so `focus-visible:outline-none focus-visible:ring-2` (the
+  repo's own recommendation) stays quiet.
+
+**38 new fixtures**, every one a case that shipped, each asserting the false-positive **and**
+true-positive direction: a fix that silences real detection is not a fix. Nothing tested the
+false-positive direction before, which is exactly why all seven survived. **210/210.**
+
+### BP pass — `/i18n` split; and the audit was measuring the wrong thing — *2026-07-15*
+Two findings, and the second is about this document.
+
+**The hypothesis was wrong, again, and measuring saved it.** `/i18n` (367 lines) and `std-i18n`
+(113) share **9 of 17 headings**, which looked like duplication worth merging. Content overlap is
+**10%** — 7 lines, all i18next boilerplate imports that are identical by nature. The skills
+genuinely differ: `std-i18n` is the path-scoped rule set that auto-loads when you touch a locale
+file; `/i18n` is the invoked workflow. Merging them would have destroyed a real distinction, the
+same way the `full-guide` deletion would have.
+
+**The audit's sizing backlog only ever measured `references/`. Bodies were never checked** — and
+a body is the more expensive half: a reference loads when a task needs it, a **body loads in full
+every time the skill activates** (Ch. 5, the attention economy). Sweeping them found **5 bodies
+over 300 lines**, two with **zero references to peel into**: `/i18n` 367 and `/deploy` 357 load
+entirely, always.
+
+Split `/i18n` along the seam that actually exists (Ch. 7: *sections never needed together* — a
+Rails task never needs the React Native half): **367 → 91** body, four references
+(`rails-i18n` 142, `react-native-i18n` 142, `web-i18n` 73, `locale-workflow` 32). Verified
+line-by-line that **no content was lost** — the single missing line is the intro sentence I
+deliberately rewrote. The body now leads with the decisions that outlive the strings
+(server-vs-client localization, key namespace, RTL, where the locale lives) instead of opening
+with Rails setup, and states the API-returns-codes rule the old body never made explicit.
+
+**Not gated, deliberately.** The *deliberate non-decisions* below say sizing is a guideline, not
+a gate — a body-size check would fire on judgement calls and earn a `|| true`, which is exactly
+the failure fixed one iteration ago. Recorded in the backlog instead.
+
+Version → **2.0.1** (PATCH): consumer-visible (floating installs receive it) but no new
+capability and no behaviour change — the same knowledge, reorganised. The delivery gate demands
+the bump; `docs/releasing.md`'s table sets the level.
+
 ### Layer 7 — the release gate turned `main` red on its own first day — *2026-07-15*
 Tagging v2.0.0 activated the delivery gate, and the very next commit tripped it. **`main` was
 failing its own release-hygiene check**, and would have gone red in CI.
@@ -1161,7 +2484,7 @@ Legend: `todo` not yet passed · `done` passed (dated) · `skip` deliberately no
 | `std-clean-architecture` | 3-tier (4 refs) | todo |
 | `std-code-standards` | single-file | done *2026-07-15* — limits reconciled with the hook + gated |
 | `std-database` | 3-tier (1 ref) | done *2026-07-15* — restacked to ActiveRecord + lock timeouts |
-| `std-design-system` | 3-tier (4 refs) | todo |
+| `std-design-system` | 3-tier (4 refs) | done *2026-07-15* — defining-tokens.md said 'ALWAYS darken the foreground' while the repo's own canonical tokens + all 3 presets darken the SURFACE; now splits brand (foreground) vs semantic status (surface), verified --primary was never touched |
 | `std-error-handling` | 3-tier (1 ref) | done *2026-07-15* — Sidekiq's real retry semantics |
 | `std-git-workflow` | single-file | done *2026-07-15* — commit types reconciled with the hook + gated |
 | `std-i18n` | single-file | todo |
@@ -1173,78 +2496,167 @@ Legend: `todo` not yet passed · `done` passed (dated) · `skip` deliberately no
 | `std-react-native` | 3-tier (2 refs) | done *2026-07-15* — offline mutations + Centrifugo |
 | `std-reactjs` | 3-tier (7 refs) | todo |
 | `std-security` | single-file | done *2026-07-15* — access-control rules + Rails pointer |
-| `std-terraform-conventions` | single-file | todo |
+| `std-terraform-conventions` | single-file | done *2026-07-15* — its tag list is now gated against terraform-checker.py's REQUIRED_TAGS; 0 refs is correct at 99 lines (no depth to peel) |
 | `std-testing` | 3-tier (4 refs) | todo |
 
 #### Workflow skills — 44
 
 | Skill | Tier state | BP pass |
 |---|---|---|
-| `accessibility-auditor` | 3-tier (2 refs) | todo |
-| `api-designer` | 3-tier (1 refs) | todo |
+| `accessibility-auditor` | 3-tier (2 refs) | done *2026-07-15* — listed contrast as a MANUAL DevTools check, which is why it never caught the 13 failing presets; now carries an iterating token-contrast test (not manual) + the tint/preset traps; wired to std-accessibility, std-design-system, theming |
+| `api-designer` | 3-tier (1 refs) | done *2026-07-15* — default page size was 20 vs the owner's 25 (3-to-1), and taught offset-first when the owner defaults to cursor; wired to all 7 std-api-design refs; number now gated |
 | `architecture-advisor` | single-file | todo |
-| `atomic-design` | rule-per-file (10) | todo |
-| `brand-identity` | 3-tier (2 refs) | todo |
+| `atomic-design` | rule-per-file (10) | done *2026-07-15* — tokens verified clean by the registry gate; added the owner pointer (it owns hierarchy, std-design-system owns tokens) — 'uses a token' != 'uses a registered token' |
+| `brand-identity` | 3-tier (2 refs) | done *2026-07-15* — **it generated the failing presets**: color-theory.md prescribed lightness ranges with no foreground named, and the whole Success/Info ranges fail against near-white (3.40/3.12 best). Now foreground-aware caps (<=29/48/35, floored, set by the most-saturated end) + gated; must emit the measured ratio; dark mode is measured, not inverted |
 | `clean-architecture` | 3-tier (1 refs) | todo |
 | `code-reviewer` | 3-tier (2 refs) | todo |
-| `compliance-auditor` | single-file | todo |
-| `composition-patterns` | rule-per-file (8) | todo |
-| `db-migration` | 3-tier (2 refs) | todo |
+| `compliance-auditor` | single-file | done *2026-07-15* — signed Claude as **Auditor** on a SOC2/HIPAA/PCI 'Compliance Audit Report' with a Compliant count and zero epistemic limits (the only skill in the repo signing as an authority). Now a readiness self-assessment: evidence-not-compliance vocabulary, 'no evidence in scope' != a gap, Type II operating-effectiveness caveat, named human reviewer required |
+| `composition-patterns` | rule-per-file (8) | done *2026-07-15* — wired to std-reactjs (state placement) + std-nextjs (Server/Client boundary); its react19 section is 19-only and the repo pins 19 for Next alone -> P3 |
+| `db-migration` | 3-tier (2 refs) | done *2026-07-15* — **skipped, already exemplary**: points at std-database/references/locking-and-timeouts.md in 4 places and says outright it does not repeat it. Nothing to add that would not be filler |
 | `deploy` | single-file | todo |
 | `design-critique` | single-file | todo |
 | `design-to-code` | 3-tier (1 refs) | todo |
-| `doc-generator` | 3-tier (1 refs) | todo |
-| `figma-handoff` | 3-tier (2 refs) | todo |
-| `i18n` | single-file | todo |
+| `doc-generator` | 3-tier (4 refs) | done *2026-07-15* — 334 -> 50; 7 templates split by lifecycle; ADR section set gated against architecture-advisor + CLAUDE.md |
+| `figma-handoff` | 3-tier (2 refs) | done *2026-07-15* — maps Figma style names onto the registry (transliterating `Brand/Green/500` mints a token that compiles to no CSS); unmatched style = a finding, not a naming exercise; a designer's fill is unverified (#10B981 on white = 2.54:1) |
+| `i18n` | 3-tier (4 refs) | done *2026-07-15* — 367→91 body, split by platform |
 | `incident-response` | 3-tier (1 refs) | todo |
-| `log-search` | 3-tier (2 refs) | done *2026-07-15* — shipped as a BP skill |
+| `log-search` || done *2026-07-15* — **skipped, already right**: agrees with std-monitoring on `request_id`, states its precondition honestly ("this file assumes those exist"), points at the owner. Nothing to add that would not be padding |
 | `mcp-advisor` | 3-tier (2 refs) | done *2026-07-15* — shipped as a BP skill |
-| `toolchain` | 3-tier (2 refs) | done *2026-07-15* — shipped as a BP skill |
-| `marketing-assets` | 3-tier (1 refs) | todo |
+| `toolchain` || done *2026-07-15* — its own example mixed `pnpm exec` and `npx` while its headline rule is "CI and your laptop must run the same commands" and CI runs npm. Repo pins no package manager -> the lockfile now decides the runner (deterministic, no pin needed); npm-vs-pnpm split recorded as P3 |
+| `marketing-assets` | 3-tier (1 refs) | done *2026-07-15* — platform-specs.md called itself 'Complete', undated and unsourced, for the most volatile facts in the plugin. No numbers changed (unverifiable from here — asserting a fix would be the defect); now framed as a cached copy that expires, verify-before-ship, don't extend from memory, recommended != maximum |
 | `monorepo-architect` | 3-tier (6 refs) | done *2026-07-15* — shipped as a BP skill |
-| `mobile-beta-release` | 3-tier (3 refs) | done *2026-07-15* — shipped as a BP skill |
-| `mobile-signing` | 3-tier (3 refs) | done *2026-07-15* — shipped as a BP skill |
-| `nextjs-dev` | 3-tier (3 refs) | todo |
-| `onboarding` | 3-tier (1 refs) | todo |
-| `performance-profiler` | 3-tier (1 refs) | todo |
-| `phlex-dev` | 3-tier (2 refs) | todo |
-| `rails-architect` | 3-tier (1 refs) | todo |
-| `react-best-practices` | rule-per-file (57) | todo |
-| `react-native-best-practices` | rule-per-file (36) | todo |
-| `react-native-dev` | 3-tier (1 refs) | todo |
-| `reactjs-dev` | 3-tier (3 refs) | todo |
+| `mobile-beta-release` | 3-tier (3 refs) | done *2026-07-15* — shipped as a BP skill; **re-audited**: 100/10,000/90-day undated, and testflight.md's verbatim Apple quotes are sourced-but-not-dated (reads more authoritative, equally uncheckable). No numbers changed; added the expires-vs-stable split + check the consoles |
+| `mobile-signing` | 3-tier (3 refs) | done *2026-07-15* — shipped as a BP skill; **re-audited**: already right on freshness by construction (states certs expire, never a period). Added the one gap — it breaks std-infrastructure's 'federation, not keys' rule *necessarily* (Apple's .p8 has no OIDC path); now a stated exception |
+| `nextjs-dev` | 3-tier (3 refs) | done *2026-07-15* — named no Next version while std-nextjs pins 15+ and says 14 answers differently (code was 15-correct; anchor was missing); wired to all 4 owner refs |
+| `onboarding` | 3-tier (1 refs) | done *2026-07-15* — kept at 304 (read once, end-to-end); fixed a self-contradiction: body said 24h review SLA, its own handbook said 4 business hours, and the number has no owner -> {review-sla} |
+| `performance-profiler` | 3-tier (1 refs) | done *2026-07-15* — its body said 300KB and its own reference 150KB gzipped, neither stating the unit; both now say which measure, and the number is gated against the config |
+| `phlex-dev` | 3-tier (2 refs) | done *2026-07-15* — References named the skill, not its 6 refs; now indexed + the two token facts (unregistered token = no CSS; -foreground on a tint = invisible) |
+| `rails-architect` | 3-tier (1 refs) | done *2026-07-15* — named no owner at all; wired to 6; Sidekiq section omitted the 25-retries/~20-days default and the retry_on-stacks trap; PostGIS + Panko verified clean; ApplicationJob left alone (maintainer's call, P3) |
+| `react-best-practices` | rule-per-file (57) | done *2026-07-15* — rules verified 19-aware (no forwardRef/useFormState; Compiler caveat present); added the honest version table (19 for Next, unpinned for Vite/RN) + wired to std-reactjs/std-nextjs |
+| `react-native-best-practices` | rule-per-file (36) | done *2026-07-15* — wired to std-react-native (realtime, offline) + Jest-not-Vitest; repo pins no RN/React version for mobile while its rules assume Compiler/Expo-era RN -> P3 |
+| `react-native-dev` | 3-tier (1 refs) | done *2026-07-15* — its Centrifugo hook called `centrifuge.subscribe(channel)`, not this client's API (could not run) + 4 leaks vs the owner; replaced with the owner's rules, gated in code fences; wired to both std-react-native refs |
+| `reactjs-dev` | 3-tier (3 refs) | done *2026-07-15* — wired to all 7 std-reactjs refs (its 3 duplicate them topic-for-topic); bundle budget unit stated + gated against chunkSizeWarningLimit |
 | `refactor` | single-file | todo |
 | `requirements-consultant` | single-file | todo |
 | `sdh-engineering-standards` | single-file | todo |
 | `security-auditor` | 3-tier (1 refs) | todo |
-| `sprint-planner` | single-file | todo |
+| `sprint-planner` | single-file | done *2026-07-15* — its Story Point Reference mapped points to DURATION eleven lines above 'Compare, don't calculate', which also made its own velocity tracking circular. Duration column removed (examples kept as anchors); estimation is the team's. technical-rfc:114 already had it right ('developer-days, not story points') |
 | `technical-rfc` | 3-tier (1 refs) | todo |
-| `terraform` | rule-per-file (47) | todo |
-| `test-generator` | 3-tier (1 refs) | todo |
-| `theming` | 3-tier (3 refs) | todo |
+| `terraform` | rule-per-file (47) | done *2026-07-15* — rules-shaped, so a different lens: hook-enforced REQUIRED_TAGS stated by 3 sources, ungated -> now gated (sibling of the limits test); repository-layout vs terraform-mechanics overlap checked and clean; wired to std-terraform-conventions + both hooks |
+| `test-generator` | 3-tier (1 refs) | done *2026-07-15* — 316 -> 215; web-frontend half was a drifted copy of std-testing/react-components.md + nextjs-server.md; now points at all 4 |
+| `theming` | 3-tier (3 refs) | done *2026-07-15* — theme-presets.md shipped 13 pairs below AA (worst 2.54:1); the earlier design-tokens.md fix never propagated because the gate read one file. All 36 pairs now clear AA; Corporate realigned to the canonical palette + drift gated |
 | `ui-ux-patterns` | 3-tier (3 refs) | todo |
-| `web-design-guidelines` | single-file | todo |
+| `web-design-guidelines` | single-file | done *2026-07-15* — ships NONE of the advertised 100+ rules: fetches them (and its output format) from an unpinned third-party main branch. Fail-closed clause added (was: reviews from memory when the fetch fails), house-wins, source attribution; docs corrected in 4 places; pin/vendor/float = maintainer's call (P2, detector ready) |
 
 #### Agents — 13
 
 | Agent | BP pass |
 |---|---|
-| `architecture-advisor` | todo |
-| `clean-architecture` | todo |
-| `code-reviewer` | todo |
-| `design-critique` | todo |
-| `design-system-architect` | todo |
-| `devops-engineer` | todo |
-| `incident-responder` | todo |
+| `architecture-advisor` | done *2026-07-15* — Layer 2: asked for hiring market/TCO/vendor lock-in with no web access, and an ADR is permanent; boundary added (ask for org facts, cite Library Preferences, spike the rest); wired 6 refs |
+| `clean-architecture` | done *2026-07-15* — wired the 4 platform mappings + layer-examples to its protocol steps; fail-closed clause ('no files matched' != 'no violations') |
+| `code-reviewer` | done *2026-07-15* — step 11 covers all 4 platforms (was web-only); wired to pr-review-guide.md + 3 refs it never knew existed |
+| `design-critique` | done *2026-07-15* — Layer 2: hardcoded wrapper globs -> marker-based; fail-closed on empty |
+| `design-system-architect` | done *2026-07-15* — Layer 2: hardcoded wrapper globs -> marker-based; fail-closed on empty |
+| `devops-engineer` | done *2026-07-15* — wired all 10 std-infrastructure refs to its numbered steps (was zero; governance layer was already sound) |
+| `incident-responder` | done *2026-07-15* — Layer 2: NO authority boundary while holding Bash + told to 'clear stuck queues (loses jobs)'; boundary added + remote redis FLUSH now blocked; wired 9 refs |
 | `monorepo-architect` | done *2026-07-15* — shipped with the skill |
-| `phlex-developer` | todo |
-| `refactor-specialist` | todo |
-| `requirements-consultant` | todo |
-| `security-auditor` | todo |
-| `test-generator` | todo |
+| `phlex-developer` | done *2026-07-15* — Reference Files named skills not references; wired 9 refs to protocol steps; `Search backend/app/` -> marker-agnostic glob; token facts added |
+| `refactor-specialist` | done *2026-07-15* — Layer 2: granted Bash (wrote code it could not test); no unobserved test results; wired test-strategy.md + runner table (RN is Jest, not Vitest) |
+| `requirements-consultant` | done *2026-07-15* — Layer 2: Phase 0 emits spike stories, not invented market research; phase count fixed; refs deliberately minimal (one routing note — its depth is the human's answers, not a document) |
+| `security-auditor` | done *2026-07-15* — stack-grounded: brakeman/bundler-audit (what CI runs), Pundit `verify_authorized`, devise-jwt revocation, Sidekiq::Web, Panko leaks; dropped `cargo audit` (no Rust) |
+| `test-generator` | done *2026-07-15* — named none of rspec/vitest/factory_bot/msw; added the runner table (Jest for RN, not Vitest) + MSW boundary rule; wired to 5 refs |
 
 ---
 ## OPEN — prioritized backlog
+
+*(The four below are **verified**, not suspected — each was measured against the files named.
+They are recorded here so the specifics survive a context compaction.)*
+
+### P3 · Layer 3 — a hook's skill pointer is checked for reachability, not for content
+`test_file_scoped_hooks_name_a_loadable_skill` proves that a skill a hook names has `paths:` and
+can load. It does **not** prove the skill says anything about the topic. Found the hard way:
+`rails-routes-checker.py` shipped naming `std-security`, which auto-loads on `**/*.rb` — pointer
+resolves, test green — while being entirely silent on Sidekiq. Fixed by hand in the same pass.
+A content check is hard to do without false positives (topic ≠ keyword), so this is recorded
+rather than gated; the cheap mitigation is that hook messages already carry the remedy inline,
+so the pointer is depth, not the whole answer.
+
+### P2 · Layer 1+7 — `/web-design-guidelines` fetches unpinned third-party instructions
+**The plugin ships zero of the "100+ rules" it advertised.** `web-design-guidelines/SKILL.md` is 81
+lines with no `rules/` and no `references/`; it fetches its rule set — *and its output format* — at
+run time from
+`https://raw.githubusercontent.com/vercel-labs/web-interface-guidelines/main/command.md`.
+
+This contradicts two of the repo's own rules at once:
+
+- **Pin-don't-float.** `std-infrastructure`: *"Pin every version. `latest` is never allowed in a
+  committed file."* The URL targets `main`, and the skill said *"Fetch the **latest** guidelines"* /
+  *"Fetch **fresh** guidelines before each review."* Two reviews of the same file can disagree with
+  no diff between them.
+- **An instruction source is not a library.** `mcp-install-gate.py` exists so *a human picks* an
+  instruction source. This fetches rules **and output-format instructions** from a third-party repo
+  on every run, ungated — a wider hole than the one the plugin built a gate for, one directory over.
+
+**Mitigated already** (these needed no decision): the skill now **fails closed** — if the fetch
+fails it must say so and use the pinned local fallback rather than reviewing from training data,
+which was the live hazard (a `file:line` review attributed to a source it never opened is
+unfalsifiable by the reader); house conventions **win** where upstream disagrees; every finding must
+**name its source**; and CLAUDE.md, the README and the skill's own description no longer claim 100+
+shipped rules.
+
+**The decision is the maintainer's**, because the skill's *purpose* is the thing the rule forbids:
+1. **Pin to a SHA** — reproducible and reviewable, but stale until someone bumps it, which defeats
+   "latest guidelines".
+2. **Vendor the rules** into `rules/` — fully pinned, house-reviewable, at the cost of a fork to
+   maintain (and a licence check this loop cannot make).
+3. **Keep floating, consciously** — accept unreviewed third-party instructions, and add a gate/notice
+   so it is a decision rather than an accident.
+
+**A gate was written and withheld.** A detector for committed floating raw URLs
+(`raw.githubusercontent.com/.../{main,master,HEAD,latest}/`) matches **exactly one** file and
+correctly ignores the repo's 8 ordinary `github.com` documentation links — it is precise and ready.
+It is not shipped because it would fail on a defect only option 1/2/3 can resolve, and a red suite
+on an unresolvable finding is how gates become noise. Ship it with the decision.
+
+### P3 · Layer 1 — npm or pnpm? The repo runs one and documents the other
+CLAUDE.md pins **no JS package manager**. The repo then splits:
+`std-infrastructure/references/ci-pipeline.md` — **what CI actually runs** — uses **npm** (`npm ci`,
+`npx tsc --noEmit`, `npx eslint .`, `npm audit`), while `toolchain`, `monorepo-architect` and
+several references use **pnpm**. `toolchain`'s own example block mixed both on adjacent lines, under
+the heading *"CI and your laptop must run the same commands."*
+
+**Mitigated without deciding it** (the decision is the maintainer's, like the React version and
+ActiveJob): the runner now follows **the lockfile** — `package-lock.json` → `npx`,
+`pnpm-lock.yaml` → `pnpm exec`, `yarn.lock` → `yarn` — which is deterministic and needs no pin, and
+*"if the lockfile and CI disagree, that is the finding."*
+
+**The decision still wants making**, because the two are not equivalent: pnpm's non-flat
+`node_modules` and workspace protocol are the usual reason a monorepo picks it, and this repo ships
+a `monorepo-architect` skill. Whichever is chosen, `ci-pipeline.md` and `toolchain` must name the
+same one — CI parity is `toolchain`'s entire thesis.
+
+### P3 · Layer 1 — React is pinned for one of three React platforms
+`std-nextjs:21` states **"React 19 minimum"**. `std-reactjs` (Vite SPA) and `std-react-native` pin
+**no React version at all**, and nothing pins a React Native version either — while
+`react-native-best-practices` ships `react-compiler-*` and `expo-image` rules that assume a
+Compiler-era, Expo-era RN.
+
+The cost is visible in the repo's own words. `composition-patterns/rules/react19-no-forwardref.md`
+opens with *"⚠️ **React 19+ only.** Skip this if you're on React 18 or earlier"* — it hedges
+because the repo does not say, and `std-nextjs`'s own principle is that *"guidance that does not
+say which major it means is guidance you cannot check."* Meanwhile `rerender-memo`'s Compiler
+caveat turns on a **build** decision (is the Compiler enabled) rather than a version, which is a
+second axis nobody states.
+
+**Maintainer's call, not the loop's** — same treatment as ActiveJob vs `Sidekiq::Job`. Inventing
+"std-reactjs pins React 19" would be this loop deciding a version policy for a stack it does not
+own, and RN's React lags web, so the Next.js answer does not transfer. The three rules-skills now
+say *read `package.json`* rather than assuming.
+
+**A gate was considered and declined.** "Every `React \d+` must equal the pinned major" flags
+**correct prose**: `react19-no-forwardref` says "React 18" legitimately, explaining what changed.
+Measured — 2 of 21 occurrences are that shape. Same trap as the market-research gate: the
+correction contains the words the gate looks for. Not mechanically decidable; recorded instead.
 
 ### P3 · Layer 1 — the repo has not decided ActiveJob vs `Sidekiq::Job`
 5 files use `< ApplicationJob`, 3 use `include Sidekiq::Job`; CLAUDE.md commits to Sidekiq but
@@ -1254,7 +2666,14 @@ have changed between enqueue and run). `std-error-handling/references/background
 documents the tradeoff and recommends native; the decision belongs in CLAUDE.md and converting
 the existing examples is a mechanical follow-up — **maintainer's call, not the loop's.**
 
-### P3 · Layer 1 — sizing residue (6 files)
+### ~~P3 · Layer 1 — oversized bodies~~ — **CLOSED** *2026-07-15*
+`deploy` 357→232 · `doc-generator` 334→50 · `test-generator` 316→215 · `onboarding` 304 **kept**
+(read once end-to-end; 1% over is not a signal). Two of the three splits were really
+*de-duplications* — `deploy`'s frontend half and `test-generator`'s web half were drifted copies
+of references that already owned them. **Check for a duplicate before splitting**: half the work
+was deleting, not moving.
+
+### P3 · Layer 1 — sizing residue: references (6 files)
 Two have a genuine Ch. 7 **split signal** (sections never needed together), which is the real
 reason to split — not the line count:
 - `code-reviewer/references/pr-review-guide.md` **325** (+8%) — mixes Rails, React Native,
@@ -1265,6 +2684,30 @@ reason to split — not the line count:
 three are within tolerance and **not worth churning**: `variants-and-styling.md` 313 (+4%),
 `middleware-seo-deploy.md` 309, `cross-platform-parity.md` 302. Per the *deliberate
 non-decisions* below, this is a guideline, not a gate — do not shred files to hit a round number.
+
+---
+
+## This loop's own defect rate (Ch. 22 — audit your own system)
+
+Five defects traced to this loop's own output, all found by the same lens it applies to the plugin.
+Recorded because the rate matters more than any one of them, and because a later iteration should
+assume it is still non-zero:
+
+| # | Defect | How it surfaced |
+|---|---|---|
+| 1 | `test_contrast_table_matches_the_tokens` read **one file**; `theme-presets.md` kept 13 failing pairs | Accident — auditing `theming` |
+| 2 | `request-tracing.md` still claimed a hook check **I had removed** | Accident — auditing `log-search` |
+| 3 | Asserted **pnpm** in `refactor-specialist`; repo pins no package manager, CI runs npm | Accident — auditing `toolchain` |
+| 4 | `i18n-checker.py` *"warns on this"* named 3 targets; it covers **2** (no `.rb`) | **Deliberate self-audit** |
+| 5 | Asserted *"roughly 3-4x"* gzip ratio **after saying I would not** | **Deliberate self-audit** |
+
+**All five are scope errors, not fabrications** — "I claimed more coverage than I had", which is the
+same defect the sweep keeps finding in the plugin. Three surfaced by luck; only the deliberate pass
+found the last two, which is the argument for running it again.
+
+**What did not fail:** every API claim traced to a verified owner; every hook-behaviour claim was
+true of the hook as it stands. The errors cluster in *claims about coverage*, not claims about
+facts — so that is where the next self-audit should look first.
 
 ---
 

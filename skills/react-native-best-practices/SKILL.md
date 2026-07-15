@@ -185,3 +185,20 @@ rules/<rule-id>.md
 ```
 
 Loading one ~60-line rule beats skimming a compiled monolith. Do not preload the directory.
+
+### Owned elsewhere
+
+These rules are about **performance** — lists, animation, images, the Compiler. The stack
+conventions are owned by **`std-react-native`**, which auto-loads on React Native work:
+
+- **Real-time (Centrifugo)** — one socket, one cache, no second source of truth. The subscription
+  registry is where this leaks: `@skills/std-react-native/references/realtime-centrifugo.md`
+- **Offline & mutations** — the queue that survives a cold start:
+  `@skills/std-react-native/references/offline-and-mutations.md`
+- **Testing is Jest, not Vitest** — there is no DOM, and Metro's transform pipeline is Jest-based:
+  `@skills/std-testing/references/react-native.md`
+
+**This repo pins no React Native or React version for mobile.** Several rules here assume a
+Compiler-era, Expo-era RN (`react-compiler-*`, `expo-image`). Read the project's `package.json`
+before applying a version-specific rule — RN's React lags web, so the Next.js answer (React 19)
+does not transfer.

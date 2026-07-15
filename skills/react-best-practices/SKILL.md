@@ -164,3 +164,34 @@ rules/<rule-id>.md
 ```
 
 Loading one ~60-line rule beats skimming a compiled monolith. Do not preload the directory.
+
+### Which React am I writing for?
+
+**Check before applying a version-specific rule** — this repo pins React unevenly, and a rule
+written for the wrong major is worse than no rule:
+
+| Platform | React version this repo pins |
+|---|---|
+| **Next.js (App Router)** | **19 minimum** — `std-nextjs` states it |
+| **ReactJS (Vite SPA)** | *not pinned anywhere* — read the project's `package.json` |
+| **React Native** | *not pinned anywhere* — and RN's React lags web, so do not assume the web answer |
+
+Two rules here turn on it. `rerender-memo` notes that **React Compiler makes manual `memo()`/
+`useMemo()` unnecessary** — true only where the Compiler is actually enabled, which is a build
+decision, not a React version. And `/composition-patterns` carries `react19-no-forwardref`
+(`ref` as a plain prop; `use()` over `useContext()`), which its own rule file flags **"React 19+
+only — skip this if you're on React 18 or earlier."** That hedge exists because the repo does not
+say. Confirm the major from `package.json` rather than from this table's Next.js row.
+
+### Owned elsewhere
+
+These rules are about **performance and re-render behaviour**. The stack conventions — which
+library, which layer, what state goes where — are owned and **auto-load** on the files you edit:
+
+- **`std-reactjs`** (Vite SPA) → state placement (Zustand vs TanStack Query vs local), data
+  fetching, routing and the **300KB initial-JS budget** enforced by `chunkSizeWarningLimit`, forms,
+  testing, animation, charts: `@skills/std-reactjs/references/state-placement.md`,
+  `@skills/std-reactjs/references/routing-and-code-split.md`
+- **`std-nextjs`** (App Router) → the Server/Client boundary is the first performance decision on
+  that platform, and it is not a re-render question: `@skills/std-nextjs/references/rendering.md`
+- **`/composition-patterns`** → compound components, context, and the React 19 APIs

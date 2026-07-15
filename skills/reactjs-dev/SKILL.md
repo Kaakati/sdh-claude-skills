@@ -8,7 +8,7 @@ model: sonnet
 
 Build production-ready ReactJS web SPA features using Vite, React Router, TanStack Query, Zustand, Tailwind CSS, Framer Motion, and ApexCharts. All features consume the shared Rails API backend.
 
-@rules/reactjs.md
+the `std-reactjs` skill
 
 ## Development Workflow
 
@@ -156,3 +156,20 @@ const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
 - Page components, auth guards, react-hook-form + zod + Tailwind, the `cn()` utility → `references/component-patterns.md`
 - Zustand with persistence, React Router config, the axios client with interceptors, Vitest + MSW tests → `references/data-patterns.md`
 - Framer Motion page/list transitions, ApexCharts revenue and donut charts → `references/ui-patterns.md`
+
+### Owned by `std-reactjs` (auto-loads on Vite SPA work)
+
+These are decision-shaped and carry the bad/good pairs. The three files above are worked
+*patterns*; these answer *which* pattern and why:
+
+- **State placement — Zustand vs TanStack Query vs local** → `@skills/std-reactjs/references/state-placement.md`
+- **Data fetching (TanStack Query + axios), `staleTime`/`gcTime`, key factories** → `@skills/std-reactjs/references/data-fetching.md`
+- **Routing, code splitting, and the bundle budget** → `@skills/std-reactjs/references/routing-and-code-split.md`
+- **Forms (react-hook-form + zod)** → `@skills/std-reactjs/references/forms.md`
+- **Testing (Vitest + RTL + MSW)** → `@skills/std-reactjs/references/testing.md`
+- **Animation (Framer Motion)** → `@skills/std-reactjs/references/animation.md`
+- **Charts (ApexCharts)** → `@skills/std-reactjs/references/charts.md`
+
+**Initial JS budget: < 300KB minified/uncompressed** — enforced by `chunkSizeWarningLimit: 300`
+in `vite.config.ts`, so it is a number the build already checks. `staleTime` is deliberately
+*per query*, not one default: `data-fetching.md` has the table.

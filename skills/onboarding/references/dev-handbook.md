@@ -50,7 +50,7 @@
 1. **Self-review**: Use `/code-reviewer` skill before opening PR
 2. **PR template**: Fill out description, test plan, screenshots (if UI)
 3. **Reviewer assignment**: Auto-assigned based on CODEOWNERS
-4. **Review SLA**: Reviews within 4 business hours
+4. **Review SLA**: `{review-sla}` — fill in from the team's agreement (nothing in this plugin pins one)
 5. **Merge**: Squash merge after approval, delete source branch
 
 ## Testing Strategy

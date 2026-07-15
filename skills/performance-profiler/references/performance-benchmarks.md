@@ -56,7 +56,22 @@ Standard performance targets for the project. All new features and changes shoul
 
 ## Frontend Bundle Size Budgets
 
-| Asset | Target | Maximum | Notes |
+**These are over-the-wire (gzipped) figures — a different measure from the build budget.** The
+Vite SPA's initial-JS budget is **300KB minified and uncompressed**, owned by
+`@skills/std-reactjs/references/routing-and-code-split.md` and enforced by
+`chunkSizeWarningLimit: 300` in `vite.config.ts`.
+
+Gzipped and uncompressed are **different measures of the same bundle** — converting between them
+needs that bundle's real compression ratio, which varies with its content and is not a constant you
+can carry in your head. So the two numbers are **not** competing budgets and neither is a stricter
+version of the other. A developer handed "150KB" and "300KB" with no units cannot tell whether they
+conflict, and will pick whichever is convenient. Say which one you mean whenever you quote a
+figure — the Vite build output prints both.
+
+Use the table below for **what the user downloads**; use the owner's budget for **what the build
+gate checks**.
+
+| Asset | Target (gzipped, over the wire) | Maximum | Notes |
 |---|---|---|---|
 | Initial JS bundle | < 150KB (gzipped) | 250KB | Critical path JavaScript |
 | Initial CSS | < 50KB (gzipped) | 80KB | Above-the-fold styles |
@@ -88,7 +103,15 @@ Run bundle analysis when:
 
 ## Memory Thresholds
 
-### Backend (Node.js)
+### Node server (Next.js on ECS only — **not** the backend, **not** Vercel)
+
+**Check this section applies before using it.** The backend on this stack is **Rails**, and it has
+its own table below. The only long-running Node process here is **Next.js self-hosted on ECS** with
+`output: 'standalone'` — the documented alternative in
+`@skills/std-infrastructure/references/frontend-deploys.md`, used when everything must live in one
+VPC. On **Vercel** (the primary target) these numbers mean nothing: you do not tune an RSS ceiling
+or a worker count on a serverless function, and reading them as budgets there will send you hunting
+for a knob that does not exist.
 
 | Metric | Target | Warning | Critical |
 |---|---|---|---|

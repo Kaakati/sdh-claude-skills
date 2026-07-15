@@ -65,11 +65,23 @@ closed on a fresh laptop is a toolchain people bypass.
 
 ```bash
 bundle exec rubocop          # the version Gemfile.lock pins
-pnpm exec eslint .           # the version the lockfile pins
-npx tsc --noEmit             # ditto
 ```
 
-**A bare `rubocop`/`eslint` is a different program from `bundle exec rubocop`/`pnpm exec
+**On the JS side, the lockfile tells you the runner — do not guess it.** This repo does not pin a
+package manager (CLAUDE.md names none), and the previous version of this block mixed `pnpm exec`
+and `npx` on adjacent lines, which are two different managers' runners. Read the lockfile:
+
+| Lockfile present | Runner |
+|---|---|
+| `package-lock.json` | `npx eslint .` — and this is what `std-infrastructure/references/ci-pipeline.md` currently runs (`npm ci`, `npx tsc --noEmit`, `npm audit`) |
+| `pnpm-lock.yaml` | `pnpm exec eslint .` |
+| `yarn.lock` | `yarn eslint .` |
+
+Using the wrong one is not cosmetic: `npx` in a pnpm workspace resolves differently, and running
+`npm install` in a repo with a `pnpm-lock.yaml` silently creates a second lockfile that CI will not
+read. **If the lockfile and CI disagree, that is the finding** — say so rather than picking a side.
+
+**A bare `rubocop`/`eslint` is a different program from `bundle exec rubocop`/`<runner> exec
 eslint`** whenever the global version drifts — and it always drifts. This is *pin, don't float*
 (`docs/releasing.md`) applied to the tools rather than the dependencies. The one case where the
 global binary is unavoidable is an editor/hook integration that cannot see your project's

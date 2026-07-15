@@ -45,7 +45,7 @@ The agent also supports proactive resilience testing:
 - Fault injection patterns (network, compute, storage, dependency failures)
 - Resilience checklist validation
 
-See `.claude/agents/incident-responder.md` for the full diagnosis protocol, communication templates, and chaos engineering procedures.
+See `agents/incident-responder.md` for the full diagnosis protocol, communication templates, and chaos engineering procedures.
 See `docs/runbooks/` for component-specific operational runbooks.
 
 ## Deep guides (read on demand, do not preload)

@@ -33,23 +33,55 @@ Before requirements clarification, perform discovery if the feature area is new:
 
 ### Phase 0 — Discovery (for greenfield features)
 
-#### Market & Competitive Research
-- What similar features exist in competing products? Name 3+ competitors and their approach.
-- What is the industry-standard UX pattern for this type of feature?
-- Are there open-source implementations or established design patterns we can reference?
+**You have `Read`, `Grep` and `Glob` — the repository, and nothing else.** No web access, no
+pricing pages, no competitor docs. So Phase 0 produces a **research brief**, not research
+results: name what must be found out, who can find it, and what decision it unblocks. A senior
+consultant's Phase 0 deliverable *is* the list of questions — inventing the answers is the one
+thing that makes the engagement worse than not having run it.
+
+#### Market & Competitive Research → write the spikes, do not answer them
+
+Do **not** name competitors, quote their pricing, describe their UX, or cite open-source
+projects. You would be recalling training data — stale by construction, confident in tone, and
+unverifiable by the reader without redoing the work themselves, which is the entire cost this
+phase was meant to save. Market claims are the most dangerous thing you can fabricate here,
+because they feed directly into build/buy and scope decisions.
+
+Emit spike stories instead, each with an owner and a decision it unblocks:
+
+```markdown
+- [ ] SPIKE: Survey 3+ competing products for <feature>. Capture: entry point, step count,
+      what they charge for it. → unblocks: MVP scope (Phase 2). Owner: PM. Estimate: 1d.
+- [ ] SPIKE: Identify the established UX pattern for <interaction>. → unblocks: Phase 5
+      architecture. Owner: Design. Estimate: 0.5d.
+```
+
+If you already hold a belief about the market, state it as an **assumption to verify in the
+spike**, never as a finding — and route it through Phase 4, which exists for exactly this.
 
 #### Feasibility Assessment
-- Can this be built with our current stack (Rails + React Native + PostGIS + Centrifugo)?
-- What are the technical unknowns? List spike stories for each.
-- What third-party services or APIs are required? Evaluate cost, reliability, and vendor lock-in.
-- Is this achievable within the constraints (timeline, team size, budget)?
+
+You can genuinely do this part — it is a question about *this* repository:
+
+- Can this be built with the current stack (Rails + React Native + PostGIS + Centrifugo)? Read
+  the code and say so, citing the files you read.
+- What are the technical unknowns? List a spike story for each.
+- Which third-party services or APIs would be required? **Name them and what they'd be for.**
+  Do not state their cost, SLA, or limits — you cannot see a pricing page, and those change
+  faster than any training data. Emit a spike: "SPIKE: price <service> at our projected volume."
+- Timeline, team size and budget are **inputs you do not have.** Ask for them. Do not infer a
+  team's capacity from its repository.
 
 #### Compliance & Regulatory Check
+
+This is triage, not legal advice — the deliverable is a flag and a question for counsel, never a
+ruling that something *is* compliant:
+
 - Does this feature handle personal data? (GDPR, CCPA implications)
 - Does it involve financial transactions? (PCI DSS, SOX)
 - Does it involve health data? (HIPAA)
 - Does it require geolocation consent? (COPPA, regional privacy laws)
-- If any apply, flag as a hard requirement before proceeding.
+- If any apply, flag as a hard requirement before proceeding, and name who signs off.
 
 ## Clarification Protocol
 
@@ -90,6 +122,13 @@ Frame the solution within our stack:
 - **Centrifugal**: Channel topology, subscription patterns, presence
 - **Redis**: Caching strategy, cache invalidation, session management
 - **Infrastructure**: AWS services needed, Terraform modules, Docker Compose additions
+
+This is a **sketch, not a design** — enough for the team to size the work and spot the risks. The
+layer shape it should follow (controller → service → model; screen → hook → API client) is
+mapped per platform in `skills/std-clean-architecture/references/`, and the actual design
+decision plus its ADR belongs to `architecture-advisor`. Hand off rather than deepen: a
+requirements doc that hardens into an architecture nobody agreed to is how scope arrives
+pre-decided.
 
 ### Phase 6 — Delivery Plan
 - Break into phases with clear deliverables per phase

@@ -34,16 +34,24 @@ Design and implement backend features following Rails conventions with our speci
 - Consistent error responses: `{ error: String, code: Integer, details: Object? }`
 
 ### 4. Service Layer
-- Extract business logic to `backend/app/services/`
+- Extract business logic to `app/services/` (any wrapper directory — the tree below illustrates
+  shape, not a path to hardcode)
 - Single responsibility: `CreateOrder`, `ProcessPayment`, `GeofenceCheck`
 - Return result objects for success/failure handling
 - Inject dependencies for testability
 
 ### 5. Background Processing
-- Sidekiq jobs in `backend/app/jobs/` for anything > 100ms
-- Idempotent jobs — safe to retry
+- Jobs live in `app/jobs/` (any wrapper directory — `backend/` is one team's naming, not a contract)
+- Anything over ~100ms of work belongs in a job, not the request
 - Separate queues: `default`, `critical`, `mailers`, `low_priority`
-- Pass IDs, not objects
+- **Pass IDs, not objects.** A serialized record is a snapshot of a row that may have changed by
+  the time the job runs; `find` it fresh.
+- **Idempotent jobs — because Sidekiq already retries 25 times over ~20 days, by default.** You
+  did not configure that; it is the default, and "no retry policy" means three weeks of them. Set
+  `sidekiq_options retry:` deliberately on every job. If you use ActiveJob's `retry_on`, know that
+  it does **not** replace Sidekiq's retries — it stacks on top, so `retry_on ..., attempts: 5` runs
+  30 attempts, not 5. A job that dies lands in the Dead set silently: alert on it.
+  Depth → `@skills/std-error-handling/references/background-jobs.md`
 
 ### 6. Caching Strategy
 - Redis-backed `Rails.cache.fetch` with explicit TTLs
@@ -108,3 +116,23 @@ end
 ```
 
 See references/rails-patterns.md for comprehensive patterns library.
+
+## Owned elsewhere — do not duplicate
+
+This skill designs the shape. These own the rules, auto-load on Rails work, and carry the
+bad/good pairs:
+
+- **Authorization** — a policy that is never called is not authorization; `index` needs
+  `policy_scope`, not `authorize`; `devise-jwt` does not revoke by default →
+  `@skills/std-rails-conventions/references/authorization.md`
+- **Migrations, locking, `lock_timeout`** — a migration that *waits* is more dangerous than one
+  that fails, because every query queues behind it →
+  `@skills/std-database/references/locking-and-timeouts.md`
+- **Sidekiq retries, the Dead set, ActiveJob vs `Sidekiq::Job`** →
+  `@skills/std-error-handling/references/background-jobs.md`
+- **The API error envelope** (`error`, `code`, `status`, `details`, `requestId` — exactly one
+  shape) → `@skills/std-api-design/references/errors-rails.md`
+- **Pagination** — cursor is the default, 25/100, `pagy` →
+  `@skills/std-api-design/references/pagination-rails.md`
+- **Request tracing across the async boundary** →
+  `@skills/std-monitoring/references/request-tracing.md`

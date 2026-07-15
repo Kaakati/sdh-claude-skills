@@ -75,28 +75,39 @@ mobile/src/
 ```
 
 ### 5. Real-time (Centrifugo)
-- Subscribe in custom hooks:
-  ```typescript
-  export const useChatMessages = (roomId: string) => {
-    const queryClient = useQueryClient();
 
-    useEffect(() => {
-      const sub = centrifuge.subscribe(`chat:${roomId}`);
-      sub.on('publication', (ctx) => {
-        queryClient.setQueryData(
-          ['messages', roomId],
-          (old: Message[]) => [...(old || []), ctx.data]
-        );
-      });
-      return () => sub.unsubscribe();
-    }, [roomId]);
+Owned by `std-react-native` → `@skills/std-react-native/references/realtime-centrifugo.md`, which
+auto-loads on React Native work. This skill previously carried its own hook here; it called
+`centrifuge.subscribe(channel)`, which is **not this client's API** — subscriptions are created
+with `newSubscription()` and retrieved with `getSubscription()` — so the snippet could not run,
+and the shape it taught had the exact leak the reference exists to prevent.
 
-    return useQuery({
-      queryKey: ['messages', roomId],
-      queryFn: () => api.messages.list(roomId),
-    });
-  };
-  ```
+Load-bearing rules, because they change what you write:
+
+1. **One `Centrifuge` client for the app, created once.** Not per screen, not per hook.
+2. **`newSubscription()` throws if the channel already has a subscription** — and a remounting
+   screen calls it twice. Always `centrifuge.getSubscription(ch) ?? centrifuge.newSubscription(ch)`.
+3. **A real-time event updates the Query cache; it never becomes a second copy of the data.**
+   TanStack Query owns server state, Zustand owns client state — a socket quietly offers a third,
+   and taking it means the same order exists twice with different values. Nothing crashes; the app
+   is just wrong sometimes.
+4. **Unsubscribing does not remove handlers you already set.** Remove *your* handler on cleanup,
+   or every remount stacks another and the cache update runs N times per message. Leave the
+   subscription alive if another screen shares the channel; reap it (`unsubscribe()` +
+   `centrifuge.removeSubscription(sub)`) only when nothing is listening.
+5. **The connection token expires** — wire `getToken`, or the socket dies silently after an hour.
+
+What to do with an incoming event:
+
+| The event… | Do |
+|---|---|
+| Carries the full updated entity | `setQueryData(key, entity)` — free update, no refetch |
+| Carries only an id / "something changed" | `invalidateQueries({ queryKey })` — let Query refetch the truth |
+| Is high-frequency (typing, cursors, presence) | Zustand or local state — ephemeral, never server state |
+
+The complete `useChannel` hook, with the registry and handler-cleanup handling, is in the
+reference. Copy it from there rather than reconstructing it — the four lines that look optional
+are the ones that break on navigation.
 
 ### 6. Maps & Geospatial (PostGIS Backend)
 - Use `react-native-maps` with markers from PostGIS spatial queries
@@ -122,3 +133,23 @@ mobile/src/
 | Location | `react-native-geolocation-service` | Background tracking |
 
 See references/react-native-patterns.md for component and hook patterns.
+
+## Deep guides (read on demand, do not preload)
+
+- Worked screens, hooks, stores, and navigation for this stack → `references/react-native-patterns.md`
+
+### Owned by `std-react-native` (auto-loads on React Native work)
+
+Decision-shaped, with the bad/good pairs. The file above shows *a* pattern; these say which and why:
+
+- **Real-time (Centrifugo) — one socket, one cache, no second source of truth** →
+  `@skills/std-react-native/references/realtime-centrifugo.md`
+- **Offline & mutations — the queue that survives a cold start** →
+  `@skills/std-react-native/references/offline-and-mutations.md`
+
+Two facts from those that decide what you write, rather than how:
+
+- **`staleTime` is per query, not one default.** `users` at 5 minutes and `orders` at 1 minute is
+  correct — the table in `@skills/std-reactjs/references/data-fetching.md` is the reasoning.
+- **Testing React Native is Jest, not Vitest.** There is no DOM, and Metro's transform pipeline is
+  Jest-based → `@skills/std-testing/references/react-native.md`.

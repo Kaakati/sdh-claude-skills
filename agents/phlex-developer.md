@@ -44,7 +44,7 @@ When asked to create or modify a Phlex component:
    - Page layout skeleton? --> Template (`components/templates/`)
    - Full page with real data? --> Page/View (`views/{resource}/`)
 
-3. **Check existing components** -- Search `backend/app/components/` for reusable atoms/molecules before creating new ones. Compose from existing components whenever possible.
+3. **Check existing components** -- Glob `**/app/components/**/*.rb` for reusable atoms/molecules before creating new ones, and compose from them wherever possible. Do not hardcode a wrapper directory: `backend/` is one team's naming, and this plugin is wrapper-directory agnostic — in a repo that names it anything else, a `backend/`-anchored search finds nothing and you build a duplicate of a component that already exists. The tree above is an illustration of *shape*, not a path to search.
 
 4. **Check theming tokens** -- Verify design tokens exist for the visual properties needed. Use Tailwind utility classes mapped to CSS custom properties (`bg-primary`, `text-foreground`, `rounded-lg`).
 
@@ -56,7 +56,7 @@ When asked to create or modify a Phlex component:
 
 8. **Add Stimulus data attributes** -- Wire up interactivity with `data: { controller: "name", action: "event->name#method" }`. Keep JS behavior in Stimulus controllers, not inline.
 
-9. **Verify compliance** -- Check against `@rules/phlex-conventions.md`:
+9. **Verify compliance** -- Check against the `std-phlex-conventions` skill:
    - Keyword args for all props
    - 200-line file limit
    - Design tokens (no hardcoded colors/sizes)
@@ -64,9 +64,30 @@ When asked to create or modify a Phlex component:
    - Correct namespace (`Components::Atoms::`, `Components::Molecules::`, etc.)
 
 ## Reference Files
-- `@rules/phlex-conventions.md` -- Enforced Phlex component conventions
-- `@rules/rails-conventions.md` -- Rails backend conventions
-- When you need Phlex API details not covered in rules, use WebFetch to check https://www.phlex.fun
+
+The `std-phlex-conventions` and `std-rails-conventions` skills carry the enforced conventions.
+Their **references** carry the depth — bad/good pairs and the exact idiom — and they do not load
+themselves. Read the one matching the step you are on rather than re-deriving it:
+
+| Step | Reference |
+|---|---|
+| 2, 5 — atomic level, compose primitives | `@skills/std-phlex-conventions/references/component-levels-primitives.md` |
+| 2, 5 — organisms, templates, pages | `@skills/std-phlex-conventions/references/component-levels-composites.md` |
+| 4, 7 — tokens, `class_variants`, class merging | `@skills/std-phlex-conventions/references/variants-and-styling.md` |
+| 8 — Stimulus wiring | `@skills/std-phlex-conventions/references/stimulus-wiring.md` |
+| 8 — Turbo Frames / Streams | `@skills/std-phlex-conventions/references/turbo-frames-and-streams.md` |
+| 9 — verifying it | `@skills/std-phlex-conventions/references/testing.md` |
+| 6 — worked components end to end | `@skills/phlex-dev/references/component-examples.md` |
+| 6 — patterns catalogue | `@skills/phlex-dev/references/phlex-patterns.md` |
+
+Two things worth knowing before you style anything (step 7): `destructive` and `neutral` are
+**variant keys, not tokens** — the registered tokens are `error` and `muted`, and a class naming
+an unregistered token (`bg-destructive`) compiles to **no CSS at all**, silently. And a
+`-foreground` token is contrast-verified against its **solid** surface, so
+`bg-success/10 text-success-foreground` is near-white on near-white; on a tint, use
+`text-foreground`. The registry is `@skills/theming/references/platform-integration.md`.
+
+When you need Phlex API details these do not cover, use WebFetch on https://www.phlex.fun.
 
 ## Component Template
 

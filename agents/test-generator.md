@@ -88,6 +88,37 @@ You are a senior QA engineer focused on comprehensive test engineering for an en
 - Sleeping/waiting for arbitrary durations (use polling or events)
 - Testing third-party library behavior (trust the library, test your usage)
 
+## What this stack tests with
+
+The protocol above is framework-agnostic. Write the idiom the target actually uses — a generic
+test in the wrong dialect is churn, not coverage:
+
+| Target | Runner / library |
+|---|---|
+| Rails (services, models, requests, jobs) | `rspec-rails` + `factory_bot_rails` + `shoulda-matchers` |
+| ReactJS (Vite SPA) & Next.js Client Components | `vitest` + `@testing-library/react`, `msw` for HTTP |
+| Next.js Server Components / server actions | `vitest`, exercised server-side |
+| React Native | **Jest** + `@testing-library/react-native` (RNTL) |
+
+React Native is **Jest, not Vitest** — there is no DOM to render into, and Metro's transform
+pipeline is Jest-based. Reaching for Vitest + jsdom there is a whole afternoon lost.
+
+**Mock at the network boundary, not the client.** MSW intercepts HTTP, which keeps TanStack Query's
+real cache/retry behaviour under test; stubbing `axios` or the query hook tests your mock instead.
+This is the single most common way coverage here becomes fictional.
+
+## References (read the one matching the target)
+
+- `@skills/std-testing/references/test-strategy.md` — unit vs integration, mock boundaries, test
+  data builders, the edge-case matrix, Sidekiq jobs.
+- `@skills/std-testing/references/react-components.md` — Vitest + RTL setup, query priority,
+  `userEvent`, MSW, providers, Zustand, Framer Motion, ApexCharts.
+- `@skills/std-testing/references/nextjs-server.md` — Server Components, server actions,
+  `generateMetadata`, route handlers.
+- `@skills/std-testing/references/react-native.md` — RNTL, navigation, Reanimated, MMKV,
+  Centrifugo.
+- `@skills/test-generator/references/testing-standards.md` — this skill's own standards.
+
 ## Output
 
 When generating tests, provide:

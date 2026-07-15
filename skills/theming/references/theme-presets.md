@@ -46,16 +46,16 @@ Professional and trustworthy. Deep blue primary, slate neutrals, system font sta
 
   /* Muted */
   --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
+  --muted-foreground: 215.4 16.3% 44%;
 
   /* Semantic */
-  --success: 142.1 76.2% 36.3%;
+  --success: 142.1 76.2% 28%;
   --success-foreground: 355.7 100% 97.3%;
 
   --warning: 37.7 92.1% 50.2%;
   --warning-foreground: 26 83.3% 14.1%;
 
-  --error: 0 84.2% 60.2%;
+  --error: 0 84.2% 47%;
   --error-foreground: 0 0% 98%;
 
   --info: 199.4 95.5% 53.8%;
@@ -123,7 +123,7 @@ Professional and trustworthy. Deep blue primary, slate neutrals, system font sta
   --error: 0 62.8% 30.6%;
   --error-foreground: 0 85.7% 97.3%;
 
-  --info: 199.4 80% 46%;
+  --info: 199.4 80% 35%;
   --info-foreground: 200 100% 95%;
 
   /* Borders & Ring */
@@ -185,10 +185,10 @@ Vibrant and energetic. Purple/violet primary, zinc neutrals, Inter font, generou
 
   /* Muted */
   --muted: 240 4.8% 95.9%;
-  --muted-foreground: 240 3.8% 46.1%;
+  --muted-foreground: 240 3.8% 45.1%;
 
   /* Semantic */
-  --success: 160.1 84.1% 39.4%;
+  --success: 160.1 84.1% 28.6%;
   --success-foreground: 0 0% 100%;
 
   --warning: 43.3 96.4% 56.3%;
@@ -197,7 +197,7 @@ Vibrant and energetic. Purple/violet primary, zinc neutrals, Inter font, generou
   --error: 0 72.2% 50.6%;
   --error-foreground: 0 0% 100%;
 
-  --info: 217.2 91.2% 59.8%;
+  --info: 217.2 91.2% 53.5%;
   --info-foreground: 0 0% 100%;
 
   /* Borders & Ring */
@@ -253,7 +253,7 @@ Vibrant and energetic. Purple/violet primary, zinc neutrals, Inter font, generou
   --muted-foreground: 240 5% 64.9%;
 
   /* Semantic */
-  --success: 160.1 84.1% 39.4%;
+  --success: 160.1 84.1% 28.6%;
   --success-foreground: 0 0% 100%;
 
   --warning: 43.3 96.4% 56.3%;
@@ -262,7 +262,7 @@ Vibrant and energetic. Purple/violet primary, zinc neutrals, Inter font, generou
   --error: 0 62.8% 30.6%;
   --error-foreground: 0 85.7% 97.3%;
 
-  --info: 217.2 91.2% 59.8%;
+  --info: 217.2 91.2% 53.5%;
   --info-foreground: 0 0% 100%;
 
   /* Borders & Ring */
@@ -325,16 +325,16 @@ Clean and restrained. Near-black primary, pure monochrome palette, system font s
 
   /* Muted */
   --muted: 0 0% 96.1%;
-  --muted-foreground: 0 0% 45.1%;
+  --muted-foreground: 0 0% 43.8%;
 
   /* Semantic */
-  --success: 142.1 76.2% 36.3%;
+  --success: 142.1 76.2% 30.2%;
   --success-foreground: 0 0% 100%;
 
   --warning: 37.7 92.1% 50.2%;
   --warning-foreground: 0 0% 9%;
 
-  --error: 0 84.2% 60.2%;
+  --error: 0 84.2% 48.6%;
   --error-foreground: 0 0% 98%;
 
   --info: 199.4 95.5% 53.8%;
@@ -402,7 +402,7 @@ Clean and restrained. Near-black primary, pure monochrome palette, system font s
   --error: 0 62.8% 30.6%;
   --error-foreground: 0 85.7% 97.3%;
 
-  --info: 199.4 80% 46%;
+  --info: 199.4 80% 37.3%;
   --info-foreground: 0 0% 98%;
 
   /* Borders & Ring */

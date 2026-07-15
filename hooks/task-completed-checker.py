@@ -12,6 +12,7 @@ Exit codes:
 """
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -110,12 +111,16 @@ def main():
                 feedback.append(f"    {issue}")
 
     # Gate 3: Verify task description keywords match deliverables
-    doc_keywords = ("document", "adr", "runbook", "readme", "changelog")
-    test_keywords = ("test", "spec", "coverage")
-
+    #
+    # WORD BOUNDARIES ARE LOAD-BEARING. A bare `"test" in task_text` also matches "la-test-",
+    # "grea-test-", "con-test-", and `"spec"` matches "in-spec-t", "re-spec-tive". This gate
+    # exits 2 — a HARD REJECT — so "Deploy the latest build" was blocked with "Task mentions
+    # testing but no test files were modified", against which there is no possible remedy:
+    # the task has no tests to add (Ch. 25 — a denial must name an achievable remedy).
     task_text = (task_subject + " " + task_description).lower()
+    mentions_tests = re.search(r"\b(tests?|specs?|testing|coverage)\b", task_text)
 
-    if any(kw in task_text for kw in test_keywords):
+    if mentions_tests:
         # Task mentions tests — check that test files exist in changes
         test_files = [
             f for f in uncommitted

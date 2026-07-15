@@ -79,6 +79,18 @@ own bad/good code pair for all 4 platforms.
 rules/<rule-id>.md
 ```
 
+### Owned elsewhere
+
+This skill owns the **hierarchy** — which level a component belongs at, and what may compose what.
+It does not own the tokens those components style with:
+
+- **`std-design-system`** auto-loads on the same files you will be editing (`**/components/ui/**`,
+  `**/app/components/**/*.rb`, `**/styles/**`) and owns the token rules.
+  `rules/atom-theming-tokens.md` is the hierarchy-side rule; the **registry of names that actually
+  exist** is `@skills/theming/references/platform-integration.md`. A class naming an unregistered
+  token compiles to no CSS at all — silently — so "uses a token" and "uses a *registered* token"
+  are different claims, and only the second one renders.
+
 Loading one ~60-line rule beats skimming the whole directory. Do not preload it.
 
 The rules answer "how do I write this level correctly?". These references answer the questions that

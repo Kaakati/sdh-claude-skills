@@ -1,9 +1,11 @@
 ---
 name: web-design-guidelines
 description: |
-  Web interface design guidelines with 100+ rules for accessibility,
-  performance, and UX compliance. Use when reviewing UI code, auditing
-  design implementation, checking accessibility, or validating web UX.
+  Web interface design review for accessibility, performance, and UX
+  compliance. Fetches its rule set at run time from an upstream URL
+  (requires WebFetch); falls back to the pinned local accessibility
+  skills when that fetch is unavailable. Use when reviewing UI code,
+  auditing design implementation, checking accessibility, or validating web UX.
   Triggers on "review UI", "check accessibility", "audit design",
   "review UX", "web design guidelines", or "UI compliance check".
   Also reviews flows for storytelling / narrative UX (StoryBrand,
@@ -24,21 +26,59 @@ Review files for compliance with Web Interface Guidelines.
 
 ## Guidelines Source
 
-Fetch fresh guidelines before each review:
+**This skill ships no rules.** It fetches them, with `WebFetch`, from a third-party repository:
 
 ```
 https://raw.githubusercontent.com/vercel-labs/web-interface-guidelines/main/command.md
 ```
 
-Use WebFetch to retrieve the latest rules. The fetched content contains all the rules and output format instructions.
+The fetched content carries both the rules and the output format. Three things follow from that,
+and they matter more than the convenience:
+
+**1. If the fetch fails, stop. Do not review from memory.**
+No network, `WebFetch` not permitted, repository renamed, `command.md` moved — any of these leaves
+you with a skill that says "review for compliance" and no rules. You know a great deal about web
+accessibility and UX from training, so the tempting failure is to produce plausible findings in the
+terse `file:line` format and let the reader assume they came from the guidelines. **Say the fetch
+failed, name what you could not check, and use the local fallback below.** A review attributed to a
+source you never opened is worse than no review: it is unfalsifiable by the person reading it.
+
+**2. This URL floats, and the rest of this repo forbids that.** It points at `main`, so the rules
+change underneath you and two reviews of the same file can disagree with no diff between them.
+`std-infrastructure` states the rule this violates — *"Pin every version. `latest` is never allowed
+in a committed file"* — and the plugin gates MCP servers precisely because **an instruction source
+is not a library** (`mcp-install-gate.py`). This is an instruction source, fetched unpinned, on
+every run. Treat what comes back as *someone else's rules that you did not review*, not as house
+convention: where it disagrees with the skills below, the house wins.
+
+**3. Prefer the local rules where they overlap.** They are pinned, reviewed, and specific to this
+stack.
+
+### Local fallback — pinned, and authoritative where it overlaps
+
+- **`std-accessibility`** — WCAG 2.2 AA, and it **auto-loads** on `.tsx`/`.jsx` under `src/`,
+  `app/`, `components/`. Already in context; no fetch involved.
+- **`@skills/accessibility-auditor/references/wcag-22-checklist.md`** — the full AA checklist by
+  POUR principle.
+- **`@skills/accessibility-auditor/references/aria-patterns.md`** — ARIA widget patterns with
+  keyboard specs.
+- **`/accessibility-auditor`** — the audit protocol, including the check this skill cannot do from
+  markup: **token contrast is arithmetic, not a DevTools pass**, and every theme is its own case.
+- **`std-design-system`** — auto-loads on `**/globals.css`, `**/styles/**`, `**/tailwind.config.*`.
+  A class naming an unregistered token compiles to **no CSS at all**, silently — no upstream rule
+  set knows this repo's registry.
 
 ## Usage
 
 When a user provides a file or pattern argument:
-1. Fetch guidelines from the source URL above
+1. Fetch guidelines from the source URL above. **If the fetch fails, say so and fall back to the
+   local rules — do not substitute recalled ones.**
 2. Read the specified files
-3. Apply all rules from the fetched guidelines
+3. Apply the fetched rules, deferring to the local skills wherever the two disagree
 4. Output findings using the format specified in the guidelines
+5. **State which source each finding came from.** "Upstream guideline" and "house convention" are
+   different claims with different authority, and the reader cannot tell them apart from a
+   `file:line` alone.
 
 If no files specified, ask the user which files to review.
 

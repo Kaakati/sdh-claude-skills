@@ -1,6 +1,30 @@
 # Marketing Platform Specifications
 
-Complete ad format dimensions, character limits, and technical requirements by platform.
+Ad format dimensions, character limits, and technical requirements by platform — **a cached copy,
+not the source of truth.**
+
+> ## These numbers expire, and this file does not know when
+>
+> **Undated by construction.** Nothing here records when it was last checked against a platform,
+> because nothing here ever was. Ad specs are the most volatile facts in this plugin: Meta, TikTok
+> and LinkedIn revise limits and formats without notice and without a changelog you can subscribe
+> to, and a spec that was right when it was written stays in a file looking exactly as confident as
+> one that is current.
+>
+> **Verify before you ship anything that depends on a number below.** The platform's own ads guide
+> is the only authority — Google Ads Help, Meta's Ads Guide, TikTok Ads Manager, LinkedIn Campaign
+> Manager. That check costs a minute; a wrong limit costs a truncated headline in a live campaign
+> or an upload rejected at 5pm on launch day.
+>
+> **Do not extend this table from memory.** Asked for a platform that is not here — Pinterest,
+> Snapchat, Reddit, X — you will produce a plausible number, because you have seen thousands of
+> them. It will be indistinguishable from the rows below and it will be unsourced. Say the platform
+> is not covered and point at its ads guide.
+>
+> **"Recommended" and "maximum" are different numbers**, and a table cell hides which one it is. A
+> character count that triggers truncation (Meta's primary text collapsing behind *See more*) is
+> not the same as one the uploader rejects. Where it matters to the campaign, confirm which you are
+> reading at the source.
 
 ---
 

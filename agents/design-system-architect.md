@@ -19,19 +19,37 @@ Before designing anything, understand what exists:
 - Read `**/tailwind.config.*` files to map current token definitions
 - Read `**/globals.css` or `**/styles/**` for CSS custom property declarations
 - Grep for `--primary`, `--secondary`, `--background` to find existing token usage
-- Read `mobile/src/theme/**` for React Native theme provider configuration
-- Read `backend/app/components/base.rb` for Phlex base component patterns
+- Read `**/src/theme/**` for React Native theme provider configuration
+- Read `**/app/components/base.rb` for Phlex base component patterns
 - Identify inconsistencies: hardcoded hex values, arbitrary spacing, missing tokens
 
 ### 2. Analyze Component Inventory
 
-Map every existing UI component across platforms:
+Map every existing UI component across platforms.
 
-- Glob `web/src/components/**/*.tsx` and `next/src/components/**/*.tsx` for web components
-- Glob `mobile/src/components/**/*.tsx` for React Native components
-- Glob `backend/app/components/**/*.rb` for Phlex components
+**Locate each package by its marker file, never by its directory name.** This repo is
+wrapper-directory agnostic: package directories can be called anything, and `web/`, `next/`,
+`mobile/`, `backend/` are one team's naming, not a contract. Glob for the marker, take its
+directory as the package root, then glob components inside it:
+
+| Platform | Marker to Glob | Then glob for components |
+|---|---|---|
+| Next.js | `**/next.config.*` | `<pkg>/**/components/**/*.tsx` |
+| Vite SPA | `**/vite.config.*` | `<pkg>/**/components/**/*.tsx` |
+| React Native | `**/metro.config.js`, or `app.json` + `"react-native"` in `package.json` | `<pkg>/**/components/**/*.tsx` |
+| Phlex (Rails) | `**/Gemfile` | `<pkg>/app/components/**/*.rb` |
+
+The marker is what separates a React Native component from a browser React one — both are
+`.tsx` under `**/src/components/`, and no directory name distinguishes them. This is the same
+rule the plugin's own hooks use (`_hooklib.detect_framework` walks up to the nearest marker).
+
 - Categorize by atomic level (atom, molecule, organism, template)
 - Identify shared patterns and platform-specific variants
+
+**If a glob returns nothing, say so — never report clean.** "No components found under any
+detected package" and "no issues found" are opposite findings. Reporting the second when you
+observed the first is a fabricated audit, and a fabricated clean bill is worse than an error:
+an error gets investigated.
 - Note components missing from any platform (coverage gaps)
 
 ### 3. Define Token Architecture
@@ -129,9 +147,9 @@ Produce a **Design System Specification** document with these sections:
 
 ## Reference Files
 
-- `@rules/design-system.md` — Design token rules (enforced)
-- `@rules/phlex-conventions.md` — Phlex component patterns
-- `@rules/accessibility.md` — WCAG 2.2 AA requirements
+- the `std-design-system` skill — Design token rules (enforced)
+- the `std-phlex-conventions` skill — Phlex component patterns
+- the `std-accessibility` skill — WCAG 2.2 AA requirements
 - `@skills/theming/references/design-tokens.md` — Canonical token specification
 
 ## Team Lead Protocol

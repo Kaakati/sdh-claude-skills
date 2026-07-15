@@ -245,8 +245,19 @@ describe('token contrast', () => {
 ```
 
 A frequent near-miss: a mid-tone amber or lime `success`/`warning` with white foreground lands
-around 2.1:1. The fix is always to darken the *foreground*, not to brighten the surface — the
-surface color is the brand decision.
+around 2.1:1. **Never brighten the surface** — with a near-white foreground that makes it worse.
+Which of the two remaining fixes you reach for depends on what the token *is*:
+
+| Token | Fix | Why |
+|---|---|---|
+| **Brand** — `primary`, `brand` | Darken the **foreground** | The surface is the brand decision. You do not get to restyle the logo colour to pass a checker. |
+| **Semantic status** — `success`, `error`, `warning`, `info` | Darken the **surface**, same hue | "Green means success" is the convention; *which* green is not. Every design system ships a darker step for exactly this (Tailwind's `green-600` → `green-700`), and it keeps the near-white foreground a `-foreground` token is meant to be. |
+
+This is not theoretical. The defaults in `@skills/theming/references/design-tokens.md` and all three
+presets in `@skills/theming/references/theme-presets.md` were repaired by darkening the **surface**
+on `success`/`error`/`info` — semantic tokens, every one — and `primary` was never touched in any
+of them. A blanket "always darken the foreground" would have told you to do the opposite of what
+this repo's own shipped tokens do.
 
 ---
 

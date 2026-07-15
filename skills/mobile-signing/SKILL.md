@@ -85,3 +85,24 @@ release. Put the dates in a calendar the team reads:
   echoed, and least-privilege API keys → `references/ci-signing-secrets.md`
 
 Shipping the signed build to testers is a separate task — see the `mobile-beta-release` skill.
+
+## Why this skill breaks the house rule on CI credentials
+
+`std-infrastructure` states it plainly: *"Prefer no credential at all. CI authenticates by
+**federation, not keys** — OIDC to AWS"*, and *"no long-lived AWS keys in CI."* Everything here
+does the opposite: a `.p8`, a keystore, a service-account JSON, all long-lived, all sitting in CI
+secrets.
+
+**That is a real exception, not an oversight, and it is worth knowing which.** Apple's App Store
+Connect API key *is* a `.p8` private key — there is no OIDC path to App Store Connect to prefer
+instead. The rule cannot be satisfied, so the mitigation moves to what you *can* control: least
+privilege on the key, a short rotation, never echoing it, an ephemeral keychain that dies with the
+runner, and the knowledge that a leaked signing key is a supply-chain compromise of every user's
+device rather than one cloud account.
+
+Do not go looking for the OIDC option on the Apple side; it does not exist, and time spent hunting
+for it is time not spent rotating the key you actually have. If a federated path exists for a given
+provider, prefer it — but confirm it at that provider's docs rather than assuming the AWS answer
+transfers.
+
+Depth on holding these safely → `references/ci-signing-secrets.md`.

@@ -74,11 +74,43 @@ Output all colors in HSL format with foreground pairs meeting WCAG AA (4.5:1 con
 
 ```css
 :root {
-  --primary: H S% L%;
+  --primary: H S% L%;          /* measured: X.XX:1 against --primary-foreground */
   --primary-foreground: H S% L%;
   /* ... */
 }
 ```
+
+**You cannot eyeball 4.5:1 — compute it, or you are guessing.** WCAG contrast is a relative-
+luminance ratio with a gamma curve in it; "this looks like enough contrast against white" is not a
+judgement anyone can make by inspection, and a mid-tone green with white text lands near 3:1 while
+looking perfectly readable in your head. **Emit the measured ratio in a comment beside every pair.**
+That single habit is what makes the claim falsifiable — a number a reader can check beats an
+assurance they cannot.
+
+This is not a hypothetical failure mode. It is the one this repo already shipped: the three theme
+presets in `@skills/theming/references/theme-presets.md` were generated with exactly this
+instruction and **13 of their pairs measured below AA** — `--success` at 2.54:1, `--info` at
+2.99:1 — while every one of them was asserted to meet it.
+
+**The procedure, in order:**
+
+1. Pick the **surface** from the brand method (`references/color-theory.md`). This is the brand
+   decision and the only free choice.
+2. Compute the ratio against the intended foreground with `contrastRatio()` —
+   `@skills/std-design-system/references/defining-tokens.md` has the implementation and the Vitest
+   wiring. Import it; do not re-derive the formula.
+3. If it is below 4.5:1, **which side you move depends on what the token is** (the same reference
+   states this):
+   - **Brand** (`primary`, `brand`) → darken the **foreground**. The surface is the brand decision;
+     you do not restyle the logo to pass a checker.
+   - **Semantic status** (`success`, `error`, `warning`, `info`) → darken the **surface**, same
+     hue. "Green means success" is the convention; *which* green is not.
+   - **Never brighten the surface** under a near-white foreground — that makes it worse.
+4. Re-measure and record the number. Repeat for **dark mode**, which is a separate set of pairs and
+   fails independently.
+5. Ship the token-contrast test with the palette (`describe.each` over themes × `it.each` over
+   pairs) — `/accessibility-auditor` has it. A palette without that test is a palette nobody will
+   check again.
 
 ### Step 4: Typography Pairing
 

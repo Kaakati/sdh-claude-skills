@@ -78,6 +78,29 @@ Extract design tokens from Figma styles:
 | Effect styles | Shadows, blurs | `Shadow: 0 4px 6px rgba(0,0,0,0.1)` → `shadow-md` |
 | Grid styles | Columns, gutters, margins | `12col / 24px gutter / 80px margin` → grid config |
 
+**Map onto the registry — do not mint token names from Figma's.** A Figma file names styles for
+designers (`Brand/Green/500`, `Semantic/Success`), and the tempting move is to transliterate:
+`--brand-green-500`, `--semantic-success`. Those compile to **nothing**. Tailwind only emits a
+utility for a token registered in the config, so `bg-brand-green-500` is not a broken colour — it is
+**no CSS at all**, silently, and the element renders with whatever it inherited. Review does not
+catch it because the class name looks right.
+
+The registered names are in `@skills/theming/references/platform-integration.md` — that list, and
+nothing else, is what exists. Two that catch people out: **`destructive` and `neutral` are variant
+*keys*, not tokens** (the registered ones are `error` and `muted`), so a Figma layer called
+"Destructive" maps to `bg-error`, not `bg-destructive`.
+
+If a Figma style has no registered counterpart, that is a **finding, not a naming exercise**:
+report it, and let `/theming` or `std-design-system` decide whether the design system gains a token.
+Inventing one in a handoff doc means the design system grew a member nobody registered.
+
+**Colour pulled from Figma is unverified.** A designer's green is a brand decision, not a contrast
+measurement — `Fill: #10B981` on white is about 2.5:1. Do not carry a fill straight into a
+`--x` / `--x-foreground` pair and call it a token: compute the ratio
+(`@skills/std-design-system/references/defining-tokens.md`), and if it fails, darken the **surface**
+for a semantic colour or the **foreground** for a brand one. The three presets this repo ships were
+built without that step and 13 of their pairs measured below AA.
+
 ### Step 5: Responsive Strategy
 
 Map Figma breakpoints to Tailwind breakpoints:

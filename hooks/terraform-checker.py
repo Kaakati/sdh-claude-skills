@@ -28,7 +28,15 @@ SECRET_PATTERNS = [
 ]
 
 # Resource block pattern: resource "type" "name" {
-RESOURCE_BLOCK_PATTERN = re.compile(r'resource\s+"(\w+)"\s+"(\w+)"')
+# `\w` is [A-Za-z0-9_] and CANNOT match a hyphen — so a kebab-named resource did not merely
+# fail the snake_case test, it never matched this pattern at all. Two consequences, and the
+# second is worse: (1) the naming check could never see the one thing it exists to catch —
+# line ~81's remedy calls .replace('-', '_'), dead code for input it could not receive; and
+# (2) check_required_tags derives its resource list from this same pattern, so a .tf file
+# whose resources are all kebab-named yielded an EMPTY list -> has_taggable_resources=False
+# -> the entire tags check silently skipped. A file violating naming AND tags emitted
+# nothing at all.
+RESOURCE_BLOCK_PATTERN = re.compile(r'resource\s+"([\w-]+)"\s+"([\w-]+)"')
 
 # Provider version constraint pattern
 PROVIDER_VERSION_PATTERN = re.compile(r'version\s*=\s*"([^"]*)"')

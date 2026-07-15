@@ -101,11 +101,50 @@ Focus outline removed          outline: none without replacement
 Hardcoded color as info        Color-only status indicators
 ```
 
+### Token contrast is computable — do not send it to a browser
+
+**Audit the tokens at their source, not only the rendered page.** A design token pair is two static
+HSL values in a file; the WCAG ratio between them is arithmetic, so it belongs in a test, not in a
+manual DevTools pass. Nobody opens DevTools 36 times, which is exactly how a contrast failure
+survives: not because it is subtle, but because checking it by hand does not scale and so does not
+happen.
+
+Every `--x` / `--x-foreground` pair in `globals.css` (or wherever the tokens live) is a case:
+
+```ts
+// The formula and a ready-made contrastRatio() live in
+// @skills/std-design-system/references/defining-tokens.md — import, do not re-derive.
+import { contrastRatio } from './check-contrast';
+import { light, dark } from './tokens';
+
+// Iterate the PAIRS — do not hand-write two cases and call it covered.
+const PAIRS = ['primary', 'success', 'error', 'warning', 'info'] as const;
+
+describe.each([['light', light], ['dark', dark]])('%s token contrast', (_name, theme) => {
+  it.each(PAIRS)('%s-foreground on %s clears 4.5:1', (token) => {
+    expect(contrastRatio(theme[`${token}Foreground`], theme[token])).toBeGreaterThanOrEqual(4.5);
+  });
+  it('muted-foreground on muted clears 4.5:1', () => {
+    expect(contrastRatio(theme.mutedForeground, theme.muted)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+```
+
+Two traps this catches that a page-level audit does not:
+
+- **A `-foreground` token is verified against its SOLID surface.** `bg-success/10
+  text-success-foreground` is a 10% tint under near-white text — around 1:1, invisible — and no
+  static check of the *token pair* sees it, because the pair itself is fine. On a tint, use
+  `text-foreground`.
+- **Presets and themes are copies.** If the project ships more than one theme, every theme is a
+  case. A fix applied to the spec does not reach the preset beside it.
+
 ### Tool-Based
 | Tool | Purpose | Integration |
 |------|---------|-------------|
 | `axe-core` / `jest-axe` | Automated WCAG checks in Vitest | `npm run test` |
-| Chrome DevTools | Contrast checker, accessibility tree | Manual |
+| Token contrast test (above) | Every token pair, every theme | `npm run test` — **not manual** |
+| Chrome DevTools | Accessibility tree, live contrast spot-checks | Manual |
 | VoiceOver (macOS) | Screen reader testing | Manual |
 | NVDA (Windows) | Screen reader testing | Manual |
 | Lighthouse | Accessibility score | CI pipeline |
@@ -145,3 +184,22 @@ End each audit with:
 
 - `references/wcag-22-checklist.md` — Complete WCAG 2.2 AA checklist by principle
 - `references/aria-patterns.md` — ARIA widget patterns with keyboard specifications
+
+### Owned elsewhere
+
+- **`std-accessibility`** is the always-on rule set — it **auto-loads on `.tsx`/`.jsx`** under
+  `src/`, `app/`, and `components/`. Note the edge it does *not* cover: its `paths:` are component
+  files, so it does **not** load on `globals.css` or a token file. Contrast decisions get made
+  where the tokens are defined, and that is `std-design-system`'s territory (it auto-loads on
+  `**/globals.css`, `**/styles/**`, `**/tailwind.config.*`). Auditing a colour system means opening
+  both.
+- **`@skills/std-design-system/references/defining-tokens.md`** — the `contrastRatio()`
+  implementation, the Vitest wiring, and the rule for *which* side to fix: darken the **foreground**
+  for a brand token (the surface is the brand decision), darken the **surface** for a semantic
+  status token (which green is not the convention; "green means success" is).
+- **`@skills/theming/references/design-tokens.md`** — the canonical token values and their measured
+  ratios. **`@skills/theming/references/theme-presets.md`** — three presets meant to be copied
+  wholesale, which is why each is audited as its own theme.
+- `accessibility-checker.py` warns on `.tsx`/`.jsx`/`.css`/`.scss` (semantic HTML, alt text, label
+  association, focus indicators, ARIA misuse). It does **not** compute contrast — that is the test
+  above, because the ratio needs the token values, not the markup.

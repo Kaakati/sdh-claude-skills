@@ -46,9 +46,14 @@ class Components::Atoms::Alert < Components::Base
     variants: {
       variant: {
         info: "border-border bg-muted text-foreground",
-        success: "border-success/30 bg-success/10 text-success-foreground",
-        warning: "border-warning/30 bg-warning/10 text-warning-foreground",
-        error: "border-destructive/30 bg-destructive/10 text-destructive-foreground"
+        # A `-foreground` token is contrast-verified against its SOLID surface, never a 10%
+        # tint. `bg-success/10 text-success-foreground` measures 1.05:1 — near-white on
+        # near-white, i.e. invisible. The semantic token is no better: `text-warning` on this
+        # tint is 1.99:1. The tint and border carry the meaning; the text inherits the page's
+        # already-verified body colour at ~17:1.
+        success: "border-success/30 bg-success/10 text-foreground",
+        warning: "border-warning/30 bg-warning/10 text-foreground",
+        error: "border-error/30 bg-error/10 text-foreground"
       }
     },
     defaults: { variant: :info }
@@ -95,7 +100,7 @@ class Components::Atoms::Button < Components::Base
       variant: {
         primary: "bg-primary text-primary-foreground hover:bg-primary/90",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        destructive: "bg-error text-error-foreground hover:bg-error/90",
         outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
         ghost: "hover:bg-accent hover:text-accent-foreground"
       },
@@ -258,7 +263,7 @@ Reference table:
 | Secondary text | `text-muted-foreground` | `text-gray-500` |
 | Border | `border-border` / `border-input` | `border-gray-200` |
 | Primary action | `bg-primary text-primary-foreground` | `bg-blue-600 text-white` |
-| Danger | `bg-destructive text-destructive-foreground` | `bg-red-600` |
+| Danger | `bg-error text-error-foreground` | `bg-red-600` |
 | Focus ring | `ring-ring` | `ring-blue-500` |
 | Spacing | `p-4`, `gap-2`, `my-6` | `p-[13px]`, `my-[17px]` |
 | Radius | `rounded-md`, `rounded-lg` | `rounded-[6px]` |

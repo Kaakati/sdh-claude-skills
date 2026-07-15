@@ -103,6 +103,24 @@ Every developer and AI agent must account for these risks in all code:
   default; a token kept after logout keeps working until expiry.
 - Hash passwords with bcrypt (cost factor 12+) or argon2. Never use MD5 or SHA for passwords.
 - Implement account lockout or exponential backoff after repeated failed login attempts.
+- **Mounted engines authenticate too — `Sidekiq::Web` is the one that gets forgotten.**
+  `mount Sidekiq::Web => '/sidekiq'` with nothing wrapping it publishes every job's *arguments*
+  (user ids, emails, tokens routinely ride along) and lets any visitor retry or kill jobs. It
+  raises nothing and looks finished. Wrap the mount in an `authenticate`/`constraints` block, or
+  protect the Rack app itself in `config/initializers/sidekiq.rb`:
+  ```ruby
+  # config/initializers/sidekiq.rb  ✅  the fit for an API-only app
+  require "sidekiq/web"
+  Sidekiq::Web.use Rack::Auth::Basic do |user, password|
+    ActiveSupport::SecurityUtils.secure_compare(user, ENV.fetch("SIDEKIQ_USER")) &
+      ActiveSupport::SecurityUtils.secure_compare(password, ENV.fetch("SIDEKIQ_PASSWORD"))
+  end
+  ```
+  **Know which recipe you are copying.** Devise's `authenticate :user do ... end` route helper
+  needs Warden's session middleware, which an **API-only** Rails app does not load by default —
+  so the recipe most blog posts give you can be present and still authenticate nobody. Verify it
+  rejects an anonymous request; do not assume it. `rails-routes-checker.py` warns on an
+  unguarded mount.
 
 ## Web Security Headers and Protections
 

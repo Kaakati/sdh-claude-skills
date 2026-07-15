@@ -3,6 +3,7 @@ name: std-reactjs
 description: ReactJS Vite SPA conventions — React Router, Zustand, TanStack Query, Tailwind, Framer Motion, ApexCharts. Use when building Vite web SPA pages or components.
 paths:
   - "**/vite.config.*"
+  - "**/tsconfig.json"
   - "**/index.html"
   - "**/src/pages/**/*.ts"
   - "**/src/pages/**/*.tsx"

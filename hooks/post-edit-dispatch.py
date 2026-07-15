@@ -28,6 +28,7 @@ CHECKERS = [
     "api-design-checker.py",
     "monitoring-checker.py",
     "atomic-design-checker.py",
+    "rails-routes-checker.py",
     "terraform-checker.py",
     "design-token-checker.py",
 ]

@@ -18,7 +18,15 @@ Determine what to review:
 
 - If given specific files, read them directly
 - If given a feature area, Glob for all components in that area
-- If reviewing broadly, Glob across `web/src/components/`, `next/src/components/`, `mobile/src/components/`, and `backend/app/components/`
+- If reviewing broadly, locate each package **by its marker file, not its directory name** — this
+  repo is wrapper-directory agnostic, so `web/`, `next/`, `mobile/` and `backend/` are one team's
+  naming, not a contract. Glob `**/next.config.*`, `**/vite.config.*`, `**/metro.config.js` and
+  `**/Gemfile`; take each marker's directory as the package root; then glob
+  `<pkg>/**/components/**/*.tsx` (or `<pkg>/app/components/**/*.rb` for Phlex) within it. The
+  marker is also the only thing separating a React Native component from a browser React one.
+- **If the globs return nothing, report that — do not report clean.** "No components found" and
+  "no design issues" are opposite findings, and a fabricated clean bill is worse than an error
+  because nobody investigates it.
 - Identify the atomic level of each component (atom, molecule, organism, template, page)
 - Note which platforms are covered and which are missing
 
@@ -174,9 +182,9 @@ Present the critique as a structured report:
 
 ## Reference Files
 
-- `@rules/design-system.md` — Design token conventions (enforced)
-- `@rules/accessibility.md` — WCAG 2.2 AA requirements
-- `@rules/phlex-conventions.md` — Phlex component conventions
+- the `std-design-system` skill — Design token conventions (enforced)
+- the `std-accessibility` skill — WCAG 2.2 AA requirements
+- the `std-phlex-conventions` skill — Phlex component conventions
 - `@skills/theming/references/design-tokens.md` — Canonical token specification
 - `@skills/ui-ux-patterns/references/storytelling-ui.md` — Canonical storytelling/narrative UX framework (single source of truth for step 7)
 

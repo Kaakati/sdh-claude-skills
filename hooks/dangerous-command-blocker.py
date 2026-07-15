@@ -25,6 +25,23 @@ _DB_DESTRUCTIVE = [
     (r'TRUNCATE\s+TABLE\b', "Table truncation"),
     (r'DELETE\s+FROM\s+\w+\s*;?\s*$', "Unfiltered DELETE (no WHERE)"),
     (r'ALTER\s+TABLE\s+\w+\s+DROP\s+COLUMN', "Column drop"),
+    # On this stack Redis is BOTH the Rails cache backend and the Sidekiq queue store
+    # (CLAUDE.md). So FLUSHALL against production does not clear a cache — it destroys every
+    # enqueued job, irreversibly, with no error.
+    #
+    # This is not hypothetical: `incident-responder` holds Bash and its own protocol says
+    # "Clear stuck queues only as last resort (loses jobs)". That parenthetical is prose, and
+    # prose is not enforcement — Ch. 7's placement test says a rule that must hold whether or
+    # not it is read is a gate. Under incident pressure, at maxTurns 30, it was the only thing
+    # standing between a stuck queue and a lost one.
+    #
+    # Scoped to a REMOTE target (-h/-u, and no localhost in the segment) on purpose:
+    # `redis-cli FLUSHALL` against a local dev box is ordinary daily work, and blocking that
+    # would be a gate people learn to ignore. Read-only production commands (GET, INFO, LLEN)
+    # stay untouched — an incident responder must still be able to diagnose.
+    (r'redis-cli\b(?![^|;&]*(?:localhost|127\.0\.0\.1))'
+     r'(?=[^|;&]*\s-[hu]\b)(?=[^|;&]*\bFLUSH(?:ALL|DB)\b)',
+     "Redis FLUSH against a remote host (destroys Sidekiq's enqueued jobs, not just cache)"),
 ]
 
 _PRIVILEGE = [

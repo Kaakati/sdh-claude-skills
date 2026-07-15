@@ -25,7 +25,15 @@ Use this skill when:
 
 ## Platform Ad Specifications
 
-Reference `references/platform-specs.md` for complete dimension and format specifications.
+Reference `references/platform-specs.md` for dimension and format specifications.
+
+**Treat every number below as a cached copy with no expiry date on it.** Ad specs change without
+notice; this table records what was true when someone wrote it, and it has looked equally confident
+ever since. Confirm anything a campaign depends on against the platform's own ads guide before
+shipping — a stale character limit is a truncated headline in production or an upload rejected on
+launch day. And **do not extend this table from memory**: asked about a platform that is not listed,
+say it is not covered rather than producing a plausible number, because a recalled spec is
+indistinguishable from a checked one once it is in the row.
 
 ### Platform Quick Reference
 

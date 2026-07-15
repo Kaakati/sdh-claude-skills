@@ -156,3 +156,19 @@ when the task calls for it:
 |-----------|--------------|
 | `references/repository-layout.md` | Laying out a new Terraform repo, deciding which file a block belongs in, writing `versions.tf`/`locals.tf`, or choosing between per-environment root modules and a single root with `-var-file` |
 | `references/enforcement-and-tooling.md` | A hook rejected your edit, a `terraform apply` was gated, or you need to know what the automated checks do not catch |
+
+### Owned elsewhere
+
+- **`std-terraform-conventions`** is the always-on rule set: it **auto-loads on every `**/*.tf` and
+  `**/*.tfvars`**, any wrapper directory. File structure, provider constraints, resource naming,
+  the required tag set, backend config, security minimums. You do not need to open it while editing
+  `.tf` — it is already there. Open it when you are *planning* infrastructure that does not exist
+  yet, because nothing auto-loads for a file you have not created.
+- **`@skills/std-infrastructure/references/terraform-mechanics.md`** — state, variables, tagging and
+  secrets as decisions rather than rules. It overlaps `references/repository-layout.md` on two
+  questions (where a `.tf` file goes; where tags come from) and **agrees** with it; read either.
+  `rules/resource-required-tags.md` is authoritative for the tag set itself.
+- **`terraform-checker.py`** warns on `.tf` edits (hardcoded secrets, snake_case naming, the four
+  required tags, backend config, provider versions); **`terraform-command-gate.py`** is a three-tier
+  gate on the commands. The tag list the hook enforces and the tag list these skills document are
+  held in sync by a test — if they ever disagree, that is a bug in the plugin, not in your code.

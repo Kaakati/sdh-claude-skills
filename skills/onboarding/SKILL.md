@@ -154,7 +154,10 @@ Examples:
 ### Step 5: Code Review Process
 
 #### As a Reviewer
-- Review within 24 hours of being requested.
+- Review within `{review-sla}` of being requested. **Fill this in from the team's actual
+  agreement — do not invent it.** This plugin does not set your SLA, and neither CLAUDE.md nor
+  the `std-git-workflow` skill pins one; a number that appears only in an onboarding doc is a
+  number nobody agreed to, and a new developer has no way to tell the difference.
 - Check for correctness, readability, test coverage, and adherence to conventions.
 - Use the code-reviewer skill for systematic reviews.
 - Be constructive — suggest alternatives, not just criticize.

@@ -13,10 +13,17 @@ Load-bearing rules restated (hold even if you read nothing else):
 
 ## Why this file exists
 
-`SKILL.md` says *"every log entry must include `request_id`"*, `monitoring-checker.py` warns when
-it doesn't, `std-api-design` puts it in the error envelope, and `log-search` builds its whole
-"trace one request" workflow on it. **Eleven files depend on this id and none of them said where
-it comes from.** This one does.
+`SKILL.md` says *"every log entry must include `request_id`"*, `std-api-design` puts it in the
+error envelope, and `log-search` builds its whole "trace one request" workflow on it. **Eleven
+files depend on this id and none of them said where it comes from.** This one does.
+
+**No hook checks for it, deliberately.** `monitoring-checker.py` used to warn when a log line did
+not literally contain `request_id`, and that check was removed: the id is attached by Rails via
+`config.log_tags`, so it is **not in the source line at all**. On a correctly configured app every
+plain `Rails.logger.info("…")` was a false positive, and on a misconfigured one no amount of
+per-call editing fixes it — the remedy is the one line of config below. A rule satisfied by config
+is not a per-call warning. So the id's presence is **your configuration's job, not a gate's**,
+which is exactly why this file has to be right.
 
 ## What Rails gives you for free
 

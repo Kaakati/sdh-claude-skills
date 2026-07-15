@@ -59,5 +59,25 @@ Use this skill when:
 
 - `references/phlex-patterns.md` -- Comprehensive Phlex patterns and API
 - `references/component-examples.md` -- Working examples at each atomic level
-- `@rules/phlex-conventions.md` -- Enforced conventions
-- `@rules/rails-conventions.md` -- Rails backend conventions
+
+### Owned by `std-phlex-conventions` (auto-loads on `**/app/components/**/*.rb`)
+
+The two files above are worked *patterns*. These are decision-shaped, carry the bad/good pairs,
+and are what the conventions actually mean — naming the skill is not the same as reading them:
+
+- **Atoms and molecules** → `@skills/std-phlex-conventions/references/component-levels-primitives.md`
+- **Organisms, templates, pages** → `@skills/std-phlex-conventions/references/component-levels-composites.md`
+- **Variants, tokens, class merging (`class_variants`)** → `@skills/std-phlex-conventions/references/variants-and-styling.md`
+- **Stimulus wiring** → `@skills/std-phlex-conventions/references/stimulus-wiring.md`
+- **Turbo Frames and Streams** → `@skills/std-phlex-conventions/references/turbo-frames-and-streams.md`
+- **Testing components** → `@skills/std-phlex-conventions/references/testing.md`
+
+Rails backend conventions → the `std-rails-conventions` skill.
+
+**Two token facts before you style anything.** `destructive` and `neutral` are variant **keys**,
+not tokens — the registered tokens are `error` and `muted`, and a class naming an unregistered
+token (`bg-destructive`) compiles to **no CSS at all**, silently: the button renders transparent
+with inherited text and review cannot see it. And a `-foreground` token is contrast-verified
+against its **solid** surface, so `bg-success/10 text-success-foreground` is near-white on
+near-white; on a tint use `text-foreground`. The registry is
+`@skills/theming/references/platform-integration.md`.

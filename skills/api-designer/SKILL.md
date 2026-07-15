@@ -76,14 +76,13 @@ Collection response:
     { "id": "abc-123", "name": "First" },
     { "id": "def-456", "name": "Second" }
   ],
-  "pagination": {
-    "page": 1,
-    "pageSize": 20,
-    "totalItems": 85,
-    "totalPages": 5
-  }
+  "pagination": { "nextCursor": "eyJpZCI6MTAwfQ==", "hasMore": true, "limit": 25 }
 }
 ```
+
+That is the **cursor** shape, which is the default (see Step 5). The offset shape —
+`{ "page": 2, "pageSize": 25, "totalItems": 150, "totalPages": 6 }` — is for small, stable
+datasets only. Both are pinned in `@skills/std-api-design/references/pagination-rails.md`.
 
 #### Field Conventions
 - Use `camelCase` for JSON field names.
@@ -96,22 +95,29 @@ Collection response:
 ### Step 4: Error Handling
 
 #### Standard Error Format
+
+Owned by `std-api-design` → `references/errors-rails.md` (Rails) and `references/errors-typescript.md`
+(Next route handlers / Express). Both auto-load on controller and route work; this skill does not,
+so **they are the contract and this is the summary**:
+
 ```json
 {
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "One or more fields failed validation.",
-    "details": [
-      {
-        "field": "email",
-        "message": "Must be a valid email address.",
-        "code": "INVALID_FORMAT"
-      }
-    ],
-    "requestId": "req-abc-123"
-  }
+  "error": "One or more fields failed validation.",
+  "code": "VALIDATION_ERROR",
+  "status": 422,
+  "details": [
+    { "field": "email", "message": "Must be a valid email address." }
+  ],
+  "requestId": "req-abc-123"
 }
 ```
+
+`error` is the human-readable string, `code` the stable machine-readable string a client
+switches on, `status` the HTTP status repeated in the body, `details` an array (a validation
+failure has an ordered list of them, and an object keyed by field cannot express two errors on
+one field), `requestId` the value the client quotes and the operator greps for.
+
+`api-design-checker.py` warns on a rendered error body missing `code` or `requestId`.
 
 #### HTTP Status Code Usage
 
@@ -137,24 +143,20 @@ Maintain a registry of application error codes. Codes should be:
 
 ### Step 5: Pagination
 
-#### Offset Pagination (simple)
-```
-GET /users?page=2&pageSize=20
-```
-Response includes: `page`, `pageSize`, `totalItems`, `totalPages`.
-Suitable for: UI with page numbers, small-to-medium data sets.
+Owned by `std-api-design`, which auto-loads on controller work. The load-bearing rules, restated
+here because they change the *design* — not just the implementation:
 
-#### Cursor Pagination (scalable)
-```
-GET /users?cursor=eyJpZCI6MTAwfQ&limit=20
-```
-Response includes: `cursor` (for next page), `hasMore`.
-Suitable for: Large data sets, real-time data, infinite scroll.
+- **Cursor-based pagination is the default.** Offset is acceptable only for small, stable datasets
+  that are not appended to in real time. Offset is not "the simple one" — on an appended-to table
+  it silently skips and repeats rows as the offsets shift under the reader.
+- **Default page size 25, maximum 100**, client-settable via `?limit=`. **Always clamp** — an
+  unbounded `limit` is a denial-of-service you shipped yourself.
+- Collections are wrapped: `{ "data": [...], "pagination": {...} }` — **never a bare array**.
+- Rails uses `pagy` (CLAUDE.md pins it). Do not hand-roll offset arithmetic; `pagy` avoids the
+  N+1 count that hand-rolled pagination reintroduces.
 
-#### Default Behavior
-- Default page size: 20 items.
-- Maximum page size: 100 items.
-- Always include pagination metadata in collection responses.
+Depth, with the bad/good pairs → `@skills/std-api-design/references/pagination-rails.md` (server)
+and `@skills/std-api-design/references/pagination-clients.md` (consuming it).
 
 ### Step 6: Filtering and Sorting
 
@@ -181,17 +183,14 @@ GET /products?sort=price:asc,name:asc
 
 ### Step 7: Versioning
 
-Preferred approach — URL path versioning:
-```
-/api/v1/users
-/api/v2/users
-```
+URL path versioning (`/api/v1/users`). Increment the major only for breaking changes; adding a
+field or an endpoint is not one. Support the current and previous version simultaneously.
 
-Rules:
-- Increment the major version only for breaking changes.
-- Support at least the current and previous version simultaneously.
-- Document a deprecation timeline (minimum 6 months).
-- Non-breaking changes (adding fields, new endpoints) do not require a new version.
+The part that decides whether a version bump is even needed — what actually counts as breaking for
+*your* clients, how to deprecate without stranding a mobile app you cannot force-update, and the
+`Sunset`/`Deprecation` headers — is owned by
+`@skills/std-api-design/references/versioning-and-deprecation.md`. Read it before promising a
+timeline: a deprecation window is a commitment to people who have already shipped.
 
 ### Step 8: Authentication
 
@@ -225,4 +224,17 @@ When designing or reviewing an API, provide:
 
 ## Deep guides (read on demand, do not preload)
 
-- URL structure, status codes, the error envelope, pagination, filtering/sorting, HATEOAS links → `references/api-conventions.md`
+- URL structure, status codes, filtering/sorting, HATEOAS links, the OpenAPI template →
+  `references/api-conventions.md`
+
+The rest is owned by `std-api-design`, which **auto-loads** on controller and route work. Read the
+one matching the decision — these carry the bad/good pairs, and this skill deliberately does not
+restate them:
+
+- **The error envelope, and rendering it in Rails** → `@skills/std-api-design/references/errors-rails.md`
+- **Validating input and consuming errors in TypeScript** → `@skills/std-api-design/references/errors-typescript.md`
+- **Paginating in Rails (`pagy`)** → `@skills/std-api-design/references/pagination-rails.md`
+- **Consuming a paginated API** → `@skills/std-api-design/references/pagination-clients.md`
+- **Versioning a breaking change, deprecation windows** → `@skills/std-api-design/references/versioning-and-deprecation.md`
+- **Rate limiting** → `@skills/std-api-design/references/rate-limiting.md`
+- **Health checks** → `@skills/std-api-design/references/health-checks.md`

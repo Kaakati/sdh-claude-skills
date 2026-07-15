@@ -96,3 +96,18 @@ rules/<rule-id>.md
 ```
 
 Loading one ~60-line rule beats skimming a compiled monolith. Do not preload the directory.
+
+### Owned elsewhere
+
+Composition is orthogonal to state placement — get both right or the pattern leaks:
+
+- **`std-reactjs`** auto-loads on Vite SPA work and owns *what state goes where* (Zustand vs
+  TanStack Query vs local) → `@skills/std-reactjs/references/state-placement.md`. A compound
+  component whose context holds server data has invented a second cache.
+- **`std-nextjs`** owns the Server/Client boundary → `@skills/std-nextjs/references/rendering.md`.
+  Context requires a Client Component, so reaching for a provider is a rendering decision before
+  it is a composition one.
+
+**Section 4 is React 19+ only, and this repo only pins React 19 for Next.js** (`std-nextjs`:
+*"React 19 minimum"*). The Vite SPA and React Native pin no React version here — read
+`package.json` before applying `react19-no-forwardref`, exactly as that rule already warns.

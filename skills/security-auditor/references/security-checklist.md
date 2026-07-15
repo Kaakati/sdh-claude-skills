@@ -121,7 +121,11 @@ Insecure default configurations, incomplete configurations, or ad-hoc configurat
 Using components (libraries, frameworks) with known vulnerabilities.
 
 ### Detection
-- [ ] No dependencies with known critical or high CVEs (`npm audit`, `pip-audit`, `bundler-audit`).
+- [ ] No dependencies with known critical or high CVEs — `bundle exec bundler-audit check
+      --update` (Ruby) and `npm audit` / `pnpm audit` (JS). These are the two CI runs; there is
+      no Rust or Python application in this stack, so `cargo audit`/`pip-audit` are not part of it.
+- [ ] `bundle exec brakeman --no-pager --exit-on-warn` is clean — the Rails static analyser CI
+      gates on (`std-infrastructure/references/ci-pipeline.md`).
 - [ ] Lock files are committed and reviewed for unexpected changes.
 - [ ] Dependencies are not abandoned (last update > 2 years with open security issues).
 - [ ] Only necessary dependencies are installed — no unused packages.

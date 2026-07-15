@@ -26,7 +26,15 @@ Partner-level requirements discovery and clarification. This skill routes to the
 
 ## Discovery Protocol
 
-The agent follows a structured six-phase protocol:
+The agent follows a structured seven-phase protocol (Phase 0 runs only for greenfield features):
+
+### Phase 0: Discovery — greenfield only
+
+Feasibility against the actual stack, a compliance triage flag, and a **research brief**. The
+agent holds `Read, Grep, Glob` and no web access, so Phase 0 deliberately emits *spike stories*
+for market and competitor questions rather than answering them — a named competitor or a quoted
+price from an agent that cannot open a pricing page is recalled training data, and it lands in
+build/buy decisions where nobody can cheaply check it.
 
 ### Phase 1: Why — Business Objective
 - What business outcome does this serve?

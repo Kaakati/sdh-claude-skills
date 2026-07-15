@@ -8,7 +8,7 @@ model: sonnet
 
 Build production-ready Next.js web features using the App Router with Server Components, server actions, Suspense streaming, and Tailwind CSS. All features consume the shared Rails API backend.
 
-@rules/nextjs.md
+the `std-nextjs` skill
 
 ## Development Workflow
 
@@ -181,3 +181,16 @@ docker build -t myapp-next .
 - Server Component pages, `generateMetadata`, server actions with validation + revalidation, Route Handlers (BFF) → `references/server-patterns.md`
 - Progressive-enhancement forms, Client Components with TanStack Query → `references/client-patterns.md`
 - Root layout providers, loading/error boundaries, auth+locale middleware, Server Component and server-action tests → `references/infrastructure-patterns.md`
+
+### Owned by `std-nextjs` (auto-loads on App Router work)
+
+**This targets Next.js 15+.** That is not a footnote: 15 changed caching defaults and request
+APIs, so the same code behaves differently on 14 — `fetch` is **not** cached by default,
+`GET` route handlers are **not** cached, and `cookies()`/`params` are **async**
+(`await params`, `await cookies()`). Guidance that does not say which major it means is guidance
+you cannot check. The version table and both consequences live in the `std-nextjs` skill body.
+
+- **Choosing the Server/Client boundary** → `@skills/std-nextjs/references/rendering.md`
+- **Server actions: writing mutations** → `@skills/std-nextjs/references/server-actions.md`
+- **Caching, ISR, revalidation** → `@skills/std-nextjs/references/caching.md`
+- **Middleware, SEO metadata, deployment** → `@skills/std-nextjs/references/middleware-seo-deploy.md`

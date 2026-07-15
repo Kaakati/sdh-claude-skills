@@ -12,6 +12,7 @@ Exit codes:
 """
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -75,9 +76,30 @@ def main():
 
     feedback = []
 
-    # Gate 1: If the task implies code changes but none were made, flag it
-    code_keywords = ("implement", "build", "create", "add", "fix", "refactor", "update")
-    task_implies_code = any(kw in task_description.lower() for kw in code_keywords)
+    # Gate 1: If the task implies code changes but none were made, flag it.
+    #
+    # Two bugs lived here, and both pushed a teammate at work it could not do:
+    #
+    # 1. WORD BOUNDARIES. A bare `"add" in description` also matches "address" and "padding";
+    #    `"fix"` matches "prefix" and "suffix" — which is *review* vocabulary. "Review the
+    #    address validation approach" was read as "implement something".
+    # 2. READ-ONLY AGENTS. Four bundled agents (architecture-advisor, clean-architecture,
+    #    design-critique, design-system-architect) ship `tools: Read, Grep, Glob` — they hold
+    #    no write tool at all. The Review and Design team templates place them as teammates,
+    #    where this hook fires. Telling them to "implement the changes" demands something they
+    #    are structurally incapable of, with no remedy (Ch. 25). Their whole job is to go idle
+    #    having written nothing.
+    READ_ONLY_AGENTS = (
+        "architecture-advisor", "clean-architecture", "code-reviewer", "design-critique",
+        "design-system-architect", "monorepo-architect", "requirements-consultant",
+    )
+    task_implies_code = bool(re.search(
+        r"\b(implement|implementing|build|building|create|creating|add|adding|fix|fixing|"
+        r"refactor|refactoring|update|updating)\b",
+        task_description.lower(),
+    ))
+    if agent_name in READ_ONLY_AGENTS:
+        task_implies_code = False
 
     if task_implies_code and not source_files:
         feedback.append(

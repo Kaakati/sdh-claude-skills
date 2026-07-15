@@ -36,4 +36,4 @@ This skill routes to the **refactor-specialist** agent — a senior refactoring 
 4. **Applies Fowler's patterns** — Extract Method/Class, Move Method, Replace Conditional with Polymorphism, Introduce Parameter Object
 5. **Reports after each step** — what changed, why, test results
 
-See `.claude/agents/refactor-specialist.md` for the full refactoring protocol and code smell catalog.
+See `agents/refactor-specialist.md` for the full refactoring protocol and code smell catalog.

@@ -111,13 +111,40 @@ Offset:        Same hue, vary S and L
 4. **Derive neutrals** from primary hue:
    - Warm neutrals: Add 2-5% saturation of primary hue to grays
    - Cool neutrals: Use primary hue at 5-15% saturation, varying lightness
-5. **Set semantic colors** (keep standard associations):
-   - Success: HSL(142, 70-76%, 36-45%)
-   - Warning: HSL(38-43, 92-96%, 50-56%)
-   - Error: HSL(0, 62-84%, 30-60%)
-   - Info: HSL(199, 80-95%, 46-54%)
-6. **Create foreground pairs** meeting WCAG 4.5:1 contrast
-7. **Generate dark mode** by inverting lightness (light backgrounds become dark, dark text becomes light)
+5. **Set semantic colors** (keep standard associations). **A lightness range is only meaningful
+   once you name the foreground it carries** — these assume the usual near-white
+   `*-foreground` (~`0 0% 98%`), and the caps are what 4.5:1 actually permits:
+
+   | Token | Hue / saturation | Lightness **with a near-white foreground** |
+   |---|---|---|
+   | Success | HSL(142, 70-76%) | **≤ 29%** — e.g. `142 76% 28%` → 4.96:1 |
+   | Error | HSL(0, 62-84%) | **≤ 48%** — e.g. `0 84% 47%` → 4.82:1 |
+   | Info | HSL(199, 80-95%) | **≤ 35%** — e.g. `199 80% 35%` → 5.01:1 |
+
+   The cap is set by the **most saturated** end of each range — higher saturation needs lower
+   lightness — and it is **floored, not rounded**. Success at 76% saturation clears AA at 29.7%,
+   so the published cap is 29%: rounding it to 30% yields 4.43:1, which fails. One percent.
+   | Warning | HSL(38-43, 92-96%, 50-56%) | **This one takes a DARK foreground** (e.g. `38 92% 12%`). Amber at any readable lightness is ~1.9:1 against white — there is no lightness in the usable amber range that works with white text. |
+
+   > **This table used to prescribe `success: 36-45%`, `info: 46-54%`, `error: 30-60%` with no
+   > foreground named — and *the entire success and info ranges fail against a near-white
+   > foreground* (best case 3.40:1 and 3.12:1). Step 6 then asked for pairs "meeting 4.5:1",
+   > which steps 1-5 had already made impossible. This is not theoretical: all three presets in
+   > `@skills/theming/references/theme-presets.md` were built from that recipe and **13 of their
+   > pairs measured below AA** — `--success` at 2.54:1, `--info` at 2.99:1. The recipe was the
+   > bug, and the palettes inherited it.
+
+6. **Create foreground pairs** meeting WCAG 4.5:1 contrast — **by computing the ratio, not by
+   judging it.** Use `contrastRatio()` from
+   `@skills/std-design-system/references/defining-tokens.md` and record the measured number beside
+   each pair. Nobody can eyeball a gamma-corrected luminance ratio; a mid-tone green with white
+   text reads fine and measures 3:1.
+7. **Generate dark mode** — **not by inverting lightness.** Inversion is a plausible-looking rule
+   that produces failures: flip `success 36% → 64%` and you now have a light green that fails
+   against a *light* foreground and needs a dark one, so the pair changes character rather than
+   just its numbers. Dark mode is **a separate set of pairs, measured independently** — pick each
+   surface for the dark background, then solve its foreground and record the ratio. The dark
+   halves of all three presets failed on exactly this.
 
 ### Saturation Guidelines
 

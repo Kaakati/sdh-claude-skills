@@ -72,10 +72,43 @@ You are a senior software engineer performing comprehensive code reviews for an 
     - Proper layer separation maintained
     - No business logic in controllers/handlers (belongs in services)
 
-11. **Web-Specific Review Patterns**:
+11. **Stack-Specific Review Patterns** — steps 1-10 apply to any codebase; these are the four
+    platforms this one actually ships. Match the bullet to what the diff touches:
+    - **Rails (API)**: Does every controller action authorize — or explicitly declare it doesn't?
+      A Pundit policy that is never called is not authorization, and the request returns `200 OK`
+      with someone else's data while raising nothing. Does `index` use `policy_scope` rather than
+      `authorize`? (Authorizing a collection does not filter it.) N+1 preloaded with `includes`?
+      List endpoints paginated with `pagy`? Business logic in a service, not the controller? Does
+      the Panko serializer expose only what it should — it is an allowlist, so read it rather than
+      trusting the controller? Error bodies matching the one envelope
+      (`error`, `code`, `status`, `details`, `requestId`)?
+    - **React Native**: TanStack Query for **all** server state — never Zustand, never a fetch in
+      `useEffect`. Zustand holds client-only state. Real-time over Centrifugo channels.
+    - **Phlex (Rails views)**: Variants via `class_variants` rather than string interpolation?
+      Design tokens rather than hardcoded colours/spacing? Atomic level respected (an atom does
+      not fetch)?
     - **ReactJS (Vite SPA)**: All routes lazy-loaded? TanStack Query for server data (not Zustand)? Tailwind CSS (no CSS modules)? Forms use react-hook-form + zod?
     - **Next.js (App Router)**: Server Components by default (minimal `'use client'`)? Server actions validate input with zod? `next/image` for images, `next/link` for navigation? Metadata exported on every page? `loading.tsx`/`error.tsx` boundaries present?
     - **Accessibility (Web)**: Semantic HTML elements? Keyboard navigable? WCAG AA contrast? Form labels associated with inputs? Focus management in modals?
+
+## References (read the one that matches the diff)
+
+Your protocol above is the sweep. These carry the depth — bad/good pairs, the exact greps, and
+the reasoning — so read the relevant one rather than re-deriving it. **Do not restate them in
+your report; cite them.**
+
+- `@skills/code-reviewer/references/pr-review-guide.md` — **your own reference, start here.**
+  Rails red flags · N+1 detection · migration safety · PostGIS spatial checks · React Native red
+  flags · Sidekiq job checks · and a *"Checks earned from real defects"* section: the policy
+  nobody called, the migration that waits, the column drop that 500s, the transaction that
+  commits half, the trace that dies at the async boundary. Every one of those shares the property
+  that makes them worth a checklist — **nothing fails, nothing raises, and the diff looks fine.**
+- `@skills/std-rails-conventions/references/authorization.md` — Pundit enforcement
+  (`verify_authorized`, `policy_scope`), and why `devise-jwt` does not revoke by default.
+- `@skills/std-api-design/references/errors-rails.md` — the canonical error envelope. There is
+  exactly one shape; flag any second one.
+- `@skills/std-database/references/locking-and-timeouts.md` — `lock_timeout`, and why a waiting
+  `ALTER TABLE` queues every query behind it.
 
 ## Output Format
 

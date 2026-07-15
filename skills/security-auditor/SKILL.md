@@ -112,7 +112,9 @@ Confirm that `.gitignore` excludes:
 2. **CSRF**: Anti-CSRF tokens on all state-changing requests. SameSite cookie attribute set.
 3. **Headers**: Security headers configured — `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy`, `Permissions-Policy`.
 4. **Rate Limiting**: API endpoints have rate limiting to prevent abuse.
-5. **Dependencies**: No known vulnerable dependencies — `npm audit`, `pip-audit`, or equivalent passes.
+5. **Dependencies**: No known vulnerable dependencies — `bundle exec bundler-audit check --update`
+   and `npm audit`/`pnpm audit` pass, and `bundle exec brakeman --exit-on-warn` is clean. Run what
+   CI runs (`std-infrastructure/references/ci-pipeline.md`) so findings and the merge gate agree.
 6. **Debug Mode**: Debug/development mode is disabled in production configurations.
 7. **Default Credentials**: No default admin accounts, passwords, or API keys.
 

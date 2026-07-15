@@ -96,17 +96,43 @@ Use modified Fibonacci story points (1, 2, 3, 5, 8, 13, 21):
 
 #### Story Point Reference
 
-| Points | Complexity | Duration Guide | Example |
-|--------|-----------|----------------|---------|
-| **1** | Trivial | < 2 hours | Config change, copy update, simple bug fix |
-| **2** | Small | 2-4 hours | Single endpoint CRUD, simple UI component |
-| **3** | Medium-Small | 4-8 hours | Endpoint with business logic, form with validation |
-| **5** | Medium | 1-2 days | Feature with multiple endpoints, complex UI flow |
-| **8** | Large | 2-3 days | Multi-component feature, data migration, integration |
-| **13** | Very Large | 3-5 days | Cross-cutting feature, architectural change |
-| **21** | Epic | > 1 week | Must be broken down further — too large for a sprint |
+**Points are relative size, not time.** The column that used to sit here — a "Duration Guide"
+mapping 5 points to "1-2 days" — is the classic way to destroy the abstraction, and it contradicted
+the first estimation guideline below (*"Compare, don't calculate"*) on the same screen.
+
+Two reasons it has to go, and the second is the one that bites:
+
+1. **A 5 is not 1-2 days for whom?** A team of seniors on a familiar codebase and a team onboarding
+   deliver very different hours for the same relative size. That is not noise to be corrected — it
+   is the whole reason points exist rather than hours.
+2. **It makes velocity circular.** This skill measures velocity (Step 1, and *Velocity Tracking*
+   below) precisely to **discover** what a point is worth for *this* team, empirically, over time.
+   If the table has already declared that a 5 is 1-2 days, velocity can only measure how wrong the
+   table is. You cannot fix a conversion rate a priori and also claim to be measuring it.
+
+**Time comes out of velocity, not out of a table.** Estimate relative size; let the team's own
+completed-points-per-sprint convert it to a date.
+
+| Points | Relative size | Example |
+|--------|--------------|---------|
+| **1** | Trivial — the reference story everyone agrees on, or smaller | Config change, copy update, simple bug fix |
+| **2** | Small | Single endpoint CRUD, simple UI component |
+| **3** | Medium-small | Endpoint with business logic, form with validation |
+| **5** | Medium | Feature with multiple endpoints, complex UI flow |
+| **8** | Large | Multi-component feature, data migration, integration |
+| **13** | Very large — usually a sign the story wants splitting | Cross-cutting feature, architectural change |
+| **21** | Too large to plan | Must be broken down further — do not commit it |
+
+The examples are the useful part: they are **anchors**, not definitions. Pick the row whose example
+your story feels closest to in effort, and move on — an estimate argued to consensus for twenty
+minutes is not more accurate than the first one, it is just more expensive.
 
 #### Estimation Guidelines
+- **The team estimates, not the planner and not this skill.** You can *facilitate* — surface the
+  anchors, ask what makes a story bigger than the reference, flag when an estimate implies a hidden
+  dependency. You cannot supply the number: it encodes what the team knows about a codebase and
+  about itself, and neither is in the ticket. An estimate produced by reading a ticket is a guess
+  wearing a Fibonacci number.
 - **Compare, don't calculate**: Estimate relative to a reference story the team agrees on.
 - **Include everything**: Development, testing, code review, deployment verification.
 - **Uncertainty adds points**: If unclear, round up. Uncertainty = risk.
