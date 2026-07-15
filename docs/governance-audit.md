@@ -343,15 +343,50 @@ failure, one layer up — so it gets the same treatment.
 inline CI python block is syntactically valid. Verified by injecting a syntax error: the test failed
 loudly, then the file was restored.
 
-## OPEN — prioritized backlog
+### Layer 1 — "finish progressive disclosure (13 skills)" was mostly NOT a gap — *2026-07-15*
+Audited the 13 single-file `std-*` skills against Ch. 7's **placement test** rather than assuming
+"single-file = unfinished". Bodies measure **50–127 lines** — which *is* tier-2's target ("a page of
+rules"). The 7 skills genuinely split earlier were 148–217.
 
-### P1 · Layer 1 — finish progressive disclosure (13 skills remain single-file)
-7 of 20 `std-*` skills are now three-tier. The remaining 13 (`std-rails-conventions`,
-`std-react-native`, `std-database`, `std-accessibility`, `std-i18n`, `std-clean-architecture`,
-`std-monitoring`, `std-terraform-conventions`, `std-security`, `std-code-standards`,
-`std-error-handling`, `std-git-workflow`, `std-agent-teams`) still carry all depth in tier 2.
-Apply the same placement test. Note `std-security`/`std-code-standards` now load on *every*
-source edit — their bodies must stay tight, so they are the highest-priority splits.
+Ch. 7's **merge signal** is explicit: *"it's short, and it applies to essentially every task the
+skill triggers on. That's not a reference; that's a rule you moved out of the body for no reason,
+and you've bought an extra file read for nothing."* Splitting `std-accessibility` (126, all
+cross-cutting web a11y), `std-database` (121, all general DB rules), `std-monitoring` (67),
+`std-error-handling` (50) etc. would therefore be an **antipattern**, not progress.
+
+**12 of 13 are correctly sized — the item is closed as not-a-gap.** Recording the reasoning so a
+later pass doesn't "complete" it and do harm.
+
+**One real exception, found by the other signal:** `std-clean-architecture` (127 lines) is not
+oversized, but it carries **four platform mappings** (Rails, React Native, Vite, Next.js) in tier 2,
+and its `paths:` trigger on `**/app/**/*.rb` *and* `**/src/**/*.ts` — so a Rails task loads the
+Next.js/RN/Vite mappings for nothing. That is Ch. 7's *second stack/platform* split signal ("an ECS
+task should never load Kubernetes context"), and it is being split by platform.
+
+### Layer 1 — reference sizing: the over-budget files split at the book's own signals — *2026-07-15*
+Split at Ch. 7's two signals (never *by line count*): **sections never needed together**, and **a
+second stack/platform** ("an ECS task should never load Kubernetes context").
+
+| Skill | Before | After |
+|---|---|---|
+| std-infrastructure | terraform-aws **560** + cicd-and-deploys **492** (1052) | 7 files, max 287 — split Terraform-mechanics ↔ AWS-services, and CI/backend ↔ frontend deploys |
+| std-api-design | errors-and-validation **457**, rate-limiting-and-health **380**, pagination **387** | 7 files, max 299 — split at the **Rails ↔ TypeScript** seam; rate-limiting ↔ health-checks |
+| std-phlex-conventions | component-levels **430**, stimulus-and-turbo **375** | 6 files, max 313 — primitives ↔ composites; Stimulus ↔ Turbo |
+| std-reactjs | forms-and-testing **399**, state-and-data **368** | 7 files, max 286 — forms ↔ testing; state-placement ↔ data-fetching |
+| std-clean-architecture | body 127 carrying **4 platform mappings** | body 75 (hub) + 4 platform references — a Rails task no longer loads Next.js/RN/Vite context |
+
+Content preserved in every case (verified file-by-file against HEAD).
+
+**A real defect the adversarial verify caught** (`std-reactjs`, same class as iteration 4's terraform
+contradictions): the split **added** a second copy of the `useOrders` hook and, worse, left **two
+`orderKeys` factories both labelled `// src/api/orders.ts`** — one *with* `lists()`, one *without*,
+while `data-fetching.md`'s invalidation calls `orderKeys.lists()`. A reader copying the
+`state-placement` factory and following `data-fetching`'s invalidation gets
+`orderKeys.lists is not a function`. The inconsistency pre-existed at HEAD but was *contained* in one
+file; splitting turned it into a cross-file contradiction. Fixed: one factory (the `lists()` version
+its invalidation depends on), owned by `data-fetching.md`, imported by the other.
+
+## OPEN — prioritized backlog
 
 ### P2 · Layer 1 — the 3 remaining `full-guide.md` monoliths (~90% scaffolding)
 `react-best-practices` (2934), `react-native-best-practices` (2897), `composition-patterns` (946)
@@ -362,19 +397,12 @@ so nothing loads them — no context cost, but they will drift (this is exactly 
 broke). Fix: fold the section preambles into the body's section headings (tier-2 material — they
 apply to the whole section), then delete. Do not delete before migrating the preambles.
 
-### P1 · Layer 1 — reference sizing overruns (Ch. 7: "under a few hundred lines")
-From the Ch. 7 split; the book's split signals apply (sections never needed together / a second
-stack):
-- `std-infrastructure/terraform-aws.md` **560** (1.9x) — split Terraform-mechanics ↔ AWS-modules
-- `std-infrastructure/cicd-and-deploys.md` **492** — split CI/OIDC/ECS ↔ frontend deploys
-- `std-api-design/errors-and-validation.md` **457** — split at the Rails ↔ TS seam
-- `std-phlex-conventions/component-levels.md` **430** — primitives ↔ composites
-- `std-reactjs/forms-and-testing.md` **399** — forms ↔ testing
-- Also >300: pagination 387, rendering 386, rate-limiting-and-health 380 (two concerns),
-  state-and-data 368, stimulus-and-turbo 375, server-actions 340, versioning 325,
-  variants-and-styling 313, charts-and-animation 312, middleware-seo-deploy 309
-- Pre-existing, also >300: `theming/platform-integration.md` 854, `phlex-dev/component-examples.md`
-  802, `phlex-dev/phlex-patterns.md` 775, `theming/design-tokens.md` 458, `theming/theme-presets.md` 445
+### P3 · Layer 1 — sizing residue (5 files, mostly marginal)
+`std-nextjs/rendering.md` **386** and `server-actions.md` **340** are genuinely over and were not in
+the split batch — `rendering.md`'s streaming/Suspense material is the natural peel. The other three
+are within "~300" tolerance and not worth churning: `variants-and-styling.md` 313 (+4%),
+`middleware-seo-deploy.md` 309, `cross-platform-parity.md` 302. Per the *deliberate non-decisions*
+below, this is a guideline, not a gate — do not shred files to hit a round number.
 
 ### P3 · Layer 5 — governing the governors
 `managed-settings.template.json` is minimal. Expand per Ch. 20's layer-5 section: non-overridable
@@ -401,3 +429,16 @@ consumers pin a tag rather than tracking `main`.
   that is one layer, not two.
 - **Shared assumptions correlate everything** — every layer here assumes failures are *accidents*.
   Against prompt injection (Ch. 32), layers 1–2 fall together; only 3, 4, 6, 7 hold.
+
+---
+
+## Deliberate non-decisions
+
+**No hard CI gate on reference line count.** The ~300-line budget is a *guideline* ("a few hundred
+lines"), and Ch. 20 is pointed about the inverse error: *"over-governing the trivial. A hard deny on
+a style choice that belongs in a skill teaches your team that the governance system is an obstacle,
+and a team that experiences governance as obstruction disables it."* Sizing is a quality guideline,
+not a catastrophic rule — *"the trivial rules get one layer; the catastrophic rules get several."*
+It stays in this audit and in review, not in a build-breaking gate.
+
+**No force-splitting of correctly-sized skills.** See the merge-signal finding above.

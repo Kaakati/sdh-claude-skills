@@ -81,6 +81,11 @@ wait with `condition: service_healthy`. `.dockerignore` must exclude `.git`, `no
 ## Deep guides (read on demand, do not preload)
 
 - Compose stacks, multi-stage Dockerfiles, `.dockerignore`, env config → `references/docker-and-compose.md`
-- Terraform layout, remote state, variables, tagging, secrets, RDS/PostGIS, ECS Fargate, ElastiCache, ALB WebSockets, GCP → `references/terraform-aws.md`
-- GitHub Actions workflows, OIDC to AWS, ECS deploys, S3/CloudFront SPA, Vercel, Next.js standalone, bundle budgets → `references/cicd-and-deploys.md`
+- Terraform layout, remote state, variable declaration, tagging, getting secrets into resources → `references/terraform-mechanics.md`
+- RDS PostgreSQL + PostGIS parameter groups, ElastiCache Redis for cache/Sidekiq → `references/aws-data-services.md`
+- ECS Fargate task definitions and services, autoscaling, ALB with WebSockets → `references/aws-compute-and-networking.md`
+- GCP service accounts, GCS backend, credentials in AWS Secrets Manager → `references/gcp-secondary-cloud.md`
+- GitHub Actions PR checks (rubocop/rspec/vitest/security), OIDC to AWS → `references/ci-pipeline.md`
+- Rails → ECS deploy: immutable SHA tags, migrations as a task, wait, smoke test → `references/backend-deploys.md`
+- Vite SPA → S3/CloudFront, Next.js → Vercel or ECS standalone, bundle budgets → `references/frontend-deploys.md`
 - Savings Plans, right-sizing, budgets and anomaly detection, storage lifecycle, FinOps cadence → `references/cost-optimization.md`

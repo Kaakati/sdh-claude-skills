@@ -5,13 +5,8 @@ Load-bearing rules restated (these hold even if you read nothing else):
 - Version lives **in the URL path**: `/v1/users`, `/v2/users`.
 - Increment the **major version only for breaking changes**. Additive changes never bump.
 - Support the previous version for a **documented deprecation period**.
-- While the old version is still served, every response from it carries:
-  ```
-  Deprecation: true
-  Sunset: Sat, 01 Mar 2025 00:00:00 GMT
-  ```
-
----
+- While the old version is still served, every response from it carries the RFC 8594 headers
+  `Deprecation: true` and `Sunset: Sat, 01 Mar 2025 00:00:00 GMT`.
 
 ## Decision: is this change breaking?
 
@@ -29,10 +24,7 @@ Load-bearing rules restated (these hold even if you read nothing else):
 | Change a success status code (200 → 202) | **Yes** | New version |
 | Fix a bug where the response contradicted documented behavior | No | Ship on `/v1`, changelog it |
 
-Rule of thumb: if a well-behaved existing client, unchanged, would start producing wrong results
-or crashing, it is breaking.
-
----
+Rule of thumb: if a well-behaved existing client, unchanged, would start producing wrong results or crashing, it is breaking.
 
 ## Decision: how do I add a field without breaking v1?
 
@@ -41,8 +33,7 @@ Additive is free. Do it in place. Do **not** mint `/v2` for a new field.
 ### Bad — a version bump for an additive change
 
 ```ruby
-# Now two full controller trees, two serializer trees, two spec suites — because
-# one nullable field was added.
+# Two controller trees, two serializer trees, two spec suites — for one nullable field.
 namespace :v2 do
   resources :orders # identical to v1 plus `estimated_delivery_at`
 end
@@ -57,10 +48,7 @@ class OrderSerializer < Panko::Serializer
 end
 ```
 
-Clients that ignore unknown keys — which every client must — are unaffected. Note it in
-`CHANGELOG.md` under **Added**.
-
----
+Clients that ignore unknown keys — which every client must — are unaffected. Note it in `CHANGELOG.md` under **Added**.
 
 ## Decision: how do I structure v1 and v2 side by side in Rails?
 
@@ -174,10 +162,7 @@ module Api
 end
 ```
 
-Fork the **serializers**, not the business logic. Business logic lives in service objects that
-neither version copies.
-
----
+Fork the **serializers**, not the business logic. Business logic lives in service objects that neither version copies.
 
 ## Decision: how do I signal deprecation on the old version?
 
@@ -231,8 +216,7 @@ module Api
 end
 ```
 
-The log line is the point: it tells you **who** still calls v1, so sunset day is a decision
-backed by data rather than a hope. Query it before removing anything.
+The log line is the point: it tells you **who** still calls v1, so sunset day is a decision backed by data rather than a hope. Query it before removing anything.
 
 Client-side, surface the header instead of swallowing it:
 
@@ -248,24 +232,16 @@ apiClient.interceptors.response.use((res) => {
 });
 ```
 
----
-
 ## Decision: retiring the old version
 
 The sequence, in order:
 
 1. **Ship v2.** v1 keeps working, untouched.
-2. **Mark v1 deprecated** with `Deprecation` / `Sunset` headers and the warn log. Sunset date is
-   at minimum one full release cycle out, and documented in `CHANGELOG.md` under **Deprecated**.
-3. **Migrate first-party clients** (web, mobile) to v2. Mobile is the constraint — old app
-   binaries live in the wild for months; the sunset date must be later than your minimum
-   supported app version's retirement.
-4. **Watch the `deprecated_api_called` logs** until traffic is zero or only from clients you have
-   explicitly written off.
-5. **Brown-out** — return `410 Gone` from v1 for short scheduled windows before the real sunset,
-   so remaining integrations fail loudly while someone is at a desk to answer the phone.
-6. **Remove v1.** Delete the controllers, serializers, and specs. `CHANGELOG.md` under
-   **Removed**.
+2. **Mark v1 deprecated** with `Deprecation` / `Sunset` headers and the warn log. Sunset date is at minimum one full release cycle out, documented in `CHANGELOG.md` under **Deprecated**.
+3. **Migrate first-party clients** (web, mobile) to v2. Mobile is the constraint — old app binaries live in the wild for months; the sunset date must be later than your minimum supported app version's retirement.
+4. **Watch the `deprecated_api_called` logs** until traffic is zero or only from clients you have explicitly written off.
+5. **Brown-out** — return `410 Gone` from v1 for short scheduled windows before the real sunset, so remaining integrations fail loudly while someone is at a desk to answer the phone.
+6. **Remove v1.** Delete the controllers, serializers, and specs. `CHANGELOG.md` under **Removed**.
 
 The `410 Gone` response after sunset — still the canonical error envelope:
 
@@ -288,8 +264,6 @@ class Api::GoneController < ApplicationController
   end
 end
 ```
-
----
 
 ## Testing the version contract
 

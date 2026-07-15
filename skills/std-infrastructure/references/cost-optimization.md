@@ -25,7 +25,7 @@ Right-sizing is a scheduled activity, not a reaction to a bill.
 - **ECS tasks**: review CPU/memory allocation **quarterly**; downsize over-provisioned tasks. A task pinned at 8% CPU with 4 vCPU reserved is pure waste.
 - **AWS Compute Optimizer**: take its recommendations for RDS instance class and ECS task sizing as the starting point.
 - **ElastiCache**: start at `cache.t3.medium`. Scale up only when memory usage exceeds **65%**.
-- **Idle resources**: never pay for them. ECS services get auto-scaling policies (see the auto-scaling section of `terraform-aws.md`), not fixed counts.
+- **Idle resources**: never pay for them. ECS services get auto-scaling policies (see the auto-scaling section of `aws-compute-and-networking.md`), not fixed counts.
 
 ### Bad — over-provisioned, fixed capacity, sized by superstition
 
@@ -87,7 +87,7 @@ module "app" {
 
 ## Decision: how do I make cost visible before the bill arrives
 
-- Tag every resource with `project`, `environment`, `team`, `cost-center` (provider `default_tags` is the enforcement point — see `terraform-aws.md`).
+- Tag every resource with `project`, `environment`, `team`, `cost-center` (provider `default_tags` is the enforcement point — see `terraform-mechanics.md`).
 - Enable **AWS Cost Explorer** and set **monthly budget alerts**.
 - Enable **Cost Anomaly Detection** to catch unexpected spend spikes.
 - Review the **per-service cost breakdown monthly in team standup**.

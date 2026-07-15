@@ -111,7 +111,10 @@ Every error — from every endpoint — uses this envelope. Never a bare string,
 
 ## Deep guides (read on demand, do not preload)
 
-- Rails error concern, Zod boundaries, server-action results, typed client → `references/errors-and-validation.md`
-- Keyset cursors, pagy, PostGIS proximity, `useInfiniteQuery` → `references/pagination.md`
+- Rails error concern, 500 handler, request-spec contract → `references/errors-rails.md`
+- Zod boundaries, server-action results, typed axios client → `references/errors-typescript.md`
+- Keyset cursors, pagy, PostGIS proximity → `references/pagination-rails.md`
+- `useInfiniteQuery`, FlatList wiring → `references/pagination-clients.md`
 - Is-it-breaking table, v1/v2 side by side, sunset sequence → `references/versioning-and-deprecation.md`
-- rack-attack tiers, client backoff, liveness vs deep health → `references/rate-limiting-and-health.md`
+- rack-attack tiers, 429 envelope, client backoff → `references/rate-limiting.md`
+- Liveness vs deep health, dependency timeouts, ALB target group → `references/health-checks.md`

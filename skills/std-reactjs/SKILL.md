@@ -129,7 +129,10 @@ web/
 
 ## Deep guides (read on demand, do not preload)
 
-- State placement, query keys, `staleTime`, mutations & optimistic updates, axios interceptors, Zustand store shape → `references/state-and-data.md`
+- Where state lives (Query vs. Zustand vs. local), server-data-in-Zustand failure modes, Zustand store shape & selectors → `references/state-placement.md`
+- Query key factories, `staleTime`/`gcTime`, mutations & optimistic updates, axios client & interceptors → `references/data-fetching.md`
 - Router setup, loader vs. `useQuery`, chunk splitting, prefetch on intent, bundle budget audit → `references/routing-and-code-split.md`
-- ApexCharts options/memoization/a11y, Framer Motion reduced motion, page & list transitions → `references/charts-and-animation.md`
-- react-hook-form + zod patterns, API error mapping, provider test harness, MSW handlers, RTL assertions → `references/forms-and-testing.md`
+- ApexCharts options/memoization, lazy chart loading, chart accessibility → `references/charts.md`
+- Framer Motion reduced motion, transform-only rule, page & list transitions → `references/animation.md`
+- react-hook-form + zod patterns, API error mapping onto fields → `references/forms.md`
+- Provider test harness, MSW handlers, RTL assertions, form tests, Zustand reset → `references/testing.md`

@@ -113,7 +113,9 @@ View components never query or mutate. Controllers and services fetch; component
 
 ## Deep guides (read on demand, do not preload)
 
-- Building an atom / molecule / organism / template / page, with level-violation checklist → `references/component-levels.md`
+- Building an atom or molecule, `**attrs` pass-through, primitives violation checklist → `references/component-levels-primitives.md`
+- Building an organism / template / page, slot blocks, private-method extraction, composites violation checklist → `references/component-levels-composites.md`
 - `class_variants` multi-axis variants, caller class merging, `tokens` vs `class_variants`, token reference table → `references/variants-and-styling.md`
-- Stimulus controller scoping and values API, Turbo Frame vs Stream decision, frame form submission → `references/stimulus-and-turbo.md`
+- Stimulus controller scoping, values API, passing `data-action` into nested components → `references/stimulus-wiring.md`
+- Turbo Frame vs Stream decision, lazy frames, stream broadcasts, frame form submission → `references/turbo-frames-and-streams.md`
 - Component/page spec patterns, table-driven variant tests, block and `data-*` assertions, what not to test → `references/testing.md`
