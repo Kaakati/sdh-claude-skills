@@ -141,9 +141,21 @@ jobs:
                   fail.append(f"{body_path}: points at a compiled monolith (full-guide.md); "
                               f"index rules/<id>.md instead so a task loads only what it needs")
 
+              # 3. every reference the body indexes must exist. Accepts skill-local
+              #    (references/x.md) and cross-skill (../other/references/x.md,
+              #    [@]skills/other/references/x.md) — the latter is deliberate where a
+              #    framework has one canonical home (e.g. storytelling-ui.md).
+              for m in re.finditer(r'(@?(?:\.\./[a-z0-9-]+/|skills/[a-z0-9-]+/)?references/[a-z0-9-]+\.md)', body):
+                  ref = m.group(1).lstrip("@")
+                  cands = [os.path.normpath(os.path.join(skill_dir, ref)), os.path.normpath(ref)]
+                  if ref.startswith("../"):
+                      cands.append(os.path.normpath(os.path.join("skills", ref[3:])))
+                  if not any(os.path.isfile(c) for c in cands):
+                      fail.append(f"{body_path}: indexes a reference that does not exist -> {ref}")
+
           if fail:
               print("\n".join("FAIL: " + x for x in fail)); sys.exit(1)
-          print("tier discipline OK — all rules indexed, no monolith pointers")
+          print("tier discipline OK — rules indexed, no monolith pointers, all references resolve")
           EOF
 
   sentinel-guard:

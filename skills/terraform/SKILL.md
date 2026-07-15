@@ -24,6 +24,28 @@ Reference these guidelines when:
 - Setting up compute resources (ECS Fargate, Lambda)
 - Reviewing infrastructure PRs for security and cost
 
+## Quick Decision Matrix
+
+| Decision | Rule | Action |
+|----------|------|--------|
+| Where to store state? | `state-remote-backend` | S3 + DynamoDB, always |
+| Multiple environments? | `state-workspace-isolation` | Directory-based, never workspaces |
+| Existing AWS resource? | `state-import-before-adopt` | `terraform import` first |
+| Renaming a module? | `state-move-not-destroy` | `moved` block or `state mv` |
+| Secrets in HCL? | `sec-no-hardcoded-secrets` | Never. Use Secrets Manager + sensitive vars |
+| IAM policy scope? | `sec-iam-least-privilege` | Specific actions + resources, never `*` |
+| Security group ingress? | `sec-security-group-restrict` | No `0.0.0.0/0` except ALB 80/443 |
+| Provider versions? | `sec-provider-version-constraint` | Pin with `~>` constraints |
+| Module structure? | `module-single-responsibility` | One concern per module |
+| Resource naming? | `resource-naming-convention` | `{project}-{env}-{service}-{resource}` |
+| Tags? | `resource-required-tags` | project, environment, team, managed-by |
+| `count` vs `for_each`? | `resource-for-each-over-count` | Always `for_each` for named resources |
+| Variable types? | `var-type-constraints` | Explicit type on every variable |
+| Subnet design? | `net-multi-az-subnets` | Public/private/data across 2+ AZs |
+| RDS configuration? | `data-rds-postgresql-postgis` | Multi-AZ prod, PostGIS, custom params |
+| ECS task sizing? | `compute-ecs-fargate-task-definition` | Right-size CPU/memory, use secrets block |
+| Dev cost savings? | `cost-dev-environment-scheduling` | Scale to zero off-hours |
+
 ## Rule Categories
 
 | # | Category | Prefix | Priority | Rules | Description |
@@ -126,3 +148,11 @@ rules/<rule-id>.md
 ```
 
 Loading one ~60-line rule beats skimming a compiled monolith. Do not preload the directory.
+
+Two references cover what spans rules rather than living inside any one of them. Read either only
+when the task calls for it:
+
+| Reference | Read it when |
+|-----------|--------------|
+| `references/repository-layout.md` | Laying out a new Terraform repo, deciding which file a block belongs in, writing `versions.tf`/`locals.tf`, or choosing between per-environment root modules and a single root with `-var-file` |
+| `references/enforcement-and-tooling.md` | A hook rejected your edit, a `terraform apply` was gated, or you need to know what the automated checks do not catch |

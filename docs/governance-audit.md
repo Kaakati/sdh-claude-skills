@@ -143,6 +143,53 @@ Also indexed 3 orphaned React Native rules (`state-ground-truth`, `scroll-positi
 never indexes, or (b) a body points at a compiled monolith. This is the drift that produced the
 terraform defect; it can no longer regress silently.
 
+### Layer 1 — redundancy audit: the monoliths were NOT redundant (deletion averted) — *2026-07-15*
+Iteration 3 deferred deleting the 5 `full-guide.md` monoliths pending proof. The audit ran
+chunk-by-chunk (paragraphs + code blocks, normalized) against the union of `rules/*.md`:
+
+| Skill | full-guide covered by rules/ | Verdict |
+|---|---|---|
+| react-best-practices | 89.8% | unique = TOC/preamble scaffolding |
+| react-native-best-practices | 89.8% | unique = scaffolding |
+| composition-patterns | 79.2% | unique = scaffolding |
+| **atomic-design** | **32.8%** | **67% UNIQUE — real 4-platform component code** |
+| **terraform** | **7.7%** | **92% UNIQUE — real HCL playbooks** |
+
+**Safe to delete: none.** The iteration-3 hypothesis ("full-guide duplicates rules/") was **wrong**
+for atomic-design and terraform — the forward heading check was misleading. Deleting blind would
+have destroyed 84 unique terraform chunks (`versions.tf`/backend blocks, `terraform import` recipes,
+`moved {}` blocks, env layout) and 43 atomic-design chunks.
+
+**A regression this exposed:** iteration 3's removal of the full-guide pointer *orphaned* that
+unique content — reachable by nothing. Repaired, not reverted:
+- `terraform` → `repository-layout.md` (175) + `enforcement-and-tooling.md` (70); monolith deleted
+- `atomic-design` → `choosing-the-atomic-level.md` (164) + `diagnosing-misplaced-components.md` (166)
+  + `nextjs-server-client-boundary.md` (106); monolith deleted
+All under the ~300-line budget, decision-shaped, indexed. Content preserved (verified chunk-by-chunk).
+
+### Layer 1 — 3 contradictions caught by adversarial verify (terraform) — *2026-07-15*
+The rescue inherited the *old guide's* patterns without reconciling against the rules that
+superseded them — the model would have gotten **opposite answers to the same question**
+(contradictory guidance is worse than none). All three reconciled toward the rule (the indexed,
+authoritative source):
+1. **Tags** — reference prescribed `locals.common_tags` merged per resource; `resource-required-tags`
+   prescribes provider-level `default_tags` and argues *against* per-module maps → reference now
+   teaches `default_tags`.
+2. **`terraform.tfvars`** — reference banned it absolutely; the rule's canonical tree uses it. The
+   ban was *sound but over-broad*: auto-load is only a footgun in the **single-root** variant. With
+   separate root modules (our default) the auto-loaded file is by construction that env's values →
+   warning now correctly scoped to the single-root pattern.
+3. **Backend placement** — reference put `backend "s3"` in `versions.tf`; the rule's tree has a
+   separate `backend.tf` → reference aligned (the `key` is the only per-env line; isolating it makes
+   the diff obvious).
+
+### Layer 7 — CI guard extended: references must resolve — *2026-07-15*
+The tier-discipline guard now also fails when a body indexes a reference that does not exist. Built
+to handle **cross-skill** references (`../other/references/x.md`, `@skills/other/references/x.md`) —
+a deliberate pattern where a framework has one canonical home (storytelling-ui.md). A first naive
+version produced 4 false positives on exactly those; fixed before shipping, because a guard that
+cries wolf is the kind teams disable.
+
 ## OPEN — prioritized backlog
 
 ### P1 · Layer 1 — finish progressive disclosure (13 skills remain single-file)
@@ -153,12 +200,14 @@ terraform defect; it can no longer regress silently.
 Apply the same placement test. Note `std-security`/`std-code-standards` now load on *every*
 source edit — their bodies must stay tight, so they are the highest-priority splits.
 
-### P1 · Layer 1 — delete the duplicate `full-guide.md` monoliths (pending redundancy audit)
-The 5 monoliths (2934/2897/1218/946/679 lines) are now **unreferenced** — no body points at them,
-so nothing loads them. But they remain on disk as content duplicates of `rules/`, which is Ch. 6's
-maintenance problem: two copies drift (exactly how terraform's index broke). Before deleting, run
-a proper redundancy audit — the forward check showed rule headings appear verbatim in the guides,
-but heading *shape* differs, so prove content coverage rule-by-rule first. Do not delete blind.
+### P2 · Layer 1 — the 3 remaining `full-guide.md` monoliths (~90% scaffolding)
+`react-best-practices` (2934), `react-native-best-practices` (2897), `composition-patterns` (946)
+are ~80-90% covered by `rules/`; their unique residue is document scaffolding (the "Note: this
+document is mainly for agents and LLMs" preamble, the auto-generated TOC) **plus substantive
+section preambles** (e.g. "Waterfalls are the #1 performance killer..."). They are now unreferenced,
+so nothing loads them — no context cost, but they will drift (this is exactly how terraform's index
+broke). Fix: fold the section preambles into the body's section headings (tier-2 material — they
+apply to the whole section), then delete. Do not delete before migrating the preambles.
 
 ### P1 · Layer 1 — reference sizing overruns (Ch. 7: "under a few hundred lines")
 From the Ch. 7 split; the book's split signals apply (sections never needed together / a second
@@ -174,13 +223,6 @@ stack):
 - Pre-existing, also >300: `theming/platform-integration.md` 854, `phlex-dev/component-examples.md`
   802, `phlex-dev/phlex-patterns.md` 775, `theming/design-tokens.md` 458, `theming/theme-presets.md` 445
 
-### P1 · Layer 1 — finish progressive disclosure (13 skills remain single-file)
-`std-rails-conventions`, `std-react-native`, `std-database`, `std-accessibility`, `std-i18n`,
-`std-clean-architecture`, `std-monitoring`, `std-terraform-conventions`, `std-security`,
-`std-code-standards`, `std-error-handling`, `std-git-workflow`, `std-agent-teams`. Apply the
-placement test — but honour Ch. 7's **merge signal**: a body of ~100 lines that applies to every
-task the skill triggers on is already correct as "a page of rules". Do not force-split.
-
 ### P2 · Layer 2 — `permissionMode` is DEAD in plugin agents (docs claim otherwise)
 Plugin-shipped agents do **not** support `permissionMode` — it is silently ignored ("for security
 reasons", per the plugins reference). 4 agents carry `permissionMode: plan`
@@ -189,12 +231,6 @@ CLAUDE.md/README advertise "(Opus, plan mode)" — **now a false claim**. It was
 for `clean-architecture` (the only plan agent with Bash), and removing Bash fixed that properly.
 The other 3 are read-only by tool list anyway, so the field is redundant, not dangerous. Action:
 strip the dead field (silently-ignored controls are theater) and correct the "plan mode" claims.
-
-### P2 · Layer 2 — the Bash hole (Ch. 8, Ch. 22, Ch. 25)
-*"A read-only agent that has Bash is not read-only"* — `sed -i` is edit access, and content
-guards matching only `Edit|Write` are bypassed. Audit all 12 agents: any agent documented as
-review-only that carries `Bash` is a **read-only lie**. Fix by removing Bash or constraining it
-with permission rules. Also re-ask, per Ch. 20, what gates assumed a narrower envelope.
 
 ### P2 · Layer 3 — hook DX + gate-pattern coverage (Ch. 9, Ch. 10, Ch. 25)
 - Map our gates against the book's **six patterns**: completion gate ✅ (Stop), ask/human-in-loop
