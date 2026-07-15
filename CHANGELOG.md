@@ -14,6 +14,15 @@ All notable changes to the `sdh` plugin are documented here, following
 
 ## [Unreleased]
 
+### Fixed
+- **The release-hygiene gate cried wolf on test-only changes**, turning `main` red the day after
+  v2.0.0. It treated everything under `hooks/` as shipped behaviour, but `hooks.json` never
+  references `hooks/tests/` — a consumer's session cannot execute it, so a test change delivers
+  nothing a version bump would carry. The gate now excludes the plugin's own CI and names the
+  offending files instead of their top-level directory. A real hook change still requires a bump.
+  *(Repo-internal: no effect on consumers.)*
+
+
 ## [2.0.0] — 2026-07-15
 
 **MAJOR — this release denies work that previously succeeded.** The version is what you pin, and

@@ -23,7 +23,7 @@ disable it.
 |---|-------|-----------------|-------|-------|
 | 1 | Context governance | What the agent **knows** | 🟢 Strong | 20 `std-*` + 43 workflow skills; 43 three-tier (110 refs); rule-per-file across 5 skills; CI guards tier discipline **and** the taxonomy |
 | 2 | Capability governance | What each **role** can do | 🟢 Good | Bash hole closed; dead `permissionMode` removed; capability enforced by `tools`, guarded by CI |
-| 3 | Runtime gates | What happens **as each action fires** | 🟢 Strong | all 6 Ch. 10 gate patterns present; 3 fail-closed gates; fail-open paths visible; protected branches configurable; every deny reason names a **reachable** remedy; MCP installs gated; enforced limits gated against their skill; every warning names a reachable skill; no unattended formatter changes semantics; blocking lists gated against their docs; 174 fixture tests |
+| 3 | Runtime gates | What happens **as each action fires** | 🟢 Strong | all 6 Ch. 10 gate patterns present; 3 fail-closed gates; fail-open paths visible; protected branches configurable; every deny reason names a **reachable** remedy; MCP installs gated; enforced limits gated against their skill; every warning names a reachable skill; no unattended formatter changes semantics; blocking lists gated against their docs; 176 fixture tests |
 | 4 | Permission boundaries | The harness's **own** enforcement | 🟢 Guarded | 30 denies (reference); sentinel detects an **absent OR stale** floor by diffing the plugin's own reference |
 | 5 | Organizational policy | What **developers** can grant | 🟢 Good | 4 legitimate uses covered + calibrated against maximalism; `docs/org-policy.md`; CI guards the floor from going stale |
 | 6 | Human-in-the-loop | The **person**, for the irreversible | 🟢 Good | `ask` on deploys, migrations, direct pushes to protected branches |
@@ -32,6 +32,34 @@ disable it.
 ---
 
 ## DONE
+
+### Layer 7 — the release gate turned `main` red on its own first day — *2026-07-15*
+Tagging v2.0.0 activated the delivery gate, and the very next commit tripped it. **`main` was
+failing its own release-hygiene check**, and would have gone red in CI.
+
+The cause was a **false positive**, not a real gap. The gate treats everything under `hooks/` as
+plugin content and demands a version bump — but the commit only changed
+`hooks/tests/run-all.py`. `hooks.json` never references that file, so **a consumer's session
+cannot execute it**: a test-only change ships no behaviour and delivers nothing that a version
+bump would carry. Verified by listing the 17 files `hooks.json` actually runs; `run-all.py` is
+not among them.
+
+This is the failure this loop keeps naming from the other side: **a gate that fires on a change
+with no consumer impact is one people learn to `|| true`.** Left alone, the first red CI on a
+docs PR teaches the team that release-hygiene is noise — and the *real* stale-version bug it
+exists to catch goes with it.
+
+`NOT_SHIPPED_BEHAVIOUR = ("hooks/tests/",)` now excludes the plugin's own CI, and the failure
+message names the actual files rather than the top-level directory (it said *"(hooks)"* while the
+file was a test — the message hid the cause). Two fixtures, both directions: a test-only change
+needs no bump; a real `hooks/auto-format.py` change still fails **and names the file**, so the
+exclusion cannot become a hole. **176/176.**
+
+**Method note.** My first probe "proved" the gate no longer caught real changes — because I
+edited the working tree and the gate diffs **commits** (`v2.0.0..HEAD`). Correct for CI, invalid
+as a test. The scratch-git-repo fixture is the only honest way to test it, which is why the
+harness builds one. Sixth measurement error of the session, caught before it became a
+"simplification" that gutted the gate.
 
 ### BP pass — `std-git-workflow`: a blocking list nobody could read — *2026-07-15*
 Two sweeps, both grounded in last iteration's method (verify what a hook *runs*, not what it says).

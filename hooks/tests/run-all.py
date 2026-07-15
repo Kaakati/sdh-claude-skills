@@ -1448,6 +1448,37 @@ def test_release_hygiene_checker():
             FAIL += 1
             print(f"  FAIL: gate still fails after a correct bump — it would be routed around: {out[:200]}")
 
+    # A test-only change ships NOTHING: hooks.json never references hooks/tests/, so a
+    # consumer's session cannot execute it. Demanding a version bump for it is a gate crying
+    # wolf — and this exact false positive turned `main` red after a test-only fix, which is
+    # how a CI step earns a `|| true`.
+    with tempfile.TemporaryDirectory() as tmp:
+        work = scaffold(tmp)
+        tests_dir = os.path.join(work, "hooks", "tests")
+        os.makedirs(tests_dir)
+        open(os.path.join(tests_dir, "run-all.py"), "w").write("# a test\n")
+        git(work, "add", "-A")
+        git(work, "commit", "-qm", "add a test")
+        code, out = run(work)
+        if code == 0:
+            PASS += 1
+            print("  PASS: a test-only change needs no version bump (ships no behaviour)")
+        else:
+            FAIL += 1
+            print(f"  FAIL: cries wolf on a test-only change: {out[:160]}")
+
+        # ...but a real hook change in the same tree must still fail, or the exclusion is a hole.
+        open(os.path.join(work, "hooks", "auto-format.py"), "w").write("# a real hook\n")
+        git(work, "add", "-A")
+        git(work, "commit", "-qm", "change a hook")
+        code, out = run(work)
+        if code != 0 and "auto-format.py" in out:
+            PASS += 1
+            print("  PASS: a real hook change still requires a bump, and the message names the file")
+        else:
+            FAIL += 1
+            print(f"  FAIL: the tests/ exclusion swallowed a real behaviour change: {out[:160]}")
+
     # A tag push must be internally consistent.
     with tempfile.TemporaryDirectory() as tmp:
         work = scaffold(tmp, version="1.1.0")

@@ -39,6 +39,17 @@ SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")
 # Directories whose contents ARE the plugin. A change here is a change every consumer runs.
 PLUGIN_CONTENT = ("skills/", "agents/", "hooks/", "commands/", ".claude-plugin/")
 
+# ...but not everything under those paths is shipped BEHAVIOUR. `hooks/tests/` is this repo's
+# own CI: `hooks.json` never references it, so a consumer's session cannot execute it, and
+# changing a test cannot change what anyone runs. Demanding a version bump for it is a gate
+# crying wolf — and a gate that fires on a change with no consumer impact is one people learn
+# to `|| true` in CI. (Found the honest way: this rule failed `main` after a test-only fix.)
+NOT_SHIPPED_BEHAVIOUR = ("hooks/tests/",)
+
+
+def _changes_behaviour(path):
+    return path.startswith(PLUGIN_CONTENT) and not path.startswith(NOT_SHIPPED_BEHAVIOUR)
+
 
 def git(*args):
     try:
@@ -113,10 +124,10 @@ def main():
     elif version is not None:
         changed = [
             f for f in git("diff", "--name-only", f"{tag}..HEAD").splitlines()
-            if f.startswith(PLUGIN_CONTENT)
+            if _changes_behaviour(f)
         ]
         if changed and str(version) == tag.lstrip("v"):
-            preview = ", ".join(sorted({c.split("/")[0] for c in changed}))
+            preview = ", ".join(sorted(changed)[:4]) + ("…" if len(changed) > 4 else "")
             fail.append(
                 f"{manifest_path}: {len(changed)} plugin file(s) changed since {tag} ({preview}) "
                 f"but version is still {version!r}. Per the plugin docs, pushing commits without "
