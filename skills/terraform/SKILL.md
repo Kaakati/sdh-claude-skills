@@ -41,70 +41,88 @@ Reference these guidelines when:
 ## Quick Reference -- All 47 Rules
 
 ### State Management (CRITICAL)
-- `state-remote-backend` -- Always use S3 + DynamoDB remote backend with encryption
-- `state-lock-configuration` -- Configure DynamoDB state locking for all environments
-- `state-workspace-isolation` -- Use directory-based isolation, not Terraform workspaces
-- `state-import-before-adopt` -- Import existing resources before managing them
-- `state-move-not-destroy` -- Use state mv/moved blocks for refactoring, never destroy-recreate
-- `state-sensitive-outputs` -- Mark all secret-bearing outputs as sensitive
+
+- `state-import-before-adopt` -- Import Existing Resources Before Managing
+- `state-lock-configuration` -- Configure State Locking
+- `state-move-not-destroy` -- Use State Move for Refactoring
+- `state-remote-backend` -- Always Use Remote State Backend
+- `state-sensitive-outputs` -- Mark Sensitive Outputs
+- `state-workspace-isolation` -- Directory-Based Environment Isolation
 
 ### Security (CRITICAL)
-- `sec-no-hardcoded-secrets` -- Never hardcode secrets in HCL; use variables + secret managers
-- `sec-iam-least-privilege` -- No wildcard Actions or Resources in IAM policies
-- `sec-encryption-at-rest` -- Encrypt all data stores: RDS, S3, ElastiCache, EBS
-- `sec-encryption-in-transit` -- Enforce HTTPS/TLS for all data in transit
-- `sec-security-group-restrict` -- No 0.0.0.0/0 on non-public ports
-- `sec-provider-version-constraint` -- Pin all providers with ~> version constraints
-- `sec-no-default-vpc` -- Always create dedicated VPCs, never use default
+
+- `sec-encryption-at-rest` -- Encryption at Rest for All Data Stores
+- `sec-encryption-in-transit` -- Encryption in Transit
+- `sec-iam-least-privilege` -- IAM Least Privilege
+- `sec-no-default-vpc` -- Never Use Default VPC
+- `sec-no-hardcoded-secrets` -- No Hardcoded Secrets
+- `sec-provider-version-constraint` -- Pin Provider Version Constraints
+- `sec-security-group-restrict` -- Restrict Security Group Ingress
 
 ### Module Design (HIGH)
-- `module-standard-structure` -- Follow standard module layout (main.tf, variables.tf, outputs.tf)
-- `module-single-responsibility` -- One module = one logical resource group
-- `module-version-pinning` -- Pin module sources with version/ref constraints
-- `module-composition-over-inheritance` -- Compose small modules, don't build monoliths
-- `module-readme-and-examples` -- Every module needs README.md and examples/
-- `module-output-all-ids` -- Expose all resource IDs and ARNs as outputs
+
+- `module-composition-over-monolith` -- Module Composition Over Monolith
+- `module-input-output-contract` -- Module Input/Output Contract
+- `module-output-minimal` -- Module Output Minimal
+- `module-readme-documentation` -- Module README Documentation
+- `module-single-responsibility` -- Module Single Responsibility
+- `module-version-pinning` -- Module Version Pinning
 
 ### Resource Patterns (HIGH)
-- `resource-consistent-naming` -- Use project-env-resource naming convention
-- `resource-mandatory-tags` -- Tag all resources with project, environment, team, managed-by
-- `resource-lifecycle-prevent-destroy` -- Protect stateful resources with prevent_destroy
-- `resource-explicit-dependencies` -- Use depends_on only when implicit deps are insufficient
-- `resource-data-source-over-hardcode` -- Look up IDs via data sources, never hardcode
-- `resource-conditional-creation` -- Use count/for_each for optional resources
+
+- `resource-data-source-lookup` -- Resource Data Source Lookup
+- `resource-depends-on-sparingly` -- Use depends_on Sparingly
+- `resource-for-each-over-count` -- Use for_each Over count
+- `resource-lifecycle-rules` -- Resource Lifecycle Rules
+- `resource-naming-convention` -- Resource Naming Convention
+- `resource-required-tags` -- Resource Required Tags
 
 ### Variables & Outputs (MEDIUM-HIGH)
-- `var-type-constraints` -- Always declare variable types explicitly
-- `var-validation-blocks` -- Add validation blocks for constrained inputs
-- `var-sensitive-flag` -- Mark sensitive variables and outputs
-- `var-descriptive-metadata` -- Every variable needs a description
-- `var-output-grouping` -- Group outputs by resource with consistent naming
+
+- `var-descriptive-defaults` -- Descriptive Variables with Intentional Defaults
+- `var-sensitive-marking` -- Mark Sensitive Variables
+- `var-tfvars-per-environment` -- Separate tfvars per Environment
+- `var-type-constraints` -- Explicit Type Constraints on Variables
+- `var-validation-blocks` -- Validation Blocks on Variables
 
 ### Networking (MEDIUM)
-- `net-multi-az-subnets` -- Deploy across 3+ AZs for high availability
-- `net-subnet-tiers` -- Separate public, private, and data subnets
-- `net-nat-gateway-ha` -- One NAT gateway per AZ for production
-- `net-flow-logs` -- Enable VPC flow logs for security auditing
-- `net-private-endpoints` -- Use VPC endpoints for AWS service access
+
+- `net-alb-configuration` -- ALB Configuration with HTTPS and Health Checks
+- `net-multi-az-subnets` -- Multi-AZ Subnet Tiers
+- `net-nat-gateway-ha` -- NAT Gateway High Availability
+- `net-private-subnets-for-data` -- Private Subnets for Data Services
+- `net-vpc-cidr-planning` -- VPC CIDR Block Planning
 
 ### Data Stores (MEDIUM)
-- `data-rds-multi-az` -- Enable Multi-AZ for production RDS instances
-- `data-rds-parameter-group` -- Use custom parameter groups, never default
-- `data-elasticache-cluster-mode` -- Use cluster mode for production Redis
-- `data-s3-versioning` -- Enable versioning on all S3 buckets
-- `data-backup-retention` -- Configure automated backups with adequate retention
+
+- `data-backup-retention` -- Backup Retention Policies
+- `data-connection-strings-via-ssm` -- Connection Strings via Secrets Manager
+- `data-elasticache-redis` -- ElastiCache Redis with Failover
+- `data-rds-postgresql-postgis` -- RDS PostgreSQL with PostGIS Extension
+- `data-s3-bucket-policy` -- S3 Bucket Security and Lifecycle
 
 ### Compute (MEDIUM)
-- `compute-fargate-sizing` -- Right-size Fargate CPU/memory for workload
-- `compute-task-iam-role` -- Separate task role from execution role
-- `compute-autoscaling-policy` -- Configure target tracking autoscaling
-- `compute-health-check` -- Configure meaningful health checks with grace periods
+
+- `compute-ecr-lifecycle-policy` -- ECR Lifecycle Policy
+- `compute-ecs-deployment-configuration` -- ECS Deployment Configuration
+- `compute-ecs-fargate-task-definition` -- ECS Fargate Task Definition
+- `compute-ecs-service-autoscaling` -- ECS Service Auto Scaling
 
 ### Cost Optimization (LOW-MEDIUM)
-- `cost-right-sizing` -- Audit and right-size instances quarterly
-- `cost-reserved-capacity` -- Use reserved instances/savings plans for steady-state
-- `cost-unused-resource-cleanup` -- Remove unattached EIPs, volumes, old snapshots
 
-## Full Reference
+- `cost-dev-environment-scheduling` -- Dev Environment Scheduling and Scale-to-Zero
+- `cost-right-sizing` -- Right-Size Resources per Environment
+- `cost-s3-intelligent-tiering` -- S3 Lifecycle Rules and Intelligent Tiering
 
-For the complete guide with all rules and detailed code examples: `references/full-guide.md`
+## Deep guides (read on demand, do not preload)
+
+Every rule id listed above maps to a self-contained file at `rules/<rule-id>.md`, each with its
+own bad/good code pair.
+
+**Read only the rule file matching your task** — not the set:
+
+```
+rules/<rule-id>.md
+```
+
+Loading one ~60-line rule beats skimming a compiled monolith. Do not preload the directory.

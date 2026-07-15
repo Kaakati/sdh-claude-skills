@@ -113,6 +113,38 @@ jobs:
               print("\n".join("FAIL: " + x for x in fail)); sys.exit(1)
           print("all skill/agent frontmatter OK")
           EOF
+      - name: Tier discipline — rule-per-file indexed, no monolith pointers
+        # Ch. 7: the body's index must let the model know what knowledge EXISTS, and a task
+        # must load only the file it needs. Two regressions this catches:
+        #  1. a rules/<id>.md on disk that no SKILL.md indexes -> the model never knows it exists
+        #  2. a body pointing at a compiled multi-thousand-line monolith -> skimmed, not read
+        run: |
+          python - <<'EOF'
+          import glob, os, re, sys
+          fail = []
+          for skill_dir in sorted(glob.glob("skills/*/")):
+              body_path = os.path.join(skill_dir, "SKILL.md")
+              if not os.path.isfile(body_path):
+                  continue
+              body = open(body_path, encoding="utf-8").read()
+
+              # 1. every rule file must be indexed by id in the body
+              for rule in sorted(glob.glob(os.path.join(skill_dir, "rules", "*.md"))):
+                  rid = os.path.basename(rule)[:-3]
+                  if rid.startswith("_"):
+                      continue
+                  if f"`{rid}`" not in body:
+                      fail.append(f"{body_path}: rule '{rid}' exists on disk but is not indexed in the body")
+
+              # 2. no body may advertise a compiled monolith
+              if "full-guide.md" in body:
+                  fail.append(f"{body_path}: points at a compiled monolith (full-guide.md); "
+                              f"index rules/<id>.md instead so a task loads only what it needs")
+
+          if fail:
+              print("\n".join("FAIL: " + x for x in fail)); sys.exit(1)
+          print("tier discipline OK — all rules indexed, no monolith pointers")
+          EOF
 
   sentinel-guard:
     name: Sentinel check is present

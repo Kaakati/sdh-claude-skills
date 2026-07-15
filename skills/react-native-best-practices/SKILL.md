@@ -74,12 +74,15 @@ Reference these guidelines when:
 - `ui-native-modals` - Use native modals when possible
 - `ui-measure-views` - Use onLayout, not measure()
 - `ui-styling` - Use StyleSheet.create or Nativewind
+- `design-system-compound-components` - Compound components over polymorphic children
 
 ### 5. State Management (MEDIUM)
 
 - `react-state-minimize` - Minimize state subscriptions
 - `react-state-dispatcher` - Use dispatcher pattern for callbacks
 - `react-state-fallback` - Show fallback on first render
+- `state-ground-truth` - State must represent ground truth
+- `scroll-position-no-state` - Never track scroll position in useState
 - `react-compiler-destructure-functions` - Destructure for React Compiler
 - `react-compiler-reanimated-shared-values` - Handle shared values with compiler
 
@@ -115,6 +118,15 @@ Each rule file contains:
 - Correct code example with explanation
 - Additional context and references
 
-## Full Compiled Document
+## Deep guides (read on demand, do not preload)
 
-For the complete guide with all rules expanded: `references/full-guide.md`
+Every rule id listed above maps to a self-contained file at `rules/<rule-id>.md`, each with its
+own bad/good code pair.
+
+**Read only the rule file matching your task** — not the set:
+
+```
+rules/<rule-id>.md
+```
+
+Loading one ~60-line rule beats skimming a compiled monolith. Do not preload the directory.

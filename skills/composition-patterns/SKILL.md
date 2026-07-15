@@ -81,6 +81,15 @@ Each rule file contains:
 - Correct code example with explanation
 - Additional context and references
 
-## Full Compiled Document
+## Deep guides (read on demand, do not preload)
 
-For the complete guide with all rules expanded: `references/full-guide.md`
+Every rule id listed above maps to a self-contained file at `rules/<rule-id>.md`, each with its
+own bad/good code pair.
+
+**Read only the rule file matching your task** — not the set:
+
+```
+rules/<rule-id>.md
+```
+
+Loading one ~60-line rule beats skimming a compiled monolith. Do not preload the directory.

@@ -21,7 +21,7 @@ disable it.
 
 | # | Layer | What it governs | State | Notes |
 |---|-------|-----------------|-------|-------|
-| 1 | Context governance | What the agent **knows** | 🟢 Strong | 20 `std-*` path-scoped skills + 37 workflow skills; 7 now three-tier (28 references, 9.3k lines of tier-3) |
+| 1 | Context governance | What the agent **knows** | 🟢 Strong | 20 `std-*` + 37 workflow skills; 7 now three-tier (28 refs); rule-per-file granularity restored across 5 skills; CI guards tier discipline |
 | 2 | Capability governance | What each **role** can do | 🟢 Good | Bash hole audited + closed; capability enforced by tool lists (not the dead `permissionMode`) |
 | 3 | Runtime gates | What happens **as each action fires** | 🟢 Strong | 2 fail-closed PreToolUse gates, dispatcher, audit trail, 77 fixture tests |
 | 4 | Permission boundaries | The harness's **own** enforcement | 🟢 Guarded | 24 denies (reference) + **sentinel check** now detects the plugin trap |
@@ -112,6 +112,37 @@ Ch. 8's example of "an agent definition that looks governed and is not" is **lit
 - Builders (`devops-engineer`, `phlex-developer`, `test-generator`) hold Bash + Write/Edit
   honestly. `incident-responder` keeps Bash for diagnostics.
 
+### Layer 1 — rule-per-file granularity restored (Ch. 7) — *2026-07-15*
+All 5 rule-per-file skills indexed their rule ids in the body but then pointed the model at a
+**compiled monolith** (`references/full-guide.md`), defeating the granularity the `rules/` dir
+buys. Ch. 7: *"a list task loads only the list file — the whole of it signal"* and *"past a few
+hundred lines the model's mid-task read starts skimming."*
+
+| Skill | Body pointed at | Now loads |
+|---|---|---|
+| react-best-practices | 2934-line monolith | ~52-line rule file (1 of 57) |
+| react-native-best-practices | 2897-line monolith | 1 of 36 |
+| atomic-design | 1218-line monolith | 1 of 10 |
+| composition-patterns | 946-line monolith | 1 of 8 |
+| terraform | 679-line monolith | ~102-line rule file (1 of 47) |
+
+The `full-guide.md` files are **content duplicates** of `rules/` (rule headings appear verbatim).
+All 5 bodies now index `rules/<id>.md` and no body advertises a monolith.
+
+### Layer 1 — index drift: terraform was 26/47 broken (Ch. 6 maintenance problem) — *2026-07-15*
+The new CI guard immediately caught a **pre-existing** defect: `terraform`'s body named **26 rules
+that had no file** (broken pointers — the model told to read files that don't exist) while **26
+real rule files were invisible** (never indexed, so the model never knew they existed). The rule
+files had been renamed and the index never followed; nothing caught it because no guard existed.
+Index regenerated from the 47 real files (titles from their frontmatter) → 0 broken, 0 invisible.
+Also indexed 3 orphaned React Native rules (`state-ground-truth`, `scroll-position-no-state`,
+`design-system-compound-components`).
+
+### Layer 7 — CI tier-discipline guard (Ch. 22 standing audit) — *2026-07-15*
+`.github/workflows/ci.yml` now fails the build when (a) a `rules/<id>.md` exists that its SKILL.md
+never indexes, or (b) a body points at a compiled monolith. This is the drift that produced the
+terraform defect; it can no longer regress silently.
+
 ## OPEN — prioritized backlog
 
 ### P1 · Layer 1 — finish progressive disclosure (13 skills remain single-file)
@@ -122,17 +153,33 @@ Ch. 8's example of "an agent definition that looks governed and is not" is **lit
 Apply the same placement test. Note `std-security`/`std-code-standards` now load on *every*
 source edit — their bodies must stay tight, so they are the highest-priority splits.
 
+### P1 · Layer 1 — delete the duplicate `full-guide.md` monoliths (pending redundancy audit)
+The 5 monoliths (2934/2897/1218/946/679 lines) are now **unreferenced** — no body points at them,
+so nothing loads them. But they remain on disk as content duplicates of `rules/`, which is Ch. 6's
+maintenance problem: two copies drift (exactly how terraform's index broke). Before deleting, run
+a proper redundancy audit — the forward check showed rule headings appear verbatim in the guides,
+but heading *shape* differs, so prove content coverage rule-by-rule first. Do not delete blind.
+
 ### P1 · Layer 1 — reference sizing overruns (Ch. 7: "under a few hundred lines")
-The split produced references over budget; the book's split signals apply (sections never needed
-together / a second stack):
-- `std-infrastructure/terraform-aws.md` **560** (1.9x) — split at Terraform-mechanics ↔ AWS-service-modules
-- `std-infrastructure/cicd-and-deploys.md` **492** (1.6x) — split CI/OIDC/ECS ↔ frontend deploy targets
+From the Ch. 7 split; the book's split signals apply (sections never needed together / a second
+stack):
+- `std-infrastructure/terraform-aws.md` **560** (1.9x) — split Terraform-mechanics ↔ AWS-modules
+- `std-infrastructure/cicd-and-deploys.md` **492** — split CI/OIDC/ECS ↔ frontend deploys
 - `std-api-design/errors-and-validation.md` **457** — split at the Rails ↔ TS seam
-- `std-phlex-conventions/component-levels.md` **430** — split primitives (atom/molecule) ↔ composites
-- `std-reactjs/forms-and-testing.md` **399** — two domains; split forms ↔ testing
-- Also >300: pagination 387, rendering 386, rate-limiting-and-health 380 (bundles two concerns),
-  state-and-data 368, stimulus-and-turbo 375 (Stimulus ↔ Turbo), server-actions 340,
-  versioning 325, variants-and-styling 313, charts-and-animation 312, middleware-seo-deploy 309
+- `std-phlex-conventions/component-levels.md` **430** — primitives ↔ composites
+- `std-reactjs/forms-and-testing.md` **399** — forms ↔ testing
+- Also >300: pagination 387, rendering 386, rate-limiting-and-health 380 (two concerns),
+  state-and-data 368, stimulus-and-turbo 375, server-actions 340, versioning 325,
+  variants-and-styling 313, charts-and-animation 312, middleware-seo-deploy 309
+- Pre-existing, also >300: `theming/platform-integration.md` 854, `phlex-dev/component-examples.md`
+  802, `phlex-dev/phlex-patterns.md` 775, `theming/design-tokens.md` 458, `theming/theme-presets.md` 445
+
+### P1 · Layer 1 — finish progressive disclosure (13 skills remain single-file)
+`std-rails-conventions`, `std-react-native`, `std-database`, `std-accessibility`, `std-i18n`,
+`std-clean-architecture`, `std-monitoring`, `std-terraform-conventions`, `std-security`,
+`std-code-standards`, `std-error-handling`, `std-git-workflow`, `std-agent-teams`. Apply the
+placement test — but honour Ch. 7's **merge signal**: a body of ~100 lines that applies to every
+task the skill triggers on is already correct as "a page of rules". Do not force-split.
 
 ### P2 · Layer 2 — `permissionMode` is DEAD in plugin agents (docs claim otherwise)
 Plugin-shipped agents do **not** support `permissionMode` — it is silently ignored ("for security

@@ -68,6 +68,15 @@ Reference these guidelines when:
 | Templates | Atoms + Molecules + Organisms | Layout only | DashboardLayout, AuthLayout |
 | Pages | Everything | Full data | Articles::Index, DashboardPage |
 
-## Full Reference
+## Deep guides (read on demand, do not preload)
 
-For the complete guide with all rules and code examples: `references/full-guide.md`
+Every rule id listed above maps to a self-contained file at `rules/<rule-id>.md`, each with its
+own bad/good code pair.
+
+**Read only the rule file matching your task** — not the set:
+
+```
+rules/<rule-id>.md
+```
+
+Loading one ~60-line rule beats skimming a compiled monolith. Do not preload the directory.
