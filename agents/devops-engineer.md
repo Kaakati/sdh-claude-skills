@@ -3,7 +3,6 @@ name: devops-engineer
 description: DevOps and CI/CD specialist. Use when configuring pipelines, troubleshooting builds, optimizing deployment workflows, setting up infrastructure as code, or debugging environment issues.
 tools: Read, Grep, Glob, Bash, Write, Edit
 model: sonnet
-permissionMode: default
 maxTurns: 30
 ---
 

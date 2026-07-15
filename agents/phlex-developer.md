@@ -2,7 +2,6 @@
 name: phlex-developer
 description: Build Phlex (Ruby) view components with Atomic Design methodology, Tailwind CSS tokens, Stimulus controllers, and Turbo integration. Use when creating new Phlex components, converting ERB to Phlex, or building a Rails component library.
 model: sonnet
-permissionMode: default
 tools: Read, Grep, Glob, Bash, Write, Edit, WebFetch
 maxTurns: 25
 ---

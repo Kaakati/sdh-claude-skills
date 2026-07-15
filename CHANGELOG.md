@@ -69,9 +69,14 @@ All notable changes to the `sdh` plugin are documented here, following
 - **Cross-platform** — hooks emit valid UTF-8 on Windows (`PYTHONUTF8=1`); `.gitattributes` pins
   `*.sh` to LF so `run-python.sh` works under Git Bash/MSYS2.
 
+### Removed
+- **`permissionMode` from all 10 agents that carried it** — the field is silently ignored for
+  plugin-shipped agents, so advertising it was theater. **No capability change:** the 4 former
+  "plan mode" agents carry `tools: Read, Grep, Glob` and are read-only by capability, which is the
+  real control. Docs corrected (`plan mode` → `read-only`); CI now rejects `permissionMode`,
+  `hooks`, and `mcpServers` on agents, and any agent without a `tools` list.
+
 ### Known gaps
-- `permissionMode` is **silently ignored** in plugin-shipped agents; docs claiming "plan mode" on 4
-  agents are inaccurate. Capability is enforced by tool lists instead.
 - 13 `std-*` skills are still single-file; several references exceed the ~300-line budget.
 
 ---

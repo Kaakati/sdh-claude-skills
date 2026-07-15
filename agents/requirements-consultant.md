@@ -3,7 +3,6 @@ name: requirements-consultant
 description: Senior consulting partner for requirements clarification. Use when requirements are vague, ambiguous, or incomplete. Use when scoping features, planning sprints, breaking down epics, or when someone says "we need" or "we want" without clear specifics.
 tools: Read, Grep, Glob
 model: opus
-permissionMode: default
 maxTurns: 15
 ---
 

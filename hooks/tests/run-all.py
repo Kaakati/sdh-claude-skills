@@ -406,6 +406,61 @@ def test_vague_request_detector():
     )
 
 
+def test_ci_workflow_is_loadable():
+    """Layer 7 must not vanish silently. A workflow file that does not parse is simply
+    never run — GitHub reports nothing, every local signal stays green, and the external
+    backstop is gone. That is the "dead gate masquerading as a green one" failure one
+    layer up, so it gets the same treatment: a test."""
+    print("\n[CI workflow — layer 7 must not vanish silently]")
+    global PASS, FAIL
+    import yaml
+
+    wf = os.path.join(HOOKS_DIR, "..", ".github", "workflows", "ci.yml")
+    if not os.path.isfile(wf):
+        FAIL += 1
+        print("  FAIL: .github/workflows/ci.yml is missing — layer 7 has no CI at all")
+        return
+    try:
+        doc = yaml.safe_load(open(wf, encoding="utf-8"))
+    except Exception as exc:
+        FAIL += 1
+        print(f"  FAIL: ci.yml does not parse — GitHub would silently never run it: {exc}")
+        return
+
+    PASS += 1
+    print("  PASS: ci.yml parses (GitHub will actually run it)")
+
+    jobs = doc.get("jobs") or {}
+    # The gates that must exist for the plugin to practise the discipline it enforces.
+    required = ["hook-fixtures", "plugin-manifest", "skills-lint", "sentinel-guard"]
+    missing = [j for j in required if j not in jobs]
+    if missing:
+        FAIL += 1
+        print(f"  FAIL: ci.yml lost required job(s): {missing}")
+    else:
+        PASS += 1
+        print(f"  PASS: all required CI jobs present ({len(jobs)} jobs)")
+
+    # Each job's inline python must at least be syntactically valid, or the job fails at
+    # runtime for a reason no local check would have caught.
+    import ast, re
+    bad = []
+    raw = open(wf, encoding="utf-8").read()
+    for block in re.findall(r"python - <<'EOF'\n(.*?)\n\s*EOF", raw, re.S):
+        src = "\n".join(line[10:] if line.startswith(" " * 10) else line.lstrip()
+                        for line in block.split("\n"))
+        try:
+            ast.parse(src)
+        except SyntaxError as exc:
+            bad.append(str(exc).split("(")[0].strip())
+    if bad:
+        FAIL += 1
+        print(f"  FAIL: inline CI python has syntax errors: {bad}")
+    else:
+        PASS += 1
+        print("  PASS: every inline CI python block parses")
+
+
 def test_deny_reasons_name_a_remedy():
     """Ch. 25 — "the model argues with a denial". Root cause: the reason names what is
     forbidden but not what to do INSTEAD. "Denied" invites retries; "denied because X,
@@ -791,6 +846,7 @@ def main():
     test_pre_commit_check()
     test_accessibility_checker()
     test_api_design_checker()
+    test_ci_workflow_is_loadable()
     test_deny_reasons_name_a_remedy()
     test_terraform_command_gate()
     test_fail_open_is_not_silent()

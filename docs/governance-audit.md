@@ -22,7 +22,7 @@ disable it.
 | # | Layer | What it governs | State | Notes |
 |---|-------|-----------------|-------|-------|
 | 1 | Context governance | What the agent **knows** | 🟢 Strong | 20 `std-*` + 37 workflow skills; 7 now three-tier (28 refs); rule-per-file granularity restored across 5 skills; CI guards tier discipline |
-| 2 | Capability governance | What each **role** can do | 🟢 Good | Bash hole audited + closed; capability enforced by tool lists (not the dead `permissionMode`) |
+| 2 | Capability governance | What each **role** can do | 🟢 Good | Bash hole closed; dead `permissionMode` removed; capability enforced by `tools`, guarded by CI |
 | 3 | Runtime gates | What happens **as each action fires** | 🟢 Strong | all 6 Ch. 10 gate patterns present; 3 fail-closed gates; fail-open paths visible; 103 fixture tests |
 | 4 | Permission boundaries | The harness's **own** enforcement | 🟢 Guarded | 30 denies (reference); sentinel detects an **absent OR stale** floor by diffing the plugin's own reference |
 | 5 | Organizational policy | What **developers** can grant | 🟠 Thin | `managed-settings.template.json` exists but is minimal/undocumented |
@@ -317,6 +317,32 @@ retry variations. Now names the remedy: `git revert <sha>` + a PR for a shared b
 `--force-with-lease` on your *own* feature branch. A standing test
 (`[deny reasons must name a remedy]`) audits every `hooklib.deny()` call so this cannot regress.
 
+### Layer 2 — the dead `permissionMode` removed (theater) — *2026-07-15*
+`permissionMode` is **not supported** for plugin-shipped agents — it is silently ignored ("for
+security reasons"). 10 agents carried it (4 with `plan`), and CLAUDE.md/README advertised
+"(Opus, plan mode)" on 4 agents: **a control that does not exist**. Theater in a security control
+is worse than nothing, because it changes how much you check.
+
+- Removed the field from all 10 agents. Capability is unaffected: the 4 "plan mode" agents carry
+  `tools: Read, Grep, Glob` — **read-only by capability**, which is the real control; plan-mode was
+  only ever discouraging what the tool list already removes (Ch. 8).
+- Corrected 11 doc claims (`plan mode` → `read-only`) across CLAUDE.md and README.
+- **CI guard added** (`agent-frontmatter`): fails if any agent carries `permissionMode`, `hooks`, or
+  `mcpServers` (all silently ignored for plugin agents), or ships without a `tools` list.
+
+### Layer 7 — the CI workflow itself is now tested — *2026-07-15*
+While adding the guard above I **broke `ci.yml`** (a generator turned `
+` into a real newline,
+splitting a Python statement). It was caught locally — but the near-miss is the lesson: **a workflow
+that does not parse is simply never run.** GitHub reports nothing, every local signal stays green,
+and the layer-7 backstop is *gone*. That is precisely the "dead gate masquerading as a green one"
+failure, one layer up — so it gets the same treatment.
+
+`[CI workflow — layer 7 must not vanish silently]`: asserts `ci.yml` parses, that the required jobs
+(`hook-fixtures`, `plugin-manifest`, `skills-lint`, `sentinel-guard`) still exist, and that every
+inline CI python block is syntactically valid. Verified by injecting a syntax error: the test failed
+loudly, then the file was restored.
+
 ## OPEN — prioritized backlog
 
 ### P1 · Layer 1 — finish progressive disclosure (13 skills remain single-file)
@@ -349,15 +375,6 @@ stack):
   variants-and-styling 313, charts-and-animation 312, middleware-seo-deploy 309
 - Pre-existing, also >300: `theming/platform-integration.md` 854, `phlex-dev/component-examples.md`
   802, `phlex-dev/phlex-patterns.md` 775, `theming/design-tokens.md` 458, `theming/theme-presets.md` 445
-
-### P2 · Layer 2 — `permissionMode` is DEAD in plugin agents (docs claim otherwise)
-Plugin-shipped agents do **not** support `permissionMode` — it is silently ignored ("for security
-reasons", per the plugins reference). 4 agents carry `permissionMode: plan`
-(`architecture-advisor`, `clean-architecture`, `design-critique`, `design-system-architect`) and
-CLAUDE.md/README advertise "(Opus, plan mode)" — **now a false claim**. It was only load-bearing
-for `clean-architecture` (the only plan agent with Bash), and removing Bash fixed that properly.
-The other 3 are read-only by tool list anyway, so the field is redundant, not dangerous. Action:
-strip the dead field (silently-ignored controls are theater) and correct the "plan mode" claims.
 
 ### P3 · Layer 5 — governing the governors
 `managed-settings.template.json` is minimal. Expand per Ch. 20's layer-5 section: non-overridable

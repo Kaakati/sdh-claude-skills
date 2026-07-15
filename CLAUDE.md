@@ -141,14 +141,14 @@ Detailed domain-specific conventions ship as 20 path-scoped `std-*` skills under
 - `security-auditor` — Security vulnerability scanning and OWASP audit
 - `code-reviewer` — Comprehensive code quality and PR review
 - `test-generator` — Test generation and coverage improvement
-- `architecture-advisor` — Architectural decisions and ADRs (Opus, plan mode)
+- `architecture-advisor` — Architectural decisions and ADRs (Opus, read-only)
 - `devops-engineer` — CI/CD, Terraform, Docker, deployment
 - `refactor-specialist` — Safe incremental refactoring (Opus)
-- `clean-architecture` — Clean Architecture conformance, layer boundary validation, dependency direction enforcement (Opus, plan mode)
+- `clean-architecture` — Clean Architecture conformance, layer boundary validation, dependency direction enforcement (Opus, read-only)
 - `incident-responder` — Production incident diagnosis, mitigation, post-mortem, chaos engineering (Opus)
 - `phlex-developer` — Phlex view components with Atomic Design, Tailwind tokens, Stimulus, Turbo
-- `design-system-architect` — Design system specification, token architecture, component matrices (Opus, plan mode)
-- `design-critique` — Visual quality review, Nielsen's heuristics, design token compliance (Opus, plan mode)
+- `design-system-architect` — Design system specification, token architecture, component matrices (Opus, read-only)
+- `design-critique` — Visual quality review, Nielsen's heuristics, design token compliance (Opus, read-only)
 
 ## Skills
 
@@ -256,7 +256,7 @@ Agent teams coordinate multiple Claude Code instances for parallel work. Use the
 Tell Claude to "use the [Template Name]" to spawn a coordinated team:
 
 #### Feature Team (full-stack feature development)
-- **Lead**: architecture-advisor (Opus, plan mode) — designs, coordinates, reviews
+- **Lead**: architecture-advisor (Opus, read-only) — designs, coordinates, reviews
 - **Teammates**: rails-architect (backend), reactjs-dev or react-native-dev (frontend), test-generator (tests), security-auditor (security review)
 - **When**: New feature spanning backend + frontend + tests
 
@@ -271,7 +271,7 @@ Tell Claude to "use the [Template Name]" to spawn a coordinated team:
 - **When**: Production outages, performance degradation, security incidents
 
 #### Refactor Team (large-scale refactoring)
-- **Lead**: architecture-advisor (Opus, plan mode) — design target architecture
+- **Lead**: architecture-advisor (Opus, read-only) — design target architecture
 - **Teammates**: refactor-specialist (Opus, implementation), test-generator (safety net), code-reviewer (quality gate)
 - **When**: Module extraction, pattern migration, dependency upgrades
 
@@ -281,7 +281,7 @@ Tell Claude to "use the [Template Name]" to spawn a coordinated team:
 - **When**: Terraform module creation, CI/CD pipeline changes, cloud migrations
 
 #### Design Team (design system and visual quality)
-- **Lead**: design-system-architect (Opus, plan mode) — token architecture, component specs
+- **Lead**: design-system-architect (Opus, read-only) — token architecture, component specs
 - **Teammates**: phlex-developer (Phlex components), design-critique (visual quality review)
 - **When**: Design system creation, cross-platform visual consistency, component library builds
 

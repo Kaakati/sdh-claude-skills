@@ -204,6 +204,39 @@ jobs:
             echo "OK: no permission-floor or gate change in this PR."
           fi
 
+  agent-frontmatter:
+    name: Agents carry no silently-ignored fields
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet pyyaml
+      - name: No unsupported frontmatter on plugin-shipped agents
+        # `hooks`, `mcpServers` and `permissionMode` are NOT supported for plugin agents —
+        # they are silently ignored. A silently-ignored security control is theater, and
+        # theater in a security control is worse than nothing: it changes how much you check.
+        # Capability must come from the `tools` list, which is real.
+        run: |
+          python - <<'EOF'
+          import glob, sys, yaml
+          UNSUPPORTED = ("permissionMode", "hooks", "mcpServers")
+          fail = []
+          for f in sorted(glob.glob("agents/*.md")):
+              fm = yaml.safe_load(open(f, encoding="utf-8").read().split("---", 2)[1]) or {}
+              for key in UNSUPPORTED:
+                  if key in fm:
+                      fail.append(f"{f}: `{key}` is silently ignored for plugin-shipped agents — "
+                                  f"remove it and enforce capability via `tools`")
+              if not fm.get("tools"):
+                  fail.append(f"{f}: no `tools` list — capability is unconstrained")
+          if fail:
+              for x in fail: print("FAIL: " + x)
+              sys.exit(1)
+          print("agent frontmatter OK — no silently-ignored fields; every agent scopes `tools`")
+          EOF
+
   sentinel-guard:
     name: Sentinel check is present
     runs-on: ubuntu-latest
