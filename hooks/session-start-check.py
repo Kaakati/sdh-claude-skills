@@ -27,16 +27,36 @@ AREA_RULES = {
     "react-native": "std-react-native, std-accessibility, std-i18n, std-clean-architecture",
 }
 
-# The layer-4 floor. These deny rules are the ones a plugin cannot ship, so their
-# absence means the permission layer was never copied. Kept deliberately small —
-# a representative sample of the critical tiers (secrets, privilege, remote-exec),
-# not the whole list, so it stays stable as the full deny list evolves.
+# Fallback sentinels: a representative sample of the critical tiers (secrets,
+# privilege, remote-exec). Used ONLY when the plugin's reference floor cannot be
+# read. The authoritative check diffs against the plugin's own reference settings
+# (see _plugin_reference_floor) — a hardcoded sample can prove a floor is ABSENT
+# but never that it is CURRENT, and a floor that silently went stale is the same
+# invisible gap in slower motion.
 PERMISSION_SENTINELS = [
     "Read(**/.env)",
     "Read(**/secrets/**)",
     "Bash(sudo:*)",
     "Bash(curl * | bash)",
 ]
+
+
+def _plugin_reference_floor():
+    """The authoritative deny floor — the plugin's own reference `.claude/settings.json`.
+
+    Located relative to THIS file (hooks/ -> plugin root) so it needs no environment
+    variable and works under --plugin-dir, a marketplace install, or a plain clone.
+    Returns the deny list, or None when it cannot be read (then we fall back to the
+    hardcoded sample).
+    """
+    try:
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        ref = os.path.join(root, ".claude", "settings.json")
+        with open(ref, "r", encoding="utf-8") as handle:
+            deny = json.load(handle).get("permissions", {}).get("deny", [])
+        return deny or None
+    except Exception:
+        return None
 
 
 def run_git(args):
@@ -101,6 +121,30 @@ def check_permission_sentinels(cwd):
         )
 
     present = set(deny)
+
+    # Prefer the plugin's own reference floor: it is always current, so this catches a
+    # STALE floor (copied once, never updated as the plugin's deny list grew) — not just
+    # a missing one. Fall back to the hardcoded sample if the reference is unreadable.
+    reference = _plugin_reference_floor()
+    if reference:
+        missing = [r for r in reference if r not in present]
+        if missing:
+            stale = bool(present)  # they copied something, just not the current floor
+            head = (
+                "GOVERNANCE GAP: this project's permission floor is STALE — it was copied "
+                "from an older version of the `sdh` plugin and is missing rules added since."
+                if stale else
+                "GOVERNANCE GAP: this project's permission deny floor is missing."
+            )
+            shown = ", ".join(missing[:8]) + (f" (+{len(missing) - 8} more)" if len(missing) > 8 else "")
+            return (
+                f"{head} A plugin cannot ship `permissions`, so these must be copied by hand; "
+                f"until then the hooks carry rules they were not meant to carry alone. "
+                f"Missing {len(missing)} of {len(reference)}: {shown}. "
+                f"Re-copy the `permissions` block from the plugin's .claude/settings.json."
+            )
+        return ""
+
     missing = [s for s in PERMISSION_SENTINELS if s not in present]
     if missing:
         return (

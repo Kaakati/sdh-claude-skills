@@ -158,6 +158,52 @@ jobs:
           print("tier discipline OK — rules indexed, no monolith pointers, all references resolve")
           EOF
 
+  changelog-interface:
+    name: Deny-floor changes are documented
+    # Ch. 13: "When a plugin bump changes what gets denied or how a gate behaves, that is a
+    # behavioural change to every consuming repo's development process. Document it as you
+    # would an API change." A plugin cannot ship `permissions`, so an undocumented floor
+    # change is one consumers can neither see nor copy — it silently goes stale.
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: A changed permission floor (or gate) must update CHANGELOG.md
+        run: |
+          BASE="origin/${{ github.base_ref }}"
+          git fetch origin "${{ github.base_ref }}" --depth=1 >/dev/null 2>&1 || true
+          CHANGED=$(git diff --name-only "$BASE"...HEAD || true)
+          echo "changed files:"; echo "$CHANGED" | sed 's/^/  /'
+
+          floor_changed=0
+          if echo "$CHANGED" | grep -qE '^\.claude/settings\.json$'; then
+            if ! git diff "$BASE"...HEAD -- .claude/settings.json | grep -qE '^[+-].*"(Read|Bash)\('; then
+              echo "settings.json changed but no deny/allow rules moved — not an interface change."
+            else
+              floor_changed=1
+            fi
+          fi
+          gate_changed=0
+          if echo "$CHANGED" | grep -qE '^hooks/(.*gate|.*blocker|security-scan|pre-commit-check|migration-validator)\.py$'; then
+            gate_changed=1
+          fi
+
+          if [ "$floor_changed" = "1" ] || [ "$gate_changed" = "1" ]; then
+            if echo "$CHANGED" | grep -q '^CHANGELOG.md$'; then
+              echo "OK: an interface change (permission floor and/or a gate) is documented in CHANGELOG.md"
+            else
+              echo "FAIL: this PR changes the permission floor and/or a gate's behaviour, but does not"
+              echo "      update CHANGELOG.md. That is a behavioural change to every consuming repo —"
+              echo "      and because a plugin cannot ship \`permissions\`, an undocumented floor change"
+              echo "      is one consumers can neither see nor copy. Document it under [Unreleased]."
+              exit 1
+            fi
+          else
+            echo "OK: no permission-floor or gate change in this PR."
+          fi
+
   sentinel-guard:
     name: Sentinel check is present
     runs-on: ubuntu-latest

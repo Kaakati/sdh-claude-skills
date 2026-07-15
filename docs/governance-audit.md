@@ -24,10 +24,10 @@ disable it.
 | 1 | Context governance | What the agent **knows** | 🟢 Strong | 20 `std-*` + 37 workflow skills; 7 now three-tier (28 refs); rule-per-file granularity restored across 5 skills; CI guards tier discipline |
 | 2 | Capability governance | What each **role** can do | 🟢 Good | Bash hole audited + closed; capability enforced by tool lists (not the dead `permissionMode`) |
 | 3 | Runtime gates | What happens **as each action fires** | 🟢 Strong | all 6 Ch. 10 gate patterns present; 3 fail-closed gates; fail-open paths visible; 103 fixture tests |
-| 4 | Permission boundaries | The harness's **own** enforcement | 🟢 Guarded | 24 denies (reference) + **sentinel check** now detects the plugin trap |
+| 4 | Permission boundaries | The harness's **own** enforcement | 🟢 Guarded | 30 denies (reference); sentinel detects an **absent OR stale** floor by diffing the plugin's own reference |
 | 5 | Organizational policy | What **developers** can grant | 🟠 Thin | `managed-settings.template.json` exists but is minimal/undocumented |
 | 6 | Human-in-the-loop | The **person**, for the irreversible | 🟢 Good | `ask` on deploys, migrations, direct pushes to protected branches |
-| 7 | External verification | Everything **outside the session** | 🟡 Partial | CI now runs the plugin's own gates; branch protection is repo-side |
+| 7 | External verification | Everything **outside the session** | 🟢 Good | 5 CI jobs incl. changelog-as-interface enforcement; branch protection still repo-side |
 
 ---
 
@@ -258,6 +258,38 @@ Registering the gate exposed that `deployment-gate` **also** decided `terraform 
 
 Terraform removed from `deployment-gate` entirely; the dedicated three-tier gate owns that surface.
 
+### Layer 4 — the sentinel now detects a STALE floor, not just an absent one — *2026-07-15*
+Last iteration grew the deny floor 24 → 30 and I recorded the gap it created: consumers who copied
+the **old** floor are silently missing the new terraform denies, and a 4-rule hardcoded sample can
+prove a floor is ABSENT but never that it is CURRENT. A floor that silently went stale is the same
+invisible gap in slower motion.
+
+Fixed by inverting the check: `_plugin_reference_floor()` reads **the plugin's own reference**
+`.claude/settings.json` (located from `__file__`, so it needs no env var and works under
+`--plugin-dir`, a marketplace install, or a plain clone) and **diffs** the consumer's floor against
+it. The check is therefore self-maintaining — it can never drift from the floor it guards. The
+hardcoded sample survives only as a fallback when the reference is unreadable.
+
+Output distinguishes the two cases and is actionable:
+> GOVERNANCE GAP: this project's permission floor is **STALE** … Missing **6 of 30**:
+> `Bash(terraform destroy:*)`, `Bash(tofu destroy:*)`, `Bash(terraform state rm:*)` …
+
+3 fixture tests added (stale detected / empty reads as absent, not stale / names the exact rules).
+
+### Layer 7 — the changelog as an interface (Ch. 13) — *2026-07-15*
+*"When a plugin bump changes what gets denied or how a gate behaves, that is a behavioural change to
+every consuming repo's development process. Document it as you would an API change — because for
+your teammates' agents, it is one."*
+
+`CHANGELOG.md` (Keep a Changelog) added, written for the consuming team rather than for us: it opens
+with the plugin-trap warning and marks the terraform denies **ACTION REQUIRED** with the exact rules
+to paste. Behavioural gate changes (destroy/state-surgery/-auto-approve now denied; apply now asks;
+`plan -destroy` still allowed) are called out as such.
+
+**Enforced, not just written**: a new CI job fails any PR that changes the permission floor or a
+gate's behaviour without updating `CHANGELOG.md`. Because a plugin cannot ship `permissions`, an
+undocumented floor change is one consumers can neither see nor copy — it just silently goes stale.
+
 ## OPEN — prioritized backlog
 
 ### P1 · Layer 1 — finish progressive disclosure (13 skills remain single-file)
@@ -315,18 +347,6 @@ context injection ✅, dispatcher ✅, audit trail ✅). What remains is **devel
 - **Raw hooks**: 8 bypass the `_hooklib` runners (`auto-format`, `session-*`, `subagent-context`,
   `task-completed-checker`, `team-task-validator`, `teammate-idle-checker`). Stances understood but
   not enforced through a runner.
-
-### P2 · Layer 4 — the deny floor grew; consumers must re-copy it
-`permissions.deny` went 24 → 30 (terraform destroy/state-surgery/force-unlock). A plugin cannot
-ship permissions, so **existing consumers who copied the old floor now have a stale one** and are
-missing the new terraform denies. The sentinel only samples 4 rules and will NOT catch this. Options:
-version the floor and have the sentinel compare a version/count, or publish the delta in the
-CHANGELOG (which is itself still an open P2) and treat deny-list changes as interface changes.
-
-### P2 · Layer 7 — changelog as an interface (Ch. 13)
-*"When a plugin bump changes what gets denied or how a gate behaves, that is a behavioral change
-to every consuming repo's development process."* No `CHANGELOG.md` exists (and `CLAUDE.md`
-mandates Keep a Changelog format). Add one, and treat gate/deny changes as interface changes.
 
 ### P3 · Layer 5 — governing the governors
 `managed-settings.template.json` is minimal. Expand per Ch. 20's layer-5 section: non-overridable

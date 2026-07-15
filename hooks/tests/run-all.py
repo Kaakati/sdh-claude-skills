@@ -594,14 +594,54 @@ def test_permission_sentinel():
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
-    full = ["Read(**/.env)", "Read(**/secrets/**)", "Bash(sudo:*)", "Bash(curl * | bash)"]
-    case("silent when the full permission floor is present", full, expect_gap=False)
-    case("warns when a sentinel deny is missing", full[:2], expect_gap=True)
+    # The authoritative floor is the plugin's own reference settings — so the check is
+    # self-maintaining and detects a STALE floor, not just an absent one.
+    ref = _json.load(open(os.path.join(HOOKS_DIR, "..", ".claude", "settings.json"),
+                          encoding="utf-8"))["permissions"]["deny"]
+
+    case("silent when the CURRENT floor is copied in full", ref, expect_gap=False)
     case("warns when the deny list is empty", [], expect_gap=True)
     case("warns when .claude/settings.json is absent", None, expect_gap=True, write_settings=False)
     case("warns when settings.json is unparseable", None, expect_gap=True, raw="{ not json")
-    # never blocks the session
     case("exits 0 even on a gap (informational, never blocks)", [], expect_gap=True)
+
+    # STALENESS: a floor copied from an older plugin version is silently incomplete.
+    # A hardcoded sample can prove a floor is ABSENT but never that it is CURRENT.
+    stale = [r for r in ref if "terraform" not in r and "tofu" not in r]
+
+    def stale_case(name, deny, expect_stale_wording):
+        global PASS, FAIL
+        root = tempfile.mkdtemp()
+        try:
+            os.makedirs(os.path.join(root, ".claude"))
+            with open(os.path.join(root, ".claude", "settings.json"), "w", encoding="utf-8") as f:
+                _json.dump({"permissions": {"deny": deny}}, f)
+            code, out = run_session_start(root.replace("\\", "/"))
+            ok = code == 0 and ("STALE" in out) == expect_stale_wording
+            if ok:
+                PASS += 1; print(f"  PASS: {name}")
+            else:
+                FAIL += 1; print(f"  FAIL: {name} — out={out[:110]!r}")
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    import shutil
+    stale_case("detects a STALE floor (older copy, missing newer denies)", stale, True)
+    stale_case("an empty floor reads as absent, not stale", [], False)
+
+    # and it must name the exact missing rules, not just say 'something is missing'
+    root = tempfile.mkdtemp()
+    try:
+        os.makedirs(os.path.join(root, ".claude"))
+        with open(os.path.join(root, ".claude", "settings.json"), "w", encoding="utf-8") as f:
+            _json.dump({"permissions": {"deny": stale}}, f)
+        code, out = run_session_start(root.replace("\\", "/"))
+        if "terraform destroy" in out and f"of {len(ref)}" in out:
+            PASS += 1; print("  PASS: names the exact missing rules and the floor size")
+        else:
+            FAIL += 1; print(f"  FAIL: gap message not actionable — {out[:110]!r}")
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
 
 
 def test_hooklib_primitives():
