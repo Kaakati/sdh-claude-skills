@@ -1,6 +1,13 @@
 ---
 name: std-security
 description: Security standards — OWASP Top 10, input validation, parameterized queries, secret management, auth, web headers. Apply when handling user input, auth, secrets, or data access.
+paths:
+  - "**/*.rb"
+  - "**/*.py"
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.js"
+  - "**/*.jsx"
 ---
 
 # Security Standards

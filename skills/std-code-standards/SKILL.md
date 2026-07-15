@@ -1,6 +1,13 @@
 ---
 name: std-code-standards
 description: Universal code standards — naming, SOLID, DRY/KISS, function/file size limits, error handling, logging, constants. Apply when writing or reviewing any source code.
+paths:
+  - "**/*.rb"
+  - "**/*.py"
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.js"
+  - "**/*.jsx"
 ---
 
 # Code Standards

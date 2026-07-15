@@ -15,7 +15,7 @@ Rules for writing and maintaining tests. Quality tests are as important as quali
 
 ## AAA Pattern
 
-Structure every test with Arrange, Act, Assert:
+Structure every test with Arrange, Act, Assert, separated by blank lines:
 
 ```typescript
 it("should return user profile when valid ID is provided", async () => {
@@ -33,31 +33,18 @@ it("should return user profile when valid ID is provided", async () => {
 });
 ```
 
-Separate the three sections with blank lines for readability.
-
-## One Assertion Concept Per Test
-
-- Each test should verify one logical concept, not one literal assertion.
-- Multiple related assertions on the same result are fine (e.g., checking status code and response body).
-- If a test needs a separate "Arrange" for a second check, it should be a separate test.
-
 ## Test Naming
 
-Use the pattern: `should [expected behavior] when [condition]`
+Pattern: `should [expected behavior] when [condition]`. `describe` blocks name the unit under test.
 
 ```typescript
 // Good
 "should throw NotFoundError when user does not exist"
 "should return paginated results when page parameter is provided"
-"should send welcome email when user registration succeeds"
 
 // Bad
-"test user"
-"works correctly"
-"error case"
+"test user"  "works correctly"  "error case"
 ```
-
-For `describe` blocks, use the unit under test:
 
 ```typescript
 describe("UserService", () => {
@@ -68,110 +55,59 @@ describe("UserService", () => {
 });
 ```
 
-## Mocking Strategy
+## One Assertion Concept Per Test
 
-- **Mock external dependencies**: databases, APIs, file systems, email services, third-party SDKs.
-- **Do not mock internal logic**: If you need to mock internal functions to test a unit, the design may need refactoring.
-- **Use dependency injection** to make mocking straightforward.
-- **Reset mocks** between tests to prevent state leakage:
-  ```typescript
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-  ```
-- Prefer test doubles (stubs, fakes) over complex mock chains. If mocking becomes painful, simplify the code under test.
-
-## Edge Cases
-
-Every test suite must cover these categories:
-
-- **Null/undefined inputs**: What happens when optional values are missing?
-- **Empty values**: Empty strings, empty arrays, zero values.
-- **Boundary values**: Min/max of ranges, pagination limits, string length limits.
-- **Error paths**: Network failures, invalid data, unauthorized access, timeout scenarios.
-- **Concurrent operations**: Race conditions where applicable.
-
-```typescript
-describe("validateAge", () => {
-  it("should accept minimum valid age of 0", ...);
-  it("should accept maximum valid age of 150", ...);
-  it("should reject negative age", ...);
-  it("should reject age above 150", ...);
-  it("should reject null input", ...);
-  it("should reject non-numeric input", ...);
-});
-```
+- Each test verifies one logical concept, not one literal assertion.
+- Multiple related assertions on the same result are fine (status code + response body).
+- If a test needs a second "Arrange" for a second check, it is a second test.
 
 ## Test Independence
 
-- **No test interdependency**. Each test must pass when run in isolation and in any order.
-- Do not share mutable state between tests. Use `beforeEach` for setup, not `beforeAll` with mutation.
-- Avoid relying on test execution order.
-- Each test should create its own test data. Use factory functions or builders for complex objects:
-  ```typescript
-  function buildUser(overrides?: Partial<User>): User {
-    return {
-      id: "user-123",
-      name: "Test User",
-      email: "test@example.com",
-      role: "user",
-      ...overrides,
-    };
-  }
-  ```
+- Every test must pass in isolation and in any order. No interdependency.
+- No shared mutable state. `beforeEach` for setup, never `beforeAll` with mutation.
+- Each test builds its own data — use factory functions/builders with overrides
+  (`buildUser({ role: "admin" })`, `create(:customer, :member)`).
+
+## Mocking Strategy
+
+- **Mock external dependencies**: databases, APIs, file systems, email services, third-party SDKs.
+- **Do not mock internal logic.** If you must mock internal functions to test a unit, the design
+  needs refactoring — inject the dependency instead.
+- Prefer stubs and fakes over complex mock chains. Painful mocking is a design signal.
+- Reset mocks between tests: `beforeEach(() => vi.clearAllMocks())`.
 
 ## Coverage Targets
 
 - **Business logic**: 80% minimum — services, domain models, validators, utilities.
-- **Overall project**: 60% minimum — includes infrastructure, config, and glue code.
-- **Critical paths**: 100% target — authentication, authorization, payment processing, data validation.
-- Coverage is a floor, not a ceiling. High coverage with weak assertions is worse than moderate coverage with meaningful tests.
-- Focus on branch coverage, not just line coverage.
+- **Overall project**: 60% minimum — including infrastructure, config, glue code.
+- **Critical paths**: 100% target — authentication, authorization, payments, data validation.
+- Coverage is a floor, not a ceiling. Focus on **branch** coverage, not line coverage. High coverage
+  with weak assertions is worse than moderate coverage with meaningful tests.
 
 ## Test Types
 
-- **Unit tests**: Fast, isolated, no I/O. Test one module at a time. These form the base of the pyramid.
-- **Integration tests**: Test interactions between modules or with real databases/APIs. Use test containers or in-memory databases.
-- **E2E tests**: Test complete user flows. Keep these minimal and focused on critical paths. They are slow and brittle by nature.
-- **Contract tests**: Validate API contracts between services. Use Pact or similar tools for service boundaries.
+- **Unit**: fast, isolated, no I/O. One module. The base of the pyramid — many of these.
+- **Integration**: real DB / real router across modules. Some of these.
+- **E2E**: complete user flows, critical paths only. Slow and brittle by nature — few of these.
+- **Contract**: validate API contracts at service boundaries (Pact or similar).
 
-## Web Frontend Testing (Vitest + React Testing Library)
+## Edge Cases
 
-### Vitest Configuration
-- Use Vitest for all web frontend tests (Vite SPA and Next.js) — Jest-compatible API with native Vite support.
-- Configure in `vitest.config.ts` with `@testing-library/jest-dom` matchers.
-- Use `jsdom` or `happy-dom` environment for component tests.
-- Co-locate test files: `Component.tsx` → `Component.test.tsx`.
-
-### React Testing Library Query Priority
-Follow this priority order — prefer accessible queries that reflect how users interact:
-1. `getByRole` — best; queries by ARIA role (button, heading, textbox)
-2. `getByLabelText` — for form elements with associated labels
-3. `getByPlaceholderText` — when labels are not visible
-4. `getByText` — for non-interactive elements
-5. `getByTestId` — last resort; use only when no semantic query applies
-
-### Testing React Components
-- Test user behavior, not implementation details.
-- Use `userEvent` (not `fireEvent`) for realistic user interactions.
-- Mock API calls with MSW (Mock Service Worker), not manual mocks.
-- Wrap components with test providers (QueryClient, Router, i18n) via a shared `renderWithProviders` utility.
-
-### Next.js Server Component Testing
-- Test Server Components as async functions — call the component, assert on the returned JSX.
-- Mock `fetch` or the Rails API client at the module level.
-- Test `generateMetadata` functions separately for SEO validation.
-
-### Next.js Server Action Testing
-- Test server actions as async functions with `FormData` input.
-- Mock `revalidatePath`, `revalidateTag`, and `redirect` from `next/cache` and `next/navigation`.
-- Assert on validation error return shape for invalid inputs.
-- Assert on side effects (API calls, revalidation) for valid inputs.
+Every suite covers all five: **null/undefined**, **empty** (string/array/zero), **boundary**
+(min/max, pagination and length limits), **error paths** (network failure, invalid data,
+unauthorized, timeout), and **concurrency** where applicable.
 
 ## Anti-Patterns to Avoid
 
-- **Testing implementation details**: Test behavior, not internal method calls or state.
-- **Snapshot overuse**: Use snapshots sparingly. They hide intent and fail on cosmetic changes.
-- **Flaky tests**: Fix or delete flaky tests immediately. A flaky test is worse than no test.
-- **Commented-out tests**: Delete them. Version control keeps history.
-- **Testing framework code**: Do not test that your ORM saves data or your HTTP library sends requests.
+- **Testing implementation details** — test behavior, not internal calls or private state.
+- **Snapshot overuse** — snapshots hide intent and fail on cosmetic changes. Use sparingly.
+- **Flaky tests** — fix or delete immediately. A flaky test is worse than no test.
+- **Commented-out tests** — delete them; version control keeps history.
+- **Testing framework code** — do not test that your ORM saves or your HTTP library sends requests.
+
+## Deep guides (read on demand, do not preload)
+
+- Unit vs integration, mock boundaries, test data builders, edge-case matrix, Sidekiq jobs → `references/test-strategy.md`
+- Vitest + RTL setup, query priority, userEvent, MSW, providers, Zustand, Framer Motion, ApexCharts → `references/react-components.md`
+- Next.js Server Components, server actions, `generateMetadata`, route handlers → `references/nextjs-server.md`
+- React Native: RNTL, navigation, Reanimated, MMKV, Centrifugo → `references/react-native.md`

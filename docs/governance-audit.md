@@ -21,8 +21,8 @@ disable it.
 
 | # | Layer | What it governs | State | Notes |
 |---|-------|-----------------|-------|-------|
-| 1 | Context governance | What the agent **knows** | 🟢 Strong | 20 `std-*` path-scoped skills + `sdh-engineering-standards` + 37 workflow skills, wrapper-agnostic globs |
-| 2 | Capability governance | What each **role** can do | 🟡 Partial | 12 agents with tool lists; **the Bash hole** unaudited |
+| 1 | Context governance | What the agent **knows** | 🟢 Strong | 20 `std-*` path-scoped skills + 37 workflow skills; 7 now three-tier (28 references, 9.3k lines of tier-3) |
+| 2 | Capability governance | What each **role** can do | 🟢 Good | Bash hole audited + closed; capability enforced by tool lists (not the dead `permissionMode`) |
 | 3 | Runtime gates | What happens **as each action fires** | 🟢 Strong | 2 fail-closed PreToolUse gates, dispatcher, audit trail, 77 fixture tests |
 | 4 | Permission boundaries | The harness's **own** enforcement | 🟢 Guarded | 24 denies (reference) + **sentinel check** now detects the plugin trap |
 | 5 | Organizational policy | What **developers** can grant | 🟠 Thin | `managed-settings.template.json` exists but is minimal/undocumented |
@@ -64,22 +64,84 @@ contract that was previously only exercised on a Windows dev machine):
 
 ---
 
+### Layer 1 — Ch. 7 progressive disclosure: 7 skills split into three tiers — *2026-07-15*
+All 20 `std-*` skills were single-file (tier-2 bodies carrying tier-3 depth). Applied the Ch. 7
+**placement test** to the 7 densest and split them:
+
+| Skill | Body (before → after) | References |
+|---|---|---|
+| std-nextjs | 217 → 114 | 4 (1324 lines) |
+| std-design-system | 208 → 126 | 4 (1108) |
+| std-api-design | 194 → 117 | 4 (1549) |
+| std-testing | 177 → 113 | 4 (982) |
+| std-phlex-conventions | 167 → 119 | 4 (1407) |
+| std-reactjs | 154 → 135 | 4 (1365) |
+| std-infrastructure | 148 → 86 | 4 (1606) |
+
+**28 references, ~9.3k lines of tier-3** that cost nothing until the task arrives. Each body now
+ends with the index hinge (`## Deep guides (read on demand, do not preload)`); each reference is
+self-contained (zero back-references), decision-shaped (`## Decision: …`), and example-paired
+(bad/good compilable pairs). Frontmatter/triggers byte-identical on all 7 (verified vs HEAD).
+`std-nextjs` **net-gained** rules (authorize inside the server action, `import 'server-only'`, no
+secrets behind `NEXT_PUBLIC_`, don't rebuild the Rails API in `app/api`).
+
+Adversarial verification caught and we fixed **2 real content losses**: `std-testing` lost "test
+containers / in-memory databases" (restored to `test-strategy.md`); `std-reactjs` lost
+`"strict": true` and the `@/`→`src/` path alias (restored to the body).
+
+### Layer 1 — the always-on regression, resolved by the placement test — *2026-07-15*
+The 5 rules that had no `paths:` became model-invoked in the plugin conversion. Resolved per Ch. 7:
+- `std-code-standards`, `std-security` — *apply to most source tasks* → broad source globs
+  (`**/*.{rb,py,ts,tsx,js,jsx}`), restoring layer-1 teaching at the moment of relevance.
+- `std-error-handling` — *subset-scoped* → correctly model-invoked.
+- `std-git-workflow`, `std-agent-teams` — **action-scoped, not file-scoped**; no glob can express
+  them → correctly model-invoked.
+- Their *must-hold* parts sit at layers 3/4 (security-scan, code-quality-checker,
+  error-handling-checker, pre-commit-check) — exactly where the placement test's last row says
+  they belong: *"must hold even if never read → not context at all."* So this was a **teaching**
+  gap, not an enforcement gap.
+
+### Layer 2 — the Bash hole, audited and closed — *2026-07-15*
+Ch. 8's example of "an agent definition that looks governed and is not" is **literally our
+`security-auditor`** (same name, same `tools: Read, Grep, Glob, Bash`).
+- `clean-architecture` — carried `Bash` but **never used it** (pure unused write access:
+  `sed -i`, `echo > file`). **Removed** → read-only by *capability*, per Ch. 8's "tool lists
+  remove abilities rather than discourage them."
+- `security-auditor` — genuinely needs Bash (`git diff`, `npm audit`). **Kept, theater ended**:
+  an explicit capability-boundary section states it is NOT read-only and is findings-only.
+- Builders (`devops-engineer`, `phlex-developer`, `test-generator`) hold Bash + Write/Edit
+  honestly. `incident-responder` keeps Bash for diagnostics.
+
 ## OPEN — prioritized backlog
 
-### P1 · Layer 1 — extend skills with references (Ch. 7, progressive disclosure)
-The book's **three tiers**: frontmatter description (always in context) → SKILL.md body (loaded
-on trigger) → `references/*.md` (loaded only when the skill says to read them). Several skills
-are single-file and carry detail in the body that belongs in tier 3; several `std-*` skills have
-no `references/` at all. Audit each skill for tier placement, split oversized bodies, and add
-references where depth exists. Consider the **rule-per-file** granularity variant (already used
-well by `react-best-practices`, `terraform`, `atomic-design`) for the dense `std-*` skills.
+### P1 · Layer 1 — finish progressive disclosure (13 skills remain single-file)
+7 of 20 `std-*` skills are now three-tier. The remaining 13 (`std-rails-conventions`,
+`std-react-native`, `std-database`, `std-accessibility`, `std-i18n`, `std-clean-architecture`,
+`std-monitoring`, `std-terraform-conventions`, `std-security`, `std-code-standards`,
+`std-error-handling`, `std-git-workflow`, `std-agent-teams`) still carry all depth in tier 2.
+Apply the same placement test. Note `std-security`/`std-code-standards` now load on *every*
+source edit — their bodies must stay tight, so they are the highest-priority splits.
 
-### P1 · Layer 1 — the always-on regression from the plugin conversion
-`std-code-standards`, `std-security`, `std-git-workflow`, `std-error-handling`, `std-agent-teams`
-had **no `paths:`** as rules, so they always loaded. As plugin skills they are now model-invoked
-(loaded only when judged relevant) — a real layer-1 weakening. Mitigation today: the hooks
-(layer 3) still hard-enforce the critical parts. Options to evaluate: broad `paths:` globs, or
-folding the non-negotiables into `sdh-engineering-standards` (which has a broad trigger).
+### P1 · Layer 1 — reference sizing overruns (Ch. 7: "under a few hundred lines")
+The split produced references over budget; the book's split signals apply (sections never needed
+together / a second stack):
+- `std-infrastructure/terraform-aws.md` **560** (1.9x) — split at Terraform-mechanics ↔ AWS-service-modules
+- `std-infrastructure/cicd-and-deploys.md` **492** (1.6x) — split CI/OIDC/ECS ↔ frontend deploy targets
+- `std-api-design/errors-and-validation.md` **457** — split at the Rails ↔ TS seam
+- `std-phlex-conventions/component-levels.md` **430** — split primitives (atom/molecule) ↔ composites
+- `std-reactjs/forms-and-testing.md` **399** — two domains; split forms ↔ testing
+- Also >300: pagination 387, rendering 386, rate-limiting-and-health 380 (bundles two concerns),
+  state-and-data 368, stimulus-and-turbo 375 (Stimulus ↔ Turbo), server-actions 340,
+  versioning 325, variants-and-styling 313, charts-and-animation 312, middleware-seo-deploy 309
+
+### P2 · Layer 2 — `permissionMode` is DEAD in plugin agents (docs claim otherwise)
+Plugin-shipped agents do **not** support `permissionMode` — it is silently ignored ("for security
+reasons", per the plugins reference). 4 agents carry `permissionMode: plan`
+(`architecture-advisor`, `clean-architecture`, `design-critique`, `design-system-architect`) and
+CLAUDE.md/README advertise "(Opus, plan mode)" — **now a false claim**. It was only load-bearing
+for `clean-architecture` (the only plan agent with Bash), and removing Bash fixed that properly.
+The other 3 are read-only by tool list anyway, so the field is redundant, not dangerous. Action:
+strip the dead field (silently-ignored controls are theater) and correct the "plan mode" claims.
 
 ### P2 · Layer 2 — the Bash hole (Ch. 8, Ch. 22, Ch. 25)
 *"A read-only agent that has Bash is not read-only"* — `sed -i` is edit access, and content

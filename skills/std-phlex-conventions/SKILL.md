@@ -10,14 +10,14 @@ paths:
 
 Standards for building Phlex view components following Atomic Design methodology.
 
-## Component Structure
+## Base Classes
 
-### Base Classes
-- `Components::Base < Phlex::HTML` -- base for all reusable components (atoms through templates)
-- `Views::Base < Phlex::HTML` -- base for page-level views
-- Include common helpers (asset paths, route helpers) in base classes
+- `Components::Base < Phlex::HTML` — base for all reusable components (atoms through templates)
+- `Views::Base < Phlex::HTML` — base for page-level views
+- Include common helpers (asset paths, route helpers, `turbo_frame_tag`) in base classes
 
-### Atomic Design Mapping
+## Atomic Design Mapping
+
 | Level | Namespace | Directory | Description |
 |-------|-----------|-----------|-------------|
 | Atom | `Components::Atoms::` | `components/atoms/` | Indivisible primitives (button, input, icon) |
@@ -26,16 +26,18 @@ Standards for building Phlex view components following Atomic Design methodology
 | Template | `Components::Templates::` | `components/templates/` | Layout skeletons (dashboard layout) |
 | Page | `Views::{Resource}::` | `views/{resource}/` | Data-bound pages (articles/index) |
 
-### Decision Tree
-1. Is it an indivisible HTML element with styling? --> **Atom**
-2. Does it compose only atoms into a small unit? --> **Molecule**
-3. Does it form a distinct interface section? --> **Organism**
-4. Does it define page layout without real data? --> **Template**
-5. Does it represent a full page with data? --> **Page (View)**
+### Decision tree
 
-## Component Patterns
+1. Indivisible HTML element with styling? → **Atom**
+2. Composes only atoms into a small unit? → **Molecule**
+3. Forms a distinct interface section? → **Organism**
+4. Defines page layout without real data? → **Template**
+5. Represents a full page with data? → **Page (View)**
 
-### Props via Keyword Arguments
+## Core Patterns
+
+Props are keyword arguments; pass unknown attributes through with `**attrs`:
+
 ```ruby
 class Components::Atoms::Button < Components::Base
   def initialize(label:, variant: :primary, size: :md, type: :button, **attrs)
@@ -47,29 +49,13 @@ class Components::Atoms::Button < Components::Base
   end
 
   def view_template
-    button(type: @type, class: button_classes, **@attrs) { @label }
-  end
-
-  private
-
-  def button_classes
-    tokens(
-      base: "inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2",
-      variant: {
-        primary: "bg-primary text-primary-foreground hover:bg-primary/90",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-      },
-      size: {
-        sm: "h-8 px-3 text-sm",
-        md: "h-10 px-4",
-        lg: "h-12 px-6 text-lg"
-      }
-    )
+    button(type: @type, class: VARIANTS.render(variant: @variant, size: @size), **@attrs) { @label }
   end
 end
 ```
 
-### Content Blocks (yield)
+Content blocks yield straight into the element:
+
 ```ruby
 class Components::Atoms::Card < Components::Base
   def view_template(&block)
@@ -78,7 +64,8 @@ class Components::Atoms::Card < Components::Base
 end
 ```
 
-### Composition (render)
+Composition uses `render`:
+
 ```ruby
 class Components::Molecules::SearchForm < Components::Base
   def view_template
@@ -90,78 +77,43 @@ class Components::Molecules::SearchForm < Components::Base
 end
 ```
 
-### Variants with class_variants
-```ruby
-class Components::Atoms::Badge < Components::Base
-  VARIANTS = class_variants(
-    base: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors",
-    variants: {
-      variant: {
-        default: "bg-primary text-primary-foreground",
-        secondary: "bg-secondary text-secondary-foreground",
-        destructive: "bg-destructive text-destructive-foreground",
-        outline: "border border-input bg-background"
-      }
-    },
-    defaults: { variant: :default }
-  )
-
-  def initialize(label:, variant: :default)
-    @label = label
-    @variant = variant
-  end
-
-  def view_template
-    span(class: VARIANTS.render(variant: @variant)) { @label }
-  end
-end
-```
-
 ## Styling Rules
 
-- Use Tailwind CSS utility classes exclusively -- no custom CSS unless absolutely necessary
+- Tailwind CSS utility classes exclusively — no custom CSS unless absolutely necessary
 - Consume design tokens via Tailwind classes: `bg-primary`, `text-foreground`, `rounded-lg`
-- Never hardcode colors, sizes, or spacing: use token-based classes
+- Never hardcode colors, sizes, or spacing — use token-based classes
 - Use `class_variants` for components with multiple visual variants
 - Group related Tailwind classes logically: layout, spacing, typography, color, state
 
-## Stimulus Integration
-```ruby
-class Components::Organisms::Dropdown < Components::Base
-  def view_template
-    div(data: { controller: "dropdown" }) do
-      render Components::Atoms::Button.new(
-        label: "Menu",
-        data: { action: "dropdown#toggle" }
-      )
-      div(data: { dropdown_target: "menu" }, class: "hidden") do
-        yield
-      end
-    end
-  end
-end
-```
+## Data Access
 
-- Bind `data-controller` on the outermost container element
+View components never query or mutate. Controllers and services fetch; components receive props.
+
+## Interactivity
+
+- Bind `data-controller` on the outermost element the controller owns
 - Use `data-action` on interactive elements: `"event->controller#method"`
-- Use `data-{controller}-target` on elements the controller needs to reference
-- Keep Stimulus controllers in `backend/app/javascript/controllers/`
-
-## Turbo Integration
-- Use `turbo_frame_tag` for partial page updates within a component
-- Use `data: { turbo_action: "advance" }` for URL updates on navigation
-- Prefer Turbo Frames over full-page Turbo Drive for component-level updates
-- Use Turbo Streams for real-time server-pushed DOM updates (append, prepend, replace, remove)
+- Use `data-{controller}-target` on elements the controller references
+- Stimulus controllers live in `app/javascript/controllers/`
+- Never use inline `onclick`/`onchange` attributes
+- Prefer Turbo Frames over full-page Turbo Drive for component-level updates; Turbo Streams for
+  server-pushed DOM updates (append, prepend, replace, remove)
 
 ## Testing
-- Use `Phlex::Testing::ViewHelper` for unit testing components
-- Test render output with `render` and assert against HTML content
-- Test variants by instantiating with different keyword arguments
-- Test content blocks by passing blocks to `render`
-- Test Stimulus data attributes are present in rendered HTML
+
+- Unit test with `Phlex::Testing::ViewHelper`; assert rendered output, never private methods
+- Cover each variant, content blocks, and the emitted Stimulus `data-*` attributes
 
 ## File Limits
+
 - Maximum 200 lines per component file (enforced by code-quality-checker)
 - Extract complex logic into private methods or helper modules
 - One component per file
 - File name must match the class name in snake_case (e.g., `product_card.rb` for `ProductCard`)
+
+## Deep guides (read on demand, do not preload)
+
+- Building an atom / molecule / organism / template / page, with level-violation checklist → `references/component-levels.md`
+- `class_variants` multi-axis variants, caller class merging, `tokens` vs `class_variants`, token reference table → `references/variants-and-styling.md`
+- Stimulus controller scoping and values API, Turbo Frame vs Stream decision, frame form submission → `references/stimulus-and-turbo.md`
+- Component/page spec patterns, table-driven variant tests, block and `data-*` assertions, what not to test → `references/testing.md`
