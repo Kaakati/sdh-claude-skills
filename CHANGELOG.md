@@ -14,6 +14,20 @@ All notable changes to the `sdh` plugin are documented here, following
 
 ## [Unreleased]
 
+## [3.1.1] - 2026-07-16
+
+### Fixed
+
+- **`std-reactjs` no longer scopes to `tsconfig.json`.** `paths:` autoload is a pure glob — it
+  cannot read a marker file — and `tsconfig.json` exists in *every* TypeScript project. Claiming
+  it meant editing a **Next.js** or **React Native** repo's `tsconfig.json` surfaced Vite-SPA
+  conventions (React Router, Zustand, ApexCharts): confident, on-topic, and wrong. `vite.config.*`
+  already identifies a Vite project uniquely, so nothing Vite-specific is lost. A new assertion in
+  `test_framework_skills_load_for_their_own_framework` pins the invariant — **no framework skill
+  may claim a universal file** (`tsconfig.json`, `package.json`, `jsconfig.json`) — so a future
+  path edit cannot reintroduce it. This affects which skill Claude auto-loads on file match; it is
+  the [Skill + `paths:`] delivery tier, not a hook, so nothing you must copy by hand.
+
 ## [3.1.0] - 2026-07-16
 
 **The advisory hooks were talking to nobody. Now they reach Claude.** If you install this, you

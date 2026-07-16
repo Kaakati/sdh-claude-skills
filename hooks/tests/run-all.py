@@ -2452,6 +2452,24 @@ def test_framework_skills_load_for_their_own_framework():
         PASS += 1
         print(f"  PASS: all {len(cases)} canonical stack paths load exactly one framework skill")
 
+    # A universal file — one every JS/TS repo carries regardless of framework — must be claimed by
+    # NO single framework skill, or that framework's conventions surface in every other framework's
+    # repo. std-reactjs claimed `**/tsconfig.json` until this was pinned: editing a Next.js or
+    # React Native tsconfig.json loaded Vite-SPA conventions (React Router, ApexCharts) — confident,
+    # on-topic, and wrong, the exact failure the positive cases above guard against, via a file the
+    # positive cases never think to test. `vite.config.*`/`next.config.*`/`metro.config.*` are the
+    # framework-unique markers; the shared tooling files are not.
+    for path in ("app/tsconfig.json", "web/package.json", "mobile/jsconfig.json"):
+        claimers = sorted(s for s, pats in skills.items()
+                          if s in FRAMEWORK and any(matches(p, path) for p in pats))
+        if claimers:
+            FAIL += 1
+            print(f"  FAIL: {path} (universal) claimed by {claimers} — that framework's conventions "
+                  f"would surface in every JS/TS repo. Remove the universal glob from its `paths:`.")
+        else:
+            PASS += 1
+            print(f"  PASS: {path} (universal) claimed by no framework skill")
+
 
 def test_checks_match_this_stack():
     """Two checks were written against a syntax this stack does not use, so they were dead:
