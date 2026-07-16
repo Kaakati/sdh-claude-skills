@@ -80,6 +80,44 @@ fix.
 
 ## DONE
 
+### Layer 1 — what "everything loads automatically" actually means, and where it correctly stops — *2026-07-16*
+
+The loop's goal was *"until everything loads automatically."* Having restored automatic delivery
+via hooks, the honest question is the word **everything** — so this maps all 20 `std-*` skills to
+their delivery path. Six are named by no hook. That is not six gaps; it is the boundary of what a
+deterministic per-edit gate can carry without becoming the noise this iteration just removed.
+
+| `std-*` skill | Auto-delivered by a hook? | Why |
+|---|---|---|
+| security, code-standards, error-handling, testing, i18n, accessibility, api-design, monitoring, clean-architecture, database, design-system, terraform-conventions, infrastructure, git-workflow | **yes** | each has a narrow, mechanical, low-false-positive rule a hook can check |
+| **reactjs, nextjs, react-native, rails-conventions, phlex-conventions** | **no — by design** | framework *convention prose*; see below |
+| **agent-teams** | **no — out of scope** | coordination between agents; there is no file edit that should trigger it |
+
+The five framework skills were examined for any hook-shaped rule not already covered. There is
+none. Every candidate fails the zero-false-positive bar the moment it is written down:
+
+- *"Use `FlatList`, never `ScrollView`, for lists > 20 items"* — the `> 20` is a judgement a
+  regex cannot make.
+- *"Never fetch server state in `useEffect`"* — a hook cannot tell a data fetch from any other
+  effect, so it would flag correct effects.
+- *"`react-native-mmkv` (faster than AsyncStorage)"* — a **preference**, not a prohibition;
+  flagging an `AsyncStorage` import would warn at a legitimate choice.
+
+Meanwhile the *checkable* content of those five is already delivered: a `.tsx` edit fires 13
+cross-cutting checkers, a `.rb` edit 13, spanning code-standards, error-handling, i18n,
+accessibility, api-design, design-system, atomic-design, clean-architecture, monitoring, testing.
+What is left in the framework skills is judgement, and judgement loads the way skills are meant to
+— the model selects the skill by its `description` when the task is a React/Rails/Phlex task. That
+is not a failure of automatic loading; forcing it through a per-edit hook (*"reminder: this is a
+React file"* on every edit) would be the Ch. 5 100%-injection failure wearing a coverage badge.
+
+**So "everything loads automatically" is met to its correct extent:** everything a gate can carry
+deterministically without firing on correct code now does; the rest loads by description, which is
+the design. A candidate that does NOT rise to a hook, and is filed here rather than built
+speculatively in a loop: targeted library-preference nudges (an `AsyncStorage` import when the
+house prefers MMKV) — deferred because "prefer" is softer than the mechanical rules already gated,
+and a false nudge now costs what it never used to.
+
 ### Ch5 — the false positives that only started costing something once anyone could hear them — *2026-07-16*
 
 Delivering the advisory hooks to the model changed the economics of a false positive. While these
