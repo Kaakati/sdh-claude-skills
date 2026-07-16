@@ -56,15 +56,15 @@ stack.
 
 ### Local fallback — pinned, and authoritative where it overlaps
 
-- **`std-accessibility`** — WCAG 2.2 AA, and it **auto-loads** on `.tsx`/`.jsx` under `src/`,
-  `app/`, `components/`. Already in context; no fetch involved.
+- **`std-accessibility`** — WCAG 2.2 AA, and it is **scoped to** `.tsx`/`.jsx` under `src/`,
+  `app/`, `components/`. Pinned and local — read it directly; no third-party fetch involved.
 - **`@skills/accessibility-auditor/references/wcag-22-checklist.md`** — the full AA checklist by
   POUR principle.
 - **`@skills/accessibility-auditor/references/aria-patterns.md`** — ARIA widget patterns with
   keyboard specs.
 - **`/accessibility-auditor`** — the audit protocol, including the check this skill cannot do from
   markup: **token contrast is arithmetic, not a DevTools pass**, and every theme is its own case.
-- **`std-design-system`** — auto-loads on `**/globals.css`, `**/styles/**`, `**/tailwind.config.*`.
+- **`std-design-system`** — scoped to `**/globals.css`, `**/styles/**`, `**/tailwind.config.*`.
   A class naming an unregistered token compiles to **no CSS at all**, silently — no upstream rule
   set knows this repo's registry.
 

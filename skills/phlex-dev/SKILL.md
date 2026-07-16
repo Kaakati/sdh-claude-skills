@@ -60,7 +60,7 @@ Use this skill when:
 - `references/phlex-patterns.md` -- Comprehensive Phlex patterns and API
 - `references/component-examples.md` -- Working examples at each atomic level
 
-### Owned by `std-phlex-conventions` (auto-loads on `**/app/components/**/*.rb`)
+### Owned by `std-phlex-conventions` (scoped to `**/app/components/**/*.rb`)
 
 The two files above are worked *patterns*. These are decision-shaped, carry the bad/good pairs,
 and are what the conventions actually mean — naming the skill is not the same as reading them:

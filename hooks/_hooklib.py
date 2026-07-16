@@ -66,23 +66,60 @@ def read_file(path):
         return ""
 
 
-def emit(warnings):
-    """Print each warning line. Accepts a list or a single string."""
+def emit(warnings, event_name="PostToolUse"):
+    """Deliver advisory warnings to the MODEL, not to a log nobody reads.
+
+    This used to be a bare `print(line)`, and that is where every advisory checker's output went
+    to die. The hook contract is explicit: *"For most events, stdout is written to the debug log
+    but not shown in the transcript. The exceptions are `UserPromptSubmit`,
+    `UserPromptExpansion`, and `SessionStart`, where stdout is added as context."* PostToolUse is
+    not one of the exceptions — so 14 checkers computed a correct warning, printed it, and threw
+    it away. Nobody was reading them: not the model, not the developer.
+
+    The supported way to reach the model from PostToolUse is `hookSpecificOutput.additionalContext`,
+    which the harness wraps as a system reminder next to the tool result that triggered it. This
+    repo already knew that — `vague-request-detector.py` has used the same contract all along —
+    the advisory path just never adopted it.
+
+    Why this matters beyond a bug: a plugin **cannot** ship `.claude/rules/`, so the path-scoped
+    auto-injection the `rules/` → `std-*` skills conversion gave up is unrecoverable via skills
+    (`paths:` only *limits* eligibility; the model still chooses). Hooks are the one component a
+    plugin ships that fires deterministically on every matching edit. This function is therefore
+    the plugin's only mechanism for getting a rule to the model automatically — which is exactly
+    Ch. 7's placement test arriving as an implementation detail: what must hold whether or not it
+    is read is a hook.
+    """
     if isinstance(warnings, str):
         warnings = [warnings]
-    for line in warnings or []:
-        print(line)
+    lines = [l for l in (warnings or []) if l]
+    if not lines:
+        return
+    print(json.dumps({
+        "hookSpecificOutput": {
+            "hookEventName": event_name,
+            "additionalContext": "\n".join(lines),
+        }
+    }))
 
 
 def hook_error(label, exc):
-    """Announce a fail-open failure. Loudly.
+    """Build the fail-open failure notice. Returns the line; the caller emits it.
 
     "Silent failure is invisible failure. A fail-open hook that swallows its own
     exceptions looks identical to one that passed" — so a dead gate can masquerade
     as a green one for months. Advisory hooks fail OPEN (a crash must never block
-    the edit) but never SILENTLY: emit one actionable line naming the checker.
+    the edit) but never SILENTLY: one actionable line naming the checker.
+
+    This function used to `print()` that line, which — on PostToolUse — sent it to the debug log.
+    A helper whose entire argument is *"silent failure is invisible failure"* was itself silent:
+    a crashed checker announced its death into a void, which is the exact masquerade it exists to
+    prevent.
+
+    It RETURNS rather than emits because the dispatcher calls it inside a loop and emits once at
+    the end. Emitting here would put a second JSON object on stdout and corrupt the hook's reply,
+    which would turn a reporting bug into a broken hook.
     """
-    print(
+    return (
         f"HOOK ERROR: {label} failed to run — {type(exc).__name__}: {exc}. "
         "Its checks did NOT execute, so its rules were not enforced on this edit."
     )
@@ -137,6 +174,37 @@ def _notice_dir():
     return os.path.join(tempfile.gettempdir(), "sdh-hook-notices")
 
 
+def seen_this_session(event, key):
+    """True if `key` has already been raised this session; marks it seen otherwise.
+
+    The non-emitting half of `notice_once`, for checkers that RETURN their lines to a dispatcher
+    that emits once. Calling `notice_once` from inside a dispatched checker would print a second
+    JSON object and corrupt the hook's reply.
+
+    Why a checker would want this at all: `test-runner` said "Related test files found… consider
+    running tests" on *every* edit of a file that has tests, while `test-coverage-checker` says
+    "no test file found" on every edit of one that does not. Between them, **every source edit
+    produced a message** — and now that these reach the model rather than a debug log, a 100%
+    injection rate is the Ch. 5 attention problem in its purest form. A nudge is useful once and
+    wallpaper by the fifth time.
+
+    Fails toward speaking: if the marker cannot be written, return False (not seen) rather than
+    silently suppressing. A repeated notice is visible and fixable; a swallowed one is neither.
+    """
+    session = str((event or {}).get("session_id") or "nosession")
+    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in f"{session}-{key}")
+    try:
+        os.makedirs(_notice_dir(), exist_ok=True)
+        marker = os.path.join(_notice_dir(), safe)
+        if os.path.exists(marker):
+            return True
+        with open(marker, "w", encoding="utf-8") as fh:
+            fh.write("1")
+        return False
+    except OSError:
+        return False
+
+
 def notice_once(event, key, message):
     """Print `message` at most once per session, then stay quiet. Returns True if printed.
 
@@ -150,6 +218,12 @@ def notice_once(event, key, message):
     If the marker cannot be written (read-only or missing temp dir), we speak
     rather than stay silent — a repeated notice is visible and fixable; a silent
     hole is neither. Deliberate, not a default.
+
+    The delivery bug this docstring used to embody: it called bare `print()`, and its only caller
+    (`auto-format.py`) is a **PostToolUse** hook — where stdout goes to the debug log, not to the
+    model and not to the transcript. So a function whose whole argument is *"silent failure is
+    invisible failure"* was itself silent, and the "rubocop is not installed" notice reached
+    nobody. It now routes through `emit()`, i.e. `hookSpecificOutput.additionalContext`.
     """
     session = str((event or {}).get("session_id") or "nosession")
     safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in f"{session}-{key}")
@@ -162,7 +236,7 @@ def notice_once(event, key, message):
             fh.write("1")
     except Exception:
         pass
-    print(message)
+    emit(message)
     return True
 
 
@@ -177,8 +251,7 @@ def run_post_checker(check):
     try:
         warnings = check(event) or []
     except Exception as exc:
-        hook_error(_script_label(), exc)
-        warnings = []
+        warnings = [hook_error(_script_label(), exc)]
     emit(warnings)
     sys.exit(0)
 

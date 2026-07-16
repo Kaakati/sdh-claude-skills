@@ -6,7 +6,8 @@ can be named anything — `next/`, `web/`, `site/` — detection is wrapper-agno
 
 Next.js App Router: Server Components for data, server actions for mutations,
 Client Components for interactivity, ISR/SSG. Standards ship as the `sdh` plugin's path-scoped `std-*` skills
-(`std-nextjs`, `std-accessibility`, `std-i18n`, `std-testing`, `std-clean-architecture`) auto-load.
+(`std-nextjs`, `std-accessibility`, `std-i18n`, `std-testing`, `std-clean-architecture`), each
+scoped to matching files. Scoping limits when a skill applies — read the one bearing on your change.
 
 ## Commands
 - Dev: `npm run dev`

@@ -1,6 +1,6 @@
 ---
 name: sdh-engineering-standards
-description: Core engineering standards and tech stack for a Software Development House — Rails + Phlex backend, React Native, ReactJS (Vite), Next.js, PostgreSQL/PostGIS, Redis/Sidekiq, Terraform on AWS/Vercel. Use whenever writing, reviewing, planning, or scaffolding code in this stack, choosing a library, or setting up a project. Detailed per-area conventions live in the std-* skills (auto-load by file path); specialized work routes to the agents.
+description: Core engineering standards and tech stack for a Software Development House — Rails + Phlex backend, React Native, ReactJS (Vite), Next.js, PostgreSQL/PostGIS, Redis/Sidekiq, Terraform on AWS/Vercel. Use whenever writing, reviewing, planning, or scaffolding code in this stack, choosing a library, or setting up a project. Detailed per-area conventions live in the std-* skills (each scoped by file path — load the one that fits the task); specialized work routes to the agents.
 ---
 
 # SDH Engineering Standards
@@ -44,7 +44,7 @@ custom code.
 
 ## Where the detail lives
 
-Detailed conventions ship as `std-*` skills that auto-load by file path (wrapper-directory
+Detailed conventions ship as `std-*` skills scoped by file path (wrapper-directory
 agnostic — Rails works under `backend/`, `api/`, or repo root; a Vite app under `web/`,
 `frontend/`, or root):
 

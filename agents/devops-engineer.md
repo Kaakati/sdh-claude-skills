@@ -134,8 +134,9 @@ matching the step you are on rather than reconstructing it:
 
 ## Terraform Reference
 
-- **Always-on rule**: the `std-terraform-conventions` skill (auto-loads for `**/*.tf` and
-  `**/*.tfvars` — any wrapper directory, not just `terraform/`)
+- **Rule set**: the `std-terraform-conventions` skill (scoped to `**/*.tf` and `**/*.tfvars` — any
+  wrapper directory, not just `terraform/`; read it before writing HCL). The `.tf` checks that run
+  regardless are `terraform-checker.py`.
 - **Skill**: `/terraform` — 47 rules across 9 categories with HCL examples
 - **Hook**: `terraform-checker.py` — PostToolUse warnings for `.tf` files (secrets, naming, tags)
 - **Existing hooks**: `deployment-gate.py` blocks `terraform apply` without review, `auto-format.py` runs `terraform fmt`

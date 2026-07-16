@@ -101,7 +101,7 @@ Loading one ~60-line rule beats skimming a compiled monolith. Do not preload the
 
 Composition is orthogonal to state placement — get both right or the pattern leaks:
 
-- **`std-reactjs`** auto-loads on Vite SPA work and owns *what state goes where* (Zustand vs
+- **`std-reactjs`** is scoped to Vite SPA work and owns *what state goes where* (Zustand vs
   TanStack Query vs local) → `@skills/std-reactjs/references/state-placement.md`. A compound
   component whose context holds server data has invented a second cache.
 - **`std-nextjs`** owns the Server/Client boundary → `@skills/std-nextjs/references/rendering.md`.

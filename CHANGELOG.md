@@ -14,6 +14,51 @@ All notable changes to the `sdh` plugin are documented here, following
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-07-16
+
+**The advisory hooks were talking to nobody. Now they reach Claude.** If you install this, you
+will start seeing warnings you have never seen before — they were always being computed, just
+discarded.
+
+### Fixed
+
+- **14 advisory checkers wrote their warnings to the debug log and nowhere else.** `_hooklib.emit()`
+  was a bare `print()`, and the hook contract is explicit: *"For most events, stdout is written to
+  the debug log but not shown in the transcript. The exceptions are `UserPromptSubmit`,
+  `UserPromptExpansion`, and `SessionStart`."* **PostToolUse is not an exception.** So
+  `code-quality`, `error-handling`, `accessibility`, `api-design`, `monitoring`, `i18n`,
+  `test-coverage`, `clean-architecture`, `atomic-design`, `terraform`, `design-token` and
+  `rails-routes` all detected real violations correctly and threw the result away — reaching
+  neither Claude nor you. They now use `hookSpecificOutput.additionalContext`, the supported
+  channel, which the harness delivers as a system reminder beside the tool result.
+  **This is the single change that makes the plugin's conventions arrive automatically** — and,
+  since a plugin cannot ship `.claude/rules/`, hooks are the only component that can do it.
+- **`notice_once()` was silent** — the helper whose docstring argues *"silent failure is invisible
+  failure"* used the same bare `print()`, so `auto-format`'s "rubocop is not installed" notice
+  reached nobody. Routed through `emit()`.
+- **`hook_error()` was silent** — the helper that exists so *"a dead gate cannot masquerade as a
+  green one"* announced a crashed checker into the void. It now returns its line for the caller to
+  emit (the dispatcher emits once, so emitting inside its loop would have put a second JSON object
+  on stdout and broken the hook).
+
+### Changed
+
+- **Docs: `std-*` skills are described as *scoped*, not *auto-loaded* — 59 corrections across 29
+  files.** `paths:` **limits** eligibility; it does not inject. Verified by test, not read off the
+  docs: in a fresh session with the plugin live, writing *and* reading a `.rb` matching four
+  skills' globs loaded none of them. The old wording — *"auto-load by file path"* — was accurate
+  for the `.claude/rules/*.md` these skills were converted from, and that conversion was **forced**
+  (a plugin cannot ship `rules/`). The sentence outlived the mechanism.
+  **What this means for you:** nothing changes about what the skills contain; what changes is the
+  promise. Rules that must hold whether or not a skill is read are the hooks' job — which is why
+  the fix above matters.
+- `test_file_scoped_hooks_name_a_loadable_skill` asserted a hook-named skill must declare `paths:`,
+  on reasoning that inverted the mechanism (no `paths:` = eligible **everywhere**, the most
+  reachable state). It now checks the real invariant: **if** a skill declares `paths:`, they must
+  cover the files the hook fires on.
+
+
+
 ## [3.0.0] - 2026-07-15
 
 **MAJOR because this release changes what gets denied and removes a gate.** Read the *Breaking*

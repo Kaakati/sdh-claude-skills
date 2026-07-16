@@ -185,7 +185,7 @@ mobile/tests/
 ## Deep guides (read on demand, do not preload)
 
 The body is the workflow. The idiom for each target lives in `std-testing`'s references — which
-auto-load for `**/*.test.*` / `**/*.spec.*` — and they are decision-shaped, with the bad/good
+are scoped to `**/*.test.*` / `**/*.spec.*` — and they are decision-shaped, with the bad/good
 pairs. Read the one matching what you are testing rather than reconstructing it:
 
 - **Vitest + RTL setup, which query to reach for, MSW, providers, Zustand, Framer Motion,

@@ -89,6 +89,6 @@ whether or not anyone reads this file — so it is a gate, not a rule:
   logical properties → `references/web-i18n.md`
 - Adding a locale, key rules, and the deprecation path → `references/locale-workflow.md`
 
-Related, owned elsewhere — do not duplicate: the path-scoped conventions that auto-load when you
+Related, owned elsewhere — do not duplicate: the path-scoped conventions that apply when you
 edit a locale file or a component live in `std-i18n`; RTL's accessibility implications live in
 `../std-accessibility`.

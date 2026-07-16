@@ -7,7 +7,8 @@ Layers on top of the repository-root `CLAUDE.md`.
 
 React Native: Zustand (client state), TanStack Query (server state), Centrifugo
 (real-time), MMKV (storage). Standards ship as the `sdh` plugin's path-scoped `std-*` skills
-(`std-react-native`, `std-accessibility`, `std-i18n`, `std-clean-architecture`) auto-load.
+(`std-react-native`, `std-accessibility`, `std-i18n`, `std-clean-architecture`), each scoped to
+matching files. Scoping limits when a skill applies — read the one bearing on your change.
 
 ## Commands
 - Tests: `npm test`

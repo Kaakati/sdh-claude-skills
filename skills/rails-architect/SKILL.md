@@ -119,7 +119,7 @@ See references/rails-patterns.md for comprehensive patterns library.
 
 ## Owned elsewhere — do not duplicate
 
-This skill designs the shape. These own the rules, auto-load on Rails work, and carry the
+This skill designs the shape. These own the rules, are scoped to Rails work, and carry the
 bad/good pairs:
 
 - **Authorization** — a policy that is never called is not authorization; `index` needs

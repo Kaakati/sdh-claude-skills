@@ -6,7 +6,8 @@ can be named anything — `web/`, `frontend/`, `spa/` — detection is wrapper-a
 
 ReactJS SPA: React Router, Zustand (client state), TanStack Query (server state),
 Tailwind CSS, Framer Motion, ApexCharts. Standards ship as the `sdh` plugin's path-scoped `std-*` skills
-(`std-reactjs`, `std-accessibility`, `std-i18n`, `std-testing`, `std-clean-architecture`) auto-load.
+(`std-reactjs`, `std-accessibility`, `std-i18n`, `std-testing`, `std-clean-architecture`). Scoping
+limits when a skill applies; it does not open the skill for you — read the one bearing on your change.
 
 ## Commands
 - Dev: `npm run dev`

@@ -84,7 +84,7 @@ rules/<rule-id>.md
 This skill owns the **hierarchy** — which level a component belongs at, and what may compose what.
 It does not own the tokens those components style with:
 
-- **`std-design-system`** auto-loads on the same files you will be editing (`**/components/ui/**`,
+- **`std-design-system`** is scoped to the same files you will be editing (`**/components/ui/**`,
   `**/app/components/**/*.rb`, `**/styles/**`) and owns the token rules.
   `rules/atom-theming-tokens.md` is the hierarchy-side rule; the **registry of names that actually
   exist** is `@skills/theming/references/platform-integration.md`. A class naming an unregistered

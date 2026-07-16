@@ -186,7 +186,7 @@ say. Confirm the major from `package.json` rather than from this table's Next.js
 ### Owned elsewhere
 
 These rules are about **performance and re-render behaviour**. The stack conventions — which
-library, which layer, what state goes where — are owned and **auto-load** on the files you edit:
+library, which layer, what state goes where — are owned and **scoped to** the files you edit:
 
 - **`std-reactjs`** (Vite SPA) → state placement (Zustand vs TanStack Query vs local), data
   fetching, routing and the **300KB initial-JS budget** enforced by `chunkSizeWarningLimit`, forms,

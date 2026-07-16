@@ -5,9 +5,10 @@ This repository follows enterprise-grade development standards for a professiona
 > **This repository is packaged as the `sdh` Claude Code plugin.** Components live at the
 > plugin root: `skills/` (37 workflow skills + 20 `std-*` convention skills), `agents/`,
 > `hooks/` (with `hooks/hooks.json`), and the manifest at `.claude-plugin/plugin.json`. The
-> former `.claude/rules/*.md` are now `std-*` skills (path-scoped, auto-load by file path).
+> former `.claude/rules/*.md` are now `std-*` skills (`paths:`-scoped to the files they govern).
 > See `README.md` for install. A plugin's `CLAUDE.md` is **not** loaded as context for
-> consumers — the always-on standards ship as the `sdh-engineering-standards` skill.
+> consumers — the baseline standards ship as the `sdh-engineering-standards` skill, which Claude
+> loads from its description when relevant.
 
 ## Project Identity
 
@@ -111,7 +112,7 @@ We are a Software Development House building production systems for clients. Qua
 
 ## Rule Reference
 
-Detailed domain-specific conventions ship as 20 path-scoped `std-*` skills under `skills/` (auto-load by file path, wrapper-directory agnostic):
+Detailed domain-specific conventions ship as 20 path-scoped `std-*` skills under `skills/` (`paths:` scopes each to the files it governs, wrapper-directory agnostic; read the one that bears on the change):
 
 - `std-code-standards` — Naming, SOLID, function/file limits, error handling, logging
 - `std-security` — OWASP, auth, input validation, secret management
@@ -318,7 +319,7 @@ Claude will automatically suggest creating a team when:
 > (CLAUDE.md layering, excludes, worktrees) is this section and `docs/monorepo-setup.md`.
 
 This plugin scales to monorepos and large single-tree codebases. It uses the
-centralized model — path-scoped `std-*` skills under `skills/` that auto-load by
+centralized model — `std-*` skills under `skills/` whose `paths:` scope them by
 file path, with **wrapper-directory-agnostic** framework detection (your package
 dirs can be named anything; detection uses canonical structure like `app/models`,
 `src/pages`, `src/screens` plus marker files like `Gemfile`, `next.config.*`,

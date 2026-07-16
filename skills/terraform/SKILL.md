@@ -159,11 +159,15 @@ when the task calls for it:
 
 ### Owned elsewhere
 
-- **`std-terraform-conventions`** is the always-on rule set: it **auto-loads on every `**/*.tf` and
+- **`std-terraform-conventions`** is the Terraform rule set: it is **scoped to every `**/*.tf` and
   `**/*.tfvars`**, any wrapper directory. File structure, provider constraints, resource naming,
-  the required tag set, backend config, security minimums. You do not need to open it while editing
-  `.tf` — it is already there. Open it when you are *planning* infrastructure that does not exist
-  yet, because nothing auto-loads for a file you have not created.
+  - **`std-terraform-conventions`** is the house rule set, **path-scoped to `**/*.tf` and
+  `**/*.tfvars`**, any wrapper directory. File structure, provider constraints, resource naming,
+  the required tag set, backend config, security minimums. Read it before you write `.tf` — the
+  scoping gates when it *may* load, it does not put it in front of you. What does fire regardless
+  is `terraform-checker.py` on every `.tf` edit, and `terraform-command-gate.py` on the commands.
+  Read it too when you are *planning* infrastructure that does not exist yet, since no glob matches
+  a file you have not created.
 - **`@skills/std-infrastructure/references/terraform-mechanics.md`** — state, variables, tagging and
   secrets as decisions rather than rules. It overlaps `references/repository-layout.md` on two
   questions (where a `.tf` file goes; where tags come from) and **agrees** with it; read either.

@@ -189,7 +189,7 @@ Loading one ~60-line rule beats skimming a compiled monolith. Do not preload the
 ### Owned elsewhere
 
 These rules are about **performance** — lists, animation, images, the Compiler. The stack
-conventions are owned by **`std-react-native`**, which auto-loads on React Native work:
+conventions are owned by **`std-react-native`**, which is scoped to React Native work:
 
 - **Real-time (Centrifugo)** — one socket, one cache, no second source of truth. The subscription
   registry is where this leaks: `@skills/std-react-native/references/realtime-centrifugo.md`

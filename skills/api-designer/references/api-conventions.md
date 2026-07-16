@@ -74,7 +74,7 @@ POST   /api/v1/orders/{orderId}/cancel  # Cancel order (action)
 ### Standard Error Response
 
 The envelope is owned by `std-api-design` → `references/errors-rails.md` /
-`references/errors-typescript.md`, which auto-load on controller and route work. Match them
+`references/errors-typescript.md`, which are scoped to controller and route work. Match them
 exactly — a client cannot parse two shapes:
 
 ```json

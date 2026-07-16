@@ -48,7 +48,7 @@ on the first.
 benefit: an extra boundary, an extra build edge, an extra owner. Promote on the *second*
 consumer.
 
-## `std-*` auto-loading survives this layout
+## `std-*` path-scoping survives this layout
 
 This plugin's convention skills load by **canonical structure + marker files**, not by wrapper
 directory name. Verified:
@@ -62,7 +62,7 @@ directory name. Verified:
 | `packages/ui/src/components/Button.tsx` | **nothing** |
 
 **The last row is the real gap.** A shared package matches no framework's canonical structure,
-so it auto-loads no conventions. Give each package a `CLAUDE.md` — copy
+so no framework's `std-*` conventions are scoped to it. Give each package a `CLAUDE.md` — copy
 [`docs/templates/shared.CLAUDE.md`](../../../docs/templates/shared.CLAUDE.md) — stating its
 purpose, its public entry point, and who owns it.
 

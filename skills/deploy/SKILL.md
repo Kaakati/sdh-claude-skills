@@ -224,7 +224,7 @@ curl -s https://{environment}/version | jq .
 - **Web frontend deploys — Vercel (Next.js) and S3+CloudFront (Vite SPA)** →
   `@skills/std-infrastructure/references/frontend-deploys.md`
 
-  That reference owns this, and it auto-loads for infrastructure work. It is decision-shaped
+  That reference owns this, and it is scoped to infrastructure work — open it. It is decision-shaped
   (*"how do I deploy the Vite SPA"*, *"how do I deploy Next.js"*, *"what gates the web pipeline"*)
   and covers `vercel.json`, the `output: 'standalone'` ECS alternative, and the pipeline gates.
   This body carried a second copy until it drifted from it — the copy's HSTS header had lost

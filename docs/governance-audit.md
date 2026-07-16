@@ -31,7 +31,164 @@ disable it.
 
 ---
 
+## OPEN — needs a human
+
+### Layer 3 — `dangerous-command-blocker` calls every absolute path "the root" — *2026-07-16*
+
+**Not fixed here deliberately: loosening an `rm -rf` guard is a safety decision, and a human
+should make it.** Filed with the evidence so that decision is cheap.
+
+The delete pattern is `rm\s+-rf\s+/`. The message every match prints is *"Recursive delete from
+root"*. Those two things do not agree: the pattern matches `/` followed by **anything**, so a
+temp-directory cleanup is blocked and told it was deleting from the root, which is simply untrue.
+Measured:
+
+| Command | Blocked | Should be | |
+|---|---|---|---|
+| `rm -rf /` | yes | yes | the actual catastrophe |
+| `rm -rf /*` | yes | yes | ditto |
+| `rm -rf /usr` | yes | yes | a system dir; defensible |
+| `rm -rf /tmp/sdh-notices` | yes | **no** | false positive |
+| `rm -rf /tmp/build-cache` | yes | **no** | false positive |
+
+It blocked three legitimate commands during one iteration of this loop: a temp-dir cleanup, a
+script that *analysed* the pattern, and the **commit message documenting the bug** — because each
+merely contained the string. That is the second defect, and it is the more interesting one: the
+gate cannot distinguish a command that deletes from a command that mentions deleting, so it
+blocks its own documentation.
+
+Both halves matter more since 3.1.0. This repo's stated rule is *"a gate that flags correct code
+is a gate people learn to ignore"* (`migration-validator.py:23`), and a **deny** is the loudest
+possible way to break it — the developer cannot dismiss it, they must go around it.
+
+A candidate pattern, verified 0/6 wrong against the table above:
+
+```
+rm\s+-rf\s+/(?:\s*$|\s|\*|bin|boot|etc|home|lib|opt|root|sbin|srv|usr|var)
+```
+
+**The judgement a human owes this:** the tightened pattern lets `rm -rf /tmp/x` through, which is
+the point, but it also lets through any deep path under an unlisted root (`/data/…`, `/mnt/…`).
+That is the right call if you believe the catastrophic case is the root and the system dirs; it
+is the wrong call if you want every absolute recursive delete to route through a human. Also
+worth deciding: whether `/Users` (macOS homes) belongs in the list — it is absent, so
+`rm -rf /Users/x` is **currently blocked** by the broad pattern and would **stop** being blocked
+under the tightened one. That is a real regression risk and the reason this is not a self-serve
+fix.
+
+---
+
 ## DONE
+
+### Ch5 — the false positives that only started costing something once anyone could hear them — *2026-07-16*
+
+Delivering the advisory hooks to the model changed the economics of a false positive. While these
+warnings went to a debug log nobody read, a checker that fired on correct code was harmless — it
+was wrong into a void. Now they reach Claude on every matching edit, so the repo's own rule
+applies to them for the first time. So: measure, don't assume. Realistic **correct** files through
+`post-edit-dispatch.py` — a correct Rails model with a spec beside it, and a correct `.tf` with a
+pinned provider, backend, and all four `default_tags` — were both silent. A correct `.tsx` was not.
+
+**`accessibility-checker` knew one of the three ways to label an input.** Dynamic ids
+(`id={expr}` + `htmlFor={expr}`) and wrapping labels (`<label>Email <input /></label>`) were both
+flagged. The wrapping-label case was *named in the docstring as valid* and then warned at anyway.
+The dynamic-id case is unavoidable inside any `map()`, so the checker warned at essentially every
+correctly-labelled input in any list. Fixed; the true positives (a bare input, an id with no
+matching `htmlFor`) still fire.
+
+**`test-runner` + `test-coverage-checker` were a 100% injection rate.** One fires when an edited
+file *has* tests, the other when it *does not*. Between them, every source edit produced a
+message — and only one of the two says anything actionable. `test-runner`'s reminder is now once
+per session (`hooklib.seen_this_session`, which fails toward speaking).
+
+Both locked in by 8 assertions in `test_gates_do_not_fire_on_correct_work` — a test that already
+existed for this exact defect class, now covering two more families of it. Each was
+sabotage-checked: reverting either fix fails precisely its own assertion and nothing else.
+
+> The pattern across all five families this test now covers: **every one of them was a checker
+> being clever with a substring or a regex** — `IGNORECASE` voiding an `[A-Z]`, `"test" in text`,
+> `"add" in "address"`, a literal-only attribute match. None was a hard problem. They survived
+> because nothing ran them against code that was *right*.
+
+### Layer 1+3 — the plugin's central premise was false, and the fix is a hook — *2026-07-16*
+
+**The headline: `std-*` skills never auto-loaded, and the docs said they did in 59 places.**
+
+Tested rather than assumed, in a fresh session with the plugin live at v3.0.0 and its hooks proven
+firing (audit log): writing **and** reading a `.rb` matching **four** skills' `paths:` globs
+injected **nothing**. Editing `hooks/*.py` all session — which `std-code-standards` also claims —
+never loaded it either.
+
+**`paths:` is real but it is a LIMITER, not a trigger** (docs: *"Glob patterns that **limit** when
+this skill is activated"*). Verified reading:
+
+| | no `paths:` | with `paths:` |
+|---|---|---|
+| eligibility | **everywhere** (unrestricted) | **only** on matching files |
+| injection | none | **none** — the model still chooses, from the `description` |
+
+**Why the premise broke, and why it was nobody's mistake.** CLAUDE.md:8 recorded the conversion:
+*"former `.claude/rules/*.md` are now `std-*` skills (path-scoped, auto-load by file path)"*.
+`.claude/rules/` + `paths:` **genuinely auto-inject**. Skills' `paths:` does not. And a plugin
+**cannot ship `rules/`** — the supported component dirs are `skills/`, `commands/`, `agents/`,
+`hooks/`, `.mcp.json`, `.lsp.json`, `monitors/`, `bin/`, `settings.json`. **So the conversion was
+FORCED by the plugin architecture and the auto-injection loss was unavoidable.** The sentence that
+described the old mechanism simply survived into a world where it was false.
+
+**The fix that restores it — hooks, the one component that fires deterministically.**
+`_hooklib.emit()` was a bare `print(line)`. The hook contract: *"For most events, stdout is written
+to the debug log but not shown in the transcript. The exceptions are `UserPromptSubmit`,
+`UserPromptExpansion`, and `SessionStart`."* **PostToolUse is not an exception — so 14 advisory
+checkers computed a correct warning and threw it away.** Not to the model, not even to the
+developer. `emit()` now uses `hookSpecificOutput.additionalContext`, the supported channel — which
+this repo already knew, since `vague-request-detector.py` has used it all along.
+
+**Proven end-to-end, not inferred.** Patching the *installed* copy (the working tree is not what
+runs) and writing a violating `.rb` produced, for the first time in four probes:
+
+> `PostToolUse:Write hook additional context: WARNING: Rescue StandardError, not Exception per the
+> `std-error-handling` skill.` — plus the test-coverage checker. Install cache restored afterwards.
+
+**59 doc claims corrected** across 29 files (README ×12, CLAUDE.md ×5, monorepo-setup ×4, the four
+package templates, 20 skills, 1 agent). Found by 5 parallel search angles (113 raw → 75 unique),
+each candidate adversarially verified: **59 confirmed, 4 refuted, 12 judged accurate and left
+alone**. The refutations earned their cost — *"the flagged span is not an autoload claim, it denies
+one"*, *"a two-word table column header"*, *"a historical audit record"*.
+
+### Ch22 — this loop's own defect rate, continued: three more, and one was load-bearing — *2026-07-16*
+
+**#6 — I propagated the overstatement myself, at scale.** Of the 59 corrected claims, a large share
+are sentences I wrote *this session* — *"it auto-loads on every `**/*.tf` … you do not need to open
+it, it is already there"*. I audited against a premise for a fortnight of iterations without once
+testing it.
+
+**#7 — a fix of mine was backwards, and a passing test was protecting it.**
+`test_file_scoped_hooks_name_a_loadable_skill` asserted a hook-named skill **must** have `paths:`,
+reasoning *"if `std-x` has no `paths:`, it never auto-loads — the pointer is unreachable"*. That
+**inverts** the mechanism: no `paths:` means eligible **everywhere** — the most reachable state, not
+the least. The rule forced skills to be **narrowed** to satisfy a checker, justified by a
+reachability problem that did not exist. Rewritten to the invariant it was reaching for: **if a
+skill declares `paths:`, they must COVER the files the hook fires on** (disjoint globs are the real
+unreachable case; no `paths:` passes freely). The `std-error-handling` `paths:` addition **stays** —
+scoping a code-conventions skill to code files is right on its merits — but the justification was
+wrong and is now recorded as such.
+
+**#8 — I told the user hook warnings reach their transcript. They do not** — PostToolUse stdout goes
+to the debug log. Asserted from memory, corrected by the docs.
+
+**The new test flagged a correct hook, and I caught it before shipping.** Its first extractor grabbed
+every quoted dotted literal and duly flagged `security-scan.py`, whose `PROTECTED_PATTERNS` contains
+`".env"` — a protected *file*, not an extension. Narrowed to read only declared `*_EXTENSIONS`
+constants. **And the first sabotage of the corrected test passed** — because it replaced only 2 of 6
+globs, leaving four that still matched, so the "wholly disjoint" rule correctly declined to fire. The
+test was right; the sabotage was wrong. Same lesson as before: *a test that passes because its
+subject vanished is not a passing test.*
+
+**All eight of my defects remain the same shape: scope errors.** Not invention — *claiming more
+coverage than I had*. This one was the largest available: claiming the plugin's whole context layer
+auto-loaded when it never did.
+
+
 
 ### Ch22 — auditing this loop's own output, deliberately — *2026-07-15*
 

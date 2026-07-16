@@ -18,9 +18,17 @@ PASS = 0
 FAIL = 0
 
 
-def run_hook(hook_script, tool_name, tool_input):
-    """Run a hook script with simulated input and return (exit_code, stdout)."""
-    data = json.dumps({"tool_name": tool_name, "tool_input": tool_input})
+def run_hook(hook_script, tool_name, tool_input, session_id=None):
+    """Run a hook script with simulated input and return (exit_code, stdout).
+
+    `session_id` is optional because only the once-per-session checks care about it; the real
+    Claude Code event always carries one. Pass a distinct value per test so a marker written by
+    one test cannot silence another.
+    """
+    event = {"tool_name": tool_name, "tool_input": tool_input}
+    if session_id:
+        event["session_id"] = session_id
+    data = json.dumps(event)
     result = subprocess.run(
         [sys.executable, os.path.join(HOOKS_DIR, hook_script)],
         input=data,
@@ -1337,18 +1345,33 @@ def test_every_token_utility_is_registered():
 
 def test_file_scoped_hooks_name_a_loadable_skill():
     """A hook that fires on a FILE and says "per the `std-x` skill" is naming a remedy (Ch. 25).
-    If `std-x` has no `paths:`, it never auto-loads on that file — the pointer names a document
-    the reader has no mechanism to receive.
+    For that pointer to be reachable, `std-x` must be *eligible* on the files the hook fires on.
 
-    `error-handling-checker.py` names `std-error-handling` five times. That skill shipped with no
-    `paths:`, so it auto-loaded on nothing, ever.
+    **This test previously asserted the exact opposite, and it was wrong.** It demanded that a
+    hook-named skill MUST have `paths:`, on the reasoning that "if `std-x` has no `paths:`, it
+    never auto-loads on that file". That inverts the mechanism. Verified against the docs and by
+    experiment:
 
-    Bash-scoped hooks are exempt and that is not a loophole: `pre-commit-check.py` fires on
-    `git commit`, where there is no file path to key on. `std-git-workflow` is enforced BY that
-    hook — Ch. 7's placement test says a rule that must hold whether or not it is read is a hook,
-    not context — and the hook names it as the remedy when it denies. Giving it a `paths:` would
-    be inventing a trigger to satisfy a checker."""
-    print("\n[a file-scoped hook must name a skill that can actually load]")
+      - `paths:` **LIMITS** eligibility. Docs: *"Glob patterns that limit when this skill is
+        activated."* So **no `paths:` means eligible EVERYWHERE** — the most reachable a skill can
+        be, not the least.
+      - `paths:` does not inject anything either way. Writing and reading a `.rb` matching FOUR
+        skills' globs, in a fresh session with the plugin live, loaded none of them.
+
+    So the old rule forced skills to be NARROWED to satisfy a checker, and justified it with a
+    reachability problem that did not exist. The real invariant is the inverse:
+
+      **If a skill declares `paths:`, those globs must COVER the files the hook fires on.**
+
+    A hook firing on `.rb` that names a skill scoped to `**/*.tsx` names a skill that cannot load
+    there — that is the genuine unreachable-pointer case. A skill with no `paths:` is unrestricted
+    and therefore always covered, so it passes without being forced to add one.
+
+    Bash-scoped hooks stay exempt, and that reasoning survives intact: `pre-commit-check.py` fires
+    on `git commit`, where there is no file to key on. `std-git-workflow` is enforced BY that hook
+    — Ch. 7's placement test — and giving it a `paths:` would invent a trigger to satisfy a
+    checker, which is precisely the mistake this test used to make."""
+    print("\n[a hook-named skill's paths: must cover the files the hook fires on]")
     global PASS, FAIL
     import json
     import re
@@ -1376,13 +1399,39 @@ def test_file_scoped_hooks_name_a_loadable_skill():
               "this test's parser broke, not the hooks. Fix it before trusting a PASS.")
         return
 
-    def has_paths(skill):
+    def skill_globs(skill):
+        """None -> skill missing. [] -> no paths:, i.e. UNRESTRICTED (always eligible)."""
         p = os.path.join(repo, "skills", skill, "SKILL.md")
         if not os.path.isfile(p):
             return None
         src = open(p, encoding="utf-8").read()
         fm = src.split("---")[1] if src.startswith("---") else ""
-        return bool(re.search(r"^paths:", fm, re.M))
+        m = re.search(r"^paths:\s*\n((?:\s+-.*\n)+)", fm, re.M)
+        if not m:
+            return []
+        return re.findall(r'-\s*["\']?([^"\'\n]+?)["\']?\s*$', m.group(1), re.M)
+
+    def hook_extensions(hook_path):
+        """The extensions a checker inspects, read ONLY from its declared *_EXTENSIONS constants.
+
+        Deliberately narrow. A first version grabbed every quoted dotted literal and promptly
+        flagged `security-scan.py` — whose `PROTECTED_PATTERNS` contains ".env", a protected FILE,
+        not an extension. security-scan is a PreToolUse blocker that fires on any path, so it has
+        no extension scope to compare against. A gate that flags a correct hook is the failure
+        this suite exists to catch, so this reads the declared constant or gives up.
+        """
+        src = open(hook_path, encoding="utf-8").read()
+        exts = set()
+        for m in re.finditer(r"^[A-Z_]*EXTENSIONS[A-Z_]*\s*=\s*\(([^)]*)\)", src, re.M):
+            exts.update(re.findall(r'"(\.[a-z]+)"', m.group(1)))
+        return exts
+
+    def glob_covers_ext(globs, ext):
+        # A skill is eligible on `ext` if any glob can match a file with that extension.
+        for g in globs:
+            if g.endswith(f"*{ext}") or g.endswith(ext) or g.endswith("/**") or g == "**/*":
+                return True
+        return False
 
     broken = []
     checked = 0
@@ -1390,16 +1439,24 @@ def test_file_scoped_hooks_name_a_loadable_skill():
         hp = os.path.join(HOOKS_DIR, hook)
         if not os.path.isfile(hp):
             continue
+        exts = hook_extensions(hp)
         for skill in sorted(set(re.findall(r"`(std-[\w-]+)`", open(hp, encoding="utf-8").read()))):
             checked += 1
-            ok = has_paths(skill)
-            if ok is None:
+            globs = skill_globs(skill)
+            if globs is None:
                 broken.append(f"{hook} names `{skill}`, which does not exist")
-            elif not ok:
+                continue
+            if not globs:
+                continue  # no paths: -> unrestricted -> eligible everywhere -> always reachable
+            uncovered = sorted(e for e in exts if not glob_covers_ext(globs, e))
+            # Only complain when the hook's extensions and the skill's globs are wholly disjoint:
+            # a checker may legitimately inspect more types than one skill governs.
+            if exts and len(uncovered) == len(exts):
                 broken.append(
-                    f"{hook} fires on files and names `{skill}`, but that skill has no `paths:` "
-                    f"— it never auto-loads, so the pointer is unreachable. Add `paths:` to "
-                    f"skills/{skill}/SKILL.md covering the files this hook checks.")
+                    f"{hook} fires on {sorted(exts)} and names `{skill}`, whose `paths:` "
+                    f"({globs}) cover none of them — the skill is not eligible on the files this "
+                    f"hook warns about, so the pointer names a document the reader cannot load "
+                    f"there. Widen the skill's `paths:`, or name a skill that governs these files.")
 
     if broken:
         FAIL += 1
@@ -1407,8 +1464,8 @@ def test_file_scoped_hooks_name_a_loadable_skill():
             print(f"  FAIL: {b}")
     else:
         PASS += 1
-        print(f"  PASS: all {checked} skill pointers from file-scoped hooks resolve to a "
-              f"loadable skill")
+        print(f"  PASS: all {checked} hook-named skill(s) are eligible on the files their "
+              f"hook fires on")
 
 
 def test_agent_reference_pointers_resolve():
@@ -2640,6 +2697,72 @@ def test_gates_do_not_fire_on_correct_work():
             FAIL += 1
             print(f"  FAIL: idle gate {'MISSED' if should_fire else 'FALSE-FIRES on'} — {agent_name}: {desc[:38]!r}")
 
+    # --- 4. accessibility-checker: the labelled-input forms it did not recognise ---
+    # Found by running a realistic CORRECT component through the dispatcher once these warnings
+    # started reaching the model. Two of the three valid ways to label an input were flagged.
+    labelled = {
+        "dynamic id + htmlFor": (
+            '<label htmlFor={`email-${row.id}`}>Email</label>\n'
+            '<input id={`email-${row.id}`} type="email" />'),
+        "wrapping label": '<label>Email <input type="email" /></label>',
+        "literal id + htmlFor": '<label htmlFor="email">Email</label>\n<input id="email" />',
+        "aria-label": '<input aria-label="Email address" type="email" />',
+    }
+    unlabelled = {
+        "bare input": '<input type="email" />',
+        "id with no matching htmlFor": '<label htmlFor="other">O</label>\n<input id="email" />',
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        comp = os.path.join(tmp, "web", "src", "components")
+        os.makedirs(comp)
+        for name, body in labelled.items():
+            f = os.path.join(comp, "Ok.tsx")
+            open(f, "w", encoding="utf-8").write(body)
+            out = run_hook("accessibility-checker.py", "Write", {"file_path": f})[1]
+            if "<input>" in out:
+                FAIL += 1
+                print(f"  FAIL: a11y warns on a correctly labelled input — {name}")
+            else:
+                PASS += 1
+                print(f"  PASS: a11y quiet on {name}")
+        for name, body in unlabelled.items():
+            f = os.path.join(comp, "Bad.tsx")
+            open(f, "w", encoding="utf-8").write(body)
+            out = run_hook("accessibility-checker.py", "Write", {"file_path": f})[1]
+            if "<input>" in out:
+                PASS += 1
+                print(f"  PASS: a11y still catches {name}")
+            else:
+                FAIL += 1
+                print(f"  FAIL: a11y no longer catches {name} — the fix broke detection")
+
+    # --- 5. test-runner: once per session, not once per edit ---
+    # test-runner fires when an edited file HAS tests; test-coverage-checker fires when it does
+    # NOT. Between them, EVERY source edit produced a message — a 100% injection rate, which is
+    # how an advisory layer trains everyone to ignore it (Ch. 5). Harmless while these went to a
+    # log nobody read; not harmless now they reach the model.
+    with tempfile.TemporaryDirectory() as tmp:
+        src = os.path.join(tmp, "web", "src")
+        os.makedirs(src)
+        f = os.path.join(src, "Money.ts")
+        open(f, "w", encoding="utf-8").write("export const zero = 0;\n")
+        open(os.path.join(src, "Money.test.ts"), "w", encoding="utf-8").write("it('x', () => {});\n")
+        sid = f"testrunner-dedup-{os.getpid()}"
+        first = run_hook("test-runner.py", "Write", {"file_path": f}, session_id=sid)[1]
+        second = run_hook("test-runner.py", "Write", {"file_path": f}, session_id=sid)[1]
+        if "Related test files found" in first:
+            PASS += 1
+            print("  PASS: test-runner speaks on the first edit of a tested file")
+        else:
+            FAIL += 1
+            print("  FAIL: test-runner silent on the first edit — dedup swallowed the signal")
+        if "Related test files found" in second:
+            FAIL += 1
+            print("  FAIL: test-runner repeats on every edit — the 100% injection rate is back")
+        else:
+            PASS += 1
+            print("  PASS: test-runner quiet on the second edit in the same session")
+
 
 def test_commit_types_match_the_skill():
     """`pre-commit-check.py` BLOCKS a commit whose type is not in its pattern, and its message
@@ -2977,6 +3100,11 @@ def test_hook_messages_point_somewhere_real():
         "audit-logger.py": "records, never warns",
         "capture-event.py": "developer tool, not a gate",
         "session-start-check.py": "reports environment state; the sentinel names the rules inline",
+        # The dispatcher does not warn about rules — it reports that a CHECKER CRASHED
+        # (`hook_error`), which it now folds into the single emit so the notice reaches the model
+        # instead of the debug log. Naming a skill there would be wrong: the reader's remedy is a
+        # broken hook, not a convention. It matches `warnings.append` only because of that fold.
+        "post-edit-dispatch.py": "dispatches checkers; only ever emits their crash notices",
     }
     silent = []
     for path in sorted(glob.glob(os.path.join(HOOKS_DIR, "*.py"))):

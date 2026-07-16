@@ -10,7 +10,7 @@ This repository is a **Claude Code plugin** (`sdh`) that enforces enterprise dev
 
 Instead of relying on ad-hoc prompting, this plugin provides:
 
-- **64 skills** — 43 workflow skills (`/sdh:code-reviewer`, `/sdh:rails-architect`, `/sdh:monorepo-architect`, …), **20 `std-*` convention skills** that auto-load by file path (e.g. `std-rails-conventions`, `std-accessibility`), plus the always-on `sdh-engineering-standards` skill
+- **64 skills** — 43 workflow skills (`/sdh:code-reviewer`, `/sdh:rails-architect`, `/sdh:monorepo-architect`, …), **20 `std-*` convention skills** scoped by file path (e.g. `std-rails-conventions`, `std-accessibility`), plus the unscoped `sdh-engineering-standards` skill (no `paths:`, so it is eligible anywhere; Claude loads it from its description)
 - **13 specialized agents** (4 with team lead protocols) that handle complex tasks with constrained tool access
 - **6 pre-defined agent team templates** for coordinated multi-agent work
 - **Quality-gate hooks** (PreToolUse blockers + a single PostToolUse dispatcher) with **wrapper-agnostic framework detection**
@@ -20,7 +20,7 @@ Instead of relying on ad-hoc prompting, this plugin provides:
 
 Current release: **`v3.0.0`**. It is a **major**: it adds a denial (remote `redis-cli FLUSHALL`),
 removes a gate (`monitoring-checker`'s `request_id` warning), and makes `std-error-handling`
-auto-load on every source file. Read [`CHANGELOG.md`](CHANGELOG.md#300---2026-07-15) before taking
+scoped to every source file. Read [`CHANGELOG.md`](CHANGELOG.md#300---2026-07-15) before taking
 it.
 
 **Upgrading from v2.0.0?** The **permission floor is unchanged** — you do not need to re-copy
@@ -153,12 +153,15 @@ Detection uses two wrapper-agnostic signals:
 So putting your Rails code in `api/` instead of `backend/` works fine — the Rails rules and
 hooks still activate.
 
-### What Convention Skills Auto-Load (wrapper-agnostic globs)
+### What Convention Skills Are Scoped To (wrapper-agnostic globs)
 
-The `std-*` convention skills are path-scoped — they auto-load when you edit files matching their globs:
+The `std-*` convention skills are path-scoped — their `paths:` globs limit them to matching files.
+Scoping is a gate, not a push: it decides *whether* a skill may load, and Claude loads it when the
+work calls for it. Rules that must hold whether or not a skill is read are enforced by the hooks.
+Which skills are eligible for which files:
 
 ```
-File you edit (under any wrapper)          std-* skills that auto-load
+File you edit (under any wrapper)          std-* skills scoped to it
 --------------------------------------     --------------------------------------
 **/app/**/*.rb                           -> std-rails-conventions, std-clean-architecture
 **/app/components/**/*.rb                 -> std-phlex-conventions
@@ -192,7 +195,7 @@ The structure below is the **recommended** convention, not a requirement — det
 > **Sharing code between the apps?** Once packages are shared across deployables, prefer the
 > `apps/` + `packages/` + `tooling/` layout and run **`/sdh:monorepo-architect`** — it covers
 > boundary enforcement, Turborepo, affected-only CI, the one-version policy, and generating a
-> shared `api-client` from the Rails schema. Both layouts auto-load `std-*` identically
+> shared `api-client` from the Rails schema. Both layouts scope `std-*` identically
 > (`apps/rails-api/app/models/user.rb` is still Rails); the flat layout below is simply the
 > smaller default for repos with no shared packages.
 
@@ -309,7 +312,7 @@ assets) and symlinks `node_modules`/`vendor/bundle` into worktrees.
 │   ├── plugin.json                   (manifest: name "sdh", version 1.0.0)
 │   └── marketplace.json              (single-plugin marketplace, source "./")
 ├── skills/                        ← 58 skills total (20 std-* convention skills below)
-│   ├── sdh-engineering-standards/    (always-on stack + library conventions)
+│   ├── sdh-engineering-standards/    (stack + library conventions, no path scope)
 │   ├── std-code-standards/           (path-scoped: all source files)
 │   ├── std-security/                 (path-scoped: all source files)
 │   ├── std-testing/
@@ -329,7 +332,7 @@ assets) and symlinks `node_modules`/`vendor/bundle` into worktrees.
 │   ├── std-terraform-conventions/    (**/*.tf, **/*.tfvars)
 │   ├── std-monitoring/
 │   ├── std-i18n/
-│   ├── std-agent-teams/              (always loaded — no path glob)
+│   ├── std-agent-teams/              (no path glob — eligible everywhere)
 │   └── … (37 workflow skills, see below)
 ├── agents/                        ← 12 specialized agents (bundled in the plugin)
 │   ├── requirements-consultant.md    (Opus, discovery)
@@ -477,10 +480,10 @@ Claude automatically suggests creating a team when:
 3. Task description includes multiple independent deliverables
 4. User explicitly asks for parallel work
 
-### Convention Skills (Auto-Loaded by File Path)
+### Convention Skills (Scoped by File Path)
 
-The 20 `std-*` convention skills (the former `.claude/rules/`, now path-scoped skills) load
-automatically when you edit files matching their globs:
+The 20 `std-*` convention skills (the former `.claude/rules/`, now path-scoped skills) are limited
+by `paths:` to files matching their globs — Claude loads one when the work calls for it:
 
 | Skill | Triggers On | Key Standards |
 |------|------------|---------------|
@@ -672,7 +675,7 @@ The `audit-logger.py` hook logs every tool execution in JSON-lines format, provi
 
 ## Key Design Decisions
 
-1. **Convention skills over instructions** — The `std-*` skills are scoped to file paths and auto-loaded. This means Rails conventions only apply when editing Ruby files under `app/`, ReactJS patterns only for `src/pages/` files, Next.js patterns only for `app/**/*.tsx` files — regardless of the wrapper directory name.
+1. **Convention skills over instructions** — The `std-*` skills are scoped to file paths. This means Rails conventions only apply when editing Ruby files under `app/`, ReactJS patterns only for `src/pages/` files, Next.js patterns only for `app/**/*.tsx` files — regardless of the wrapper directory name.
 
 2. **Agents over prompts** — Complex tasks use agents with constrained tool access and specialized system prompts. A security auditor agent can't edit files. A code reviewer has read-only access.
 

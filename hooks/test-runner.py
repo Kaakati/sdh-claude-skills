@@ -43,9 +43,21 @@ def check(event):
     found = [p for p in candidates if os.path.isfile(p)]
 
     if found:
-        # Normalize paths for display (backslash → forward slash)
+        # Once per session, not once per edit.
+        #
+        # This fires whenever an edited source file HAS tests; `test-coverage-checker` fires when
+        # it does NOT. Between them every source edit produced a message — a 100% injection rate,
+        # which mattered little while these went to a debug log and matters enormously now they
+        # reach the model. Of the two, only "no test file found" is actionable: "consider running
+        # tests" tells the reader something they can already see, on every single edit, which is
+        # how a whole advisory layer earns its way into being ignored (Ch. 5).
+        if hooklib.seen_this_session(event, "test-runner-reminder"):
+            return []
         display = [hooklib.normalize(p) for p in found]
-        return [f"Related test files found: {' '.join(display)}. Consider running tests to verify changes."]
+        return [
+            f"Related test files found: {' '.join(display)}. Consider running tests to verify "
+            f"changes. (This reminder appears once per session.)"
+        ]
 
     return []
 

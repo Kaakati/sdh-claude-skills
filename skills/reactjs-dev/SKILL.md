@@ -157,7 +157,7 @@ const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
 - Zustand with persistence, React Router config, the axios client with interceptors, Vitest + MSW tests → `references/data-patterns.md`
 - Framer Motion page/list transitions, ApexCharts revenue and donut charts → `references/ui-patterns.md`
 
-### Owned by `std-reactjs` (auto-loads on Vite SPA work)
+### Owned by `std-reactjs` (scoped to Vite SPA work)
 
 These are decision-shaped and carry the bad/good pairs. The three files above are worked
 *patterns*; these answer *which* pattern and why:

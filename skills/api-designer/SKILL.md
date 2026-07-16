@@ -97,7 +97,7 @@ datasets only. Both are pinned in `@skills/std-api-design/references/pagination-
 #### Standard Error Format
 
 Owned by `std-api-design` → `references/errors-rails.md` (Rails) and `references/errors-typescript.md`
-(Next route handlers / Express). Both auto-load on controller and route work; this skill does not,
+(Next route handlers / Express). Both are scoped to controller and route work; this skill is not,
 so **they are the contract and this is the summary**:
 
 ```json
@@ -143,7 +143,7 @@ Maintain a registry of application error codes. Codes should be:
 
 ### Step 5: Pagination
 
-Owned by `std-api-design`, which auto-loads on controller work. The load-bearing rules, restated
+Owned by `std-api-design`, which is scoped to controller work. The load-bearing rules, restated
 here because they change the *design* — not just the implementation:
 
 - **Cursor-based pagination is the default.** Offset is acceptable only for small, stable datasets
@@ -227,7 +227,7 @@ When designing or reviewing an API, provide:
 - URL structure, status codes, filtering/sorting, HATEOAS links, the OpenAPI template →
   `references/api-conventions.md`
 
-The rest is owned by `std-api-design`, which **auto-loads** on controller and route work. Read the
+The rest is owned by `std-api-design`, which is **scoped to** controller and route work. Read the
 one matching the decision — these carry the bad/good pairs, and this skill deliberately does not
 restate them:
 

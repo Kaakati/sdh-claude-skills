@@ -77,7 +77,7 @@ mobile/src/
 ### 5. Real-time (Centrifugo)
 
 Owned by `std-react-native` → `@skills/std-react-native/references/realtime-centrifugo.md`, which
-auto-loads on React Native work. This skill previously carried its own hook here; it called
+is scoped to React Native work. This skill previously carried its own hook here; it called
 `centrifuge.subscribe(channel)`, which is **not this client's API** — subscriptions are created
 with `newSubscription()` and retrieved with `getSubscription()` — so the snippet could not run,
 and the shape it taught had the exact leak the reference exists to prevent.
@@ -138,7 +138,7 @@ See references/react-native-patterns.md for component and hook patterns.
 
 - Worked screens, hooks, stores, and navigation for this stack → `references/react-native-patterns.md`
 
-### Owned by `std-react-native` (auto-loads on React Native work)
+### Owned by `std-react-native` (scoped to React Native work)
 
 Decision-shaped, with the bad/good pairs. The file above shows *a* pattern; these say which and why:
 

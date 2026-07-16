@@ -8,7 +8,8 @@ it layers on top of the repository-root `CLAUDE.md`.
 Rails API-only backend: Phlex views, Panko serializers, PostgreSQL + PostGIS,
 Redis/Sidekiq, Centrifugo. Full standards ship as the `sdh` plugin's path-scoped `std-*` skills
 (`std-rails-conventions`, `std-phlex-conventions`, `std-api-design`, `std-database`, `std-monitoring`,
-`std-clean-architecture`) and auto-load for matching files.
+`std-clean-architecture`) — scoping limits when a skill applies, so read the one bearing
+on your change.
 
 ## Commands
 - Tests: `bundle exec rspec`

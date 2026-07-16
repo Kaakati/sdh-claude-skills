@@ -61,7 +61,7 @@ Shared code lives in `packages/` with **its own tests and its own owner**. A `pa
 that accepts anything becomes a dumping ground — split by domain and give every package one
 purpose.
 
-**This layout keeps `std-*` auto-loading intact.** Detection is wrapper-agnostic: it keys on
+**This layout keeps `std-*` path-scoping intact.** Detection is wrapper-agnostic: it keys on
 canonical structure (`app/models`, `src/pages`, `src/screens`) plus marker files (`Gemfile`,
 `next.config.*`, `vite.config.*`, `metro.config.js`) — so `apps/rails-api/app/models/user.rb`
 loads the Rails conventions and `apps/web/src/pages/Dashboard.tsx` loads the Vite ones.

@@ -187,10 +187,10 @@ End each audit with:
 
 ### Owned elsewhere
 
-- **`std-accessibility`** is the always-on rule set — it **auto-loads on `.tsx`/`.jsx`** under
+- **`std-accessibility`** is the WCAG rule set — it is **scoped to `.tsx`/`.jsx`** under
   `src/`, `app/`, and `components/`. Note the edge it does *not* cover: its `paths:` are component
   files, so it does **not** load on `globals.css` or a token file. Contrast decisions get made
-  where the tokens are defined, and that is `std-design-system`'s territory (it auto-loads on
+  where the tokens are defined, and that is `std-design-system`'s territory (it is scoped to
   `**/globals.css`, `**/styles/**`, `**/tailwind.config.*`). Auditing a colour system means opening
   both.
 - **`@skills/std-design-system/references/defining-tokens.md`** — the `contrastRatio()`

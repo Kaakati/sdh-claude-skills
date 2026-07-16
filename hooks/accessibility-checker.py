@@ -47,35 +47,63 @@ def check_missing_alt_text(content):
     return warnings
 
 
+# An id/htmlFor is either a string literal (`id="email"`) or a JSX expression
+# (`id={`settle-${row.id}`}`). The expression form is the NORM in React the moment a list is
+# involved, and the old pattern only matched the literal — so every dynamic id fell through to
+# the no-id branch and was warned at despite carrying a perfectly good label.
+_ATTR_VALUE = r"""(?:["']([^"']+)["']|\{([^}]+)\})"""
+ID_ATTR = re.compile(r"\bid\s*=\s*" + _ATTR_VALUE)
+HTMLFOR_ATTR = re.compile(r"\b(?:htmlFor|for)\s*=\s*" + _ATTR_VALUE, re.IGNORECASE)
+# A wrapping label needs no htmlFor at all — `<label>Email <input /></label>` is valid HTML and
+# valid React. The old code named this case in a comment and then warned anyway.
+LABEL_BLOCK = re.compile(r"<label\b[^>]*>.*?</label>", re.IGNORECASE | re.DOTALL)
+
+
+def _norm(value):
+    """Compare attribute values ignoring incidental whitespace inside a JSX expression."""
+    return re.sub(r"\s+", "", value or "")
+
+
 def check_input_without_label(content):
-    """Check for <input> without associated <label>."""
+    """Flag an <input> only when nothing associates a label with it.
+
+    Three ways an input is correctly labelled, and this checker used to recognise exactly one:
+
+      1. `id="email"` + `<label htmlFor="email">`            — the literal form (was handled)
+      2. `id={expr}`  + `<label htmlFor={expr}>`             — dynamic ids; the React norm
+      3. `<label>Email <input /></label>`                    — a wrapping label, no id needed
+
+    2 and 3 were both flagged. That matters more now than it did: these warnings used to go to a
+    debug log nobody read, so a false positive cost nothing. They now reach the model on every
+    edit, and a check that fires on correct code is the fastest way to teach everyone to ignore
+    the whole layer — which this repo states as a rule (`migration-validator.py`) and then broke
+    here.
+    """
     warnings = []
-    # Find input tags with an id
-    input_pattern = re.compile(
-        r"<input\s([^>]*)(/?>)", re.IGNORECASE
-    )
-    for match in input_pattern.finditer(content):
+    label_spans = [m.span() for m in LABEL_BLOCK.finditer(content)]
+    for_values = {_norm(m.group(1) or m.group(2)) for m in HTMLFOR_ATTR.finditer(content)}
+
+    for match in re.finditer(r"<input\s([^>]*?)/?>", content, re.IGNORECASE):
         attrs = match.group(1)
-        # Check if there's an id attribute
-        id_match = re.search(r'\bid\s*=\s*["\']([^"\']+)["\']', attrs)
+
+        # (3) wrapped in a label — needs no id, no htmlFor, no aria-label.
+        start = match.start()
+        if any(a <= start < b for a, b in label_spans):
+            continue
+
+        # (1) and (2) — an id in either form, paired with an htmlFor in either form.
+        id_match = ID_ATTR.search(attrs)
         if id_match:
-            input_id = id_match.group(1)
-            # Check if there's a matching htmlFor/for label
-            label_pattern = re.compile(
-                r"<label\s[^>]*htmlFor\s*=\s*[\"']"
-                + re.escape(input_id)
-                + r"[\"']",
-                re.IGNORECASE,
+            if _norm(id_match.group(1) or id_match.group(2)) in for_values:
+                continue
+            warnings.append(
+                "WARNING: <input> has an id but no <label htmlFor> matches it "
+                "per the `std-accessibility` skill."
             )
-            if not label_pattern.search(content):
-                # Also check for wrapping <label> (heuristic: label before input on same line group)
-                # Simple heuristic — if no htmlFor match found, warn
-                warnings.append(
-                    "WARNING: <input> without associated <label> "
-                    "per the `std-accessibility` skill."
-                )
-        elif not re.search(r"\baria-label\s*=", attrs):
-            # No id and no aria-label — likely missing label association
+            continue
+
+        # No id at all — an aria-label (or aria-labelledby) is the remaining valid option.
+        if not re.search(r"\baria-label(?:ledby)?\s*=", attrs):
             warnings.append(
                 "WARNING: <input> without associated <label> or aria-label "
                 "per the `std-accessibility` skill."

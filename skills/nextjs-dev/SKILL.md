@@ -182,7 +182,7 @@ docker build -t myapp-next .
 - Progressive-enhancement forms, Client Components with TanStack Query → `references/client-patterns.md`
 - Root layout providers, loading/error boundaries, auth+locale middleware, Server Component and server-action tests → `references/infrastructure-patterns.md`
 
-### Owned by `std-nextjs` (auto-loads on App Router work)
+### Owned by `std-nextjs` (scoped to App Router work)
 
 **This targets Next.js 15+.** That is not a footnote: 15 changed caching defaults and request
 APIs, so the same code behaves differently on 14 — `fetch` is **not** cached by default,

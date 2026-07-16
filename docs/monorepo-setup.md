@@ -10,7 +10,7 @@ adapted to this repo's stack and its **wrapper-directory-agnostic** detection.
 The Claude Code guide describes two ways to scope instructions: per-directory
 `CLAUDE.md` files, and **path-scoped rules/skills in a central `.claude/` or plugin**. This
 repo uses the central model — all conventions ship as the `sdh` plugin's `std-*` skills that
-auto-load by file path. The guide endorses this when "you want all conventions in one
+are scoped by file path. The guide endorses this when "you want all conventions in one
 place, or the same rule applies to many scattered paths."
 
 Crucially, the rules and hooks here detect frameworks by **canonical structure
@@ -123,7 +123,7 @@ to certain files wherever they appear.
 
 ## 9. How auto-detection helps
 
-- **Rules** auto-load via wrapper-agnostic globs (`**/app/**/*.rb`,
+- **Rules** are scoped via wrapper-agnostic globs (`**/app/**/*.rb`,
   `**/src/pages/**`, …) regardless of package name.
 - **Hooks** detect the framework from markers (`Gemfile`, `next.config.*`,
   `vite.config.*`, `metro.config.js`, `react-native` in `package.json`) so the
@@ -150,6 +150,6 @@ your-monorepo/
     src/
 ```
 
-Starting Claude in `api/` loads the root + `api/CLAUDE.md`, auto-loads the Rails
+Starting Claude in `api/` loads the root + `api/CLAUDE.md`, scopes the Rails
 rules for `app/**/*.rb`, runs the Rails hooks, skips build artifacts, and (with
 `additionalDirectories`/`sparsePaths`) can reach and worktree `shared/`.
