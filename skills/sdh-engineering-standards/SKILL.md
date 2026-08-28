@@ -1,6 +1,6 @@
 ---
 name: sdh-engineering-standards
-description: Core engineering standards and tech stack for a Software Development House — Rails + Phlex backend, React Native, ReactJS (Vite), Next.js, PostgreSQL/PostGIS, Redis/Sidekiq, Terraform on AWS/Vercel. Use whenever writing, reviewing, planning, or scaffolding code in this stack, choosing a library, or setting up a project. Detailed per-area conventions live in the std-* skills (each scoped by file path — load the one that fits the task); specialized work routes to the agents.
+description: Core engineering standards and tech stack for a Software Development House — Rails + Phlex backend, Python (FastAPI/Django) for AI/ML and data services, React Native, ReactJS (Vite), Next.js, PostgreSQL/PostGIS, Redis/Sidekiq, Terraform on AWS/Vercel. Use whenever writing, reviewing, planning, or scaffolding code in this stack, choosing a library, or setting up a project. Detailed per-area conventions live in the std-* skills (each scoped by file path — load the one that fits the task); specialized work routes to the agents.
 ---
 
 # SDH Engineering Standards
@@ -14,6 +14,8 @@ custom code.
 | Layer | Technology | Notes |
 |-------|-----------|-------|
 | Backend | Ruby on Rails | API-only, shared by all frontends |
+| Backend (Python) | FastAPI (default) or Django + DRF | AI/ML serving, data pipelines; Django for admin-heavy CRUD |
+| AI/ML | PyTorch, scikit-learn, MLflow | Served via FastAPI; `pgvector` for embeddings |
 | View Layer | Phlex (`phlex-rails` + `class_variants`) | OO Ruby views, Atomic Design |
 | Serialization | Panko Serializer | High-performance JSON (never `to_json`) |
 | Database | PostgreSQL + PostGIS | Geospatial relational DB |
@@ -33,6 +35,8 @@ custom code.
 - Storage: `react-native-mmkv` · Images: `react-native-fast-image`
 - Web styling: `tailwindcss` + `clsx` + `tailwind-merge` · Animations: `framer-motion` · Charts: `react-apexcharts`
 - Web testing: `vitest` + `@testing-library/react` + `msw`
+- Python: `uv` + `ruff` + `mypy` · `pydantic` v2 · `httpx` · `celery` (Redis) · SQLAlchemy 2.0 + Alembic (FastAPI) / Django ORM · `pytest`
+- Python AI/ML: `mlflow` · `pandera` · `onnxruntime` · `pgvector` · `anthropic` SDK
 
 ## Non-negotiables (summary)
 
@@ -49,6 +53,7 @@ agnostic — Rails works under `backend/`, `api/`, or repo root; a Vite app unde
 `frontend/`, or root):
 
 - Backend: `std-rails-conventions`, `std-phlex-conventions`, `std-api-design`, `std-database`, `std-monitoring`, `std-error-handling`
+- Python: `std-python`, `std-fastapi`, `std-django`, `std-python-ai-ml`, `std-python-performance`
 - Frontend: `std-react-native`, `std-reactjs`, `std-nextjs`, `std-accessibility`, `std-i18n`, `std-design-system`
 - Cross-cutting: `std-code-standards`, `std-security`, `std-testing`, `std-clean-architecture`, `std-git-workflow`, `std-infrastructure`, `std-terraform-conventions`, `std-agent-teams`
 

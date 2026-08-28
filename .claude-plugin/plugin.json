@@ -2,8 +2,8 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "sdh",
   "displayName": "SDH Enterprise Standards",
-  "version": "3.1.1",
-  "description": "Enterprise SDLC standards for a Software Development House: Rails + Phlex backend, React Native, ReactJS (Vite), Next.js, Terraform, monorepo. Ships 64 skills (44 workflow + 20 path-scoped convention skills), 13 specialized agents, and quality-gate hooks with wrapper-agnostic framework detection.",
+  "version": "3.2.0",
+  "description": "Enterprise SDLC standards for a Software Development House: Rails + Phlex backend, Python (FastAPI/Django) for AI/ML and data services, React Native, ReactJS (Vite), Next.js, Terraform, monorepo. Ships 70 skills (45 workflow + 25 path-scoped convention skills), 13 specialized agents, and quality-gate hooks with wrapper-agnostic framework detection.",
   "author": {
     "name": "Mohamad Kaakati"
   },
@@ -12,6 +12,9 @@
   "keywords": [
     "rails",
     "phlex",
+    "python",
+    "fastapi",
+    "django",
     "react-native",
     "nextjs",
     "vite",

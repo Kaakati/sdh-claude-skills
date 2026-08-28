@@ -39,6 +39,10 @@ def is_component(file_path, ext):
 def get_line_limit(file_path, ext):
     if hooklib.under(file_path, MODEL_DIR):
         return MODEL_LIMIT
+    # Django keeps a whole app's models in one FILE (`models.py`), so the
+    # app/models DIRECTORY rule above never reaches it — same domain, same limit.
+    if ext == ".py" and os.path.basename(hooklib.normalize(file_path)) == "models.py":
+        return MODEL_LIMIT
     if is_component(file_path, ext):
         return COMPONENT_LIMIT
     return DEFAULT_LIMIT

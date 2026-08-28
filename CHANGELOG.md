@@ -14,6 +14,114 @@ All notable changes to the `sdh` plugin are documented here, following
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-08-28
+
+**Python joins the stack as a secondary backend** — FastAPI (default for new Python APIs) and
+Django + DRF (admin-heavy CRUD), positioned for AI/ML serving, data pipelines, and
+client-mandated stacks. Rails remains the primary backend; nothing about the Rails, frontend,
+or infra conventions changed.
+
+### Added
+
+- **Five new `std-*` convention skills** (the [Skill + `paths:`] delivery tier — no new hooks,
+  so nothing to copy by hand and no new denials or gates):
+  - `std-python` — src/ layout, typing, `uv`/`ruff`/`mypy`, pydantic v2, and the
+    models/services/controllers layering shared by both frameworks. Claims `**/*.py`,
+    `**/pyproject.toml`, `**/requirements*.txt`.
+  - `std-fastapi` — routers, Pydantic schemas, SQLAlchemy 2.0 + Alembic, `Depends` injection,
+    Celery (Redis broker), the house error envelope by reference. Scoped to `app/`-package
+    structure and `alembic/` — **not** to any universal Python file.
+  - `std-django` — models with DB constraints, DRF viewsets/serializers, service functions,
+    QuerySet managers, GeoDjango on the house PostGIS, migrations. Scoped to Django-idiomatic
+    filenames (`manage.py`, `models.py`, `views.py`, `migrations/`).
+  - `std-python-ai-ml` — notebooks vs modules, MLflow tracking + registry, reproducibility,
+    FastAPI model serving, `pgvector` before any dedicated vector DB, LLM (Anthropic SDK)
+    integration with pinned evals. Scoped to `ml/`, `training/`, `inference/`, `pipelines/`,
+    `*.ipynb`.
+  - `std-python-performance` — N+1 prevention (Django ORM + SQLAlchemy 2.0), bulk operations,
+    keyset pagination, indexing pointers, connection pooling, Redis caching. Deliberately
+    overlaps the framework skills on data-access paths, mirroring how `std-clean-architecture`
+    rides alongside `std-rails-conventions`.
+- **Path-exclusivity by design**: the five `paths:` sets were dictated centrally so no Python
+  skill claims another framework's files — `models.py`/`views.py`/`manage.py` are Django's,
+  the `app/` package shape and `alembic/` are FastAPI's, and only the *general* `std-python`
+  claims universal Python files, per the invariant
+  `test_framework_skills_load_for_their_own_framework` pins for the JS/TS skills.
+- Tech-stack and library-preference registrations for Python across `CLAUDE.md`, `README.md`,
+  and the `sdh-engineering-standards` skill: `uv`, `ruff`, `mypy`, pydantic v2, `httpx`,
+  Celery + Redis, `pyjwt` + `argon2-cffi` (explicitly not `python-jose`/`passlib`), pytest,
+  MLflow, pandera, onnxruntime, `pgvector`, `anthropic`.
+- **`/python-dev` workflow skill** — the `/rails-architect` analog for the Python stack:
+  scaffold → model + Alembic migration → schemas → service → router → Celery → tests →
+  query-performance pass → the `uv run ruff format && ruff check && mypy && pytest` ladder,
+  with a Django + DRF variant. It sequences the `std-*` skills and owns no rules itself.
+- **`docs/templates/python.CLAUDE.md`** — the per-package `CLAUDE.md` starter for Python
+  service packages in a monorepo (registered in `docs/monorepo-setup.md` alongside the
+  backend/mobile/web/next/shared templates).
+
+### Fixed
+
+- **The SessionStart area line no longer says skills "auto-load"** — v3.1.0 corrected 59 doc
+  sites from *auto-loaded* to *scoped* (`paths:` limits when a skill may load; Claude still
+  chooses to read it), but the one user-facing message survived. It now says "the scoped
+  convention skills for it", so the first line of every session stops overpromising the
+  delivery mechanism.
+
+### Changed
+
+- **`.py` auto-format switched from `black` to `ruff format`** — one tool for lint and format,
+  matching the `std-python` toolchain. Same layout-only contract: the hook runs `ruff format`,
+  never `ruff check --fix` (lint rewrites remain a deliberate human act), and
+  `test_autoformat_never_changes_semantics` now also rejects `--fix`/`--unsafe-fixes`. A repo
+  without ruff gets the once-per-session notice naming the install; nothing is blocked.
+
+### Added — hook delivery for Python (the tier that arrives whether or not a skill is read)
+
+The code-quality and error-handling checkers **already parsed `.py`** (function length,
+parameter counts, indentation nesting, `except: pass`) — that enforcement was in place before
+Python was even on the stack. What was missing, and ships now:
+
+- **`_hooklib.detect_framework()` knows `django` and `fastapi`** — markers: `manage.py`,
+  a **dependency-anchored** `pyproject.toml` grep (a quoted PEP 621 requirement or a Poetry
+  table key — prose and comments do not count, so "# not a django project" cannot
+  misclassify), `alembic.ini` + `app/main.py`; plus a path-structure fallback (`migrations/`
+  dirs are Django's — alembic defaults to `alembic/versions`; the `app/routers|api|schemas`
+  package shape is FastAPI's, and the `.py` branch runs before the extension-blind `src/app`
+  Next.js rule so a src-layout `app` package cannot be shadowed). On a mixed root, **Rails
+  markers win the tie** — Rails is the primary backend, and the ordering is test-pinned.
+- **`session-start-check.py` announces Python areas** — `AREA_RULES` gains `django` and
+  `fastapi` entries naming the relevant `std-*` skills; a test verifies every named skill
+  exists.
+- **Bare `except:` / `except BaseException` warning** (error-handling checker) — the Python
+  analog of the `rescue Exception` rule: both catch `SystemExit`/`KeyboardInterrupt`, so
+  shutdown and Ctrl-C die silently. Covers the tuple form (`except (BaseException, ...)`) and
+  3.11 `except*` groups. `except Exception:` stays a judgement call owned by `std-python`
+  (whose text now states the BaseException rule the warning cites); the hook flags only the
+  unambiguous width.
+- **Django's `models.py` gets the 200-line model limit** (code-quality checker) — Django keeps
+  an app's models in one *file*, so the existing `app/models` *directory* rule never reached it.
+- **Sensitive-data-in-logs now covers Python** (monitoring checker) — `.py` under the house
+  FastAPI boundary dirs (`app/routers`, `app/api`, `app/services`, `app/tasks`), matching
+  f-string interpolation, keyword arguments **including compound names**
+  (`access_token=` — the dominant real spelling), and stdlib `%`-style positional args
+  (`logger.info("pw %s", password)`); counters like `token_count=` stay silent, and a
+  word-boundary guard keeps `catalog.update(...)` from being read as a log call. Plain string
+  concatenation is the one idiom not matched.
+- **45 new test assertions** (`test_python_skills_load_for_their_own_framework`,
+  `test_python_stack_enforcement`) pin the Python path-exclusivity matrix, the new checker
+  rules with their regression counterparts (including the adversarial-review catches above:
+  compound kwargs, the tuple except form, the dependency-anchored grep, the fallback
+  ordering), the FastAPI api-design checks with their Next.js scope guard, detection markers
+  and the Rails-first tie-break, and the `AREA_RULES` entries. Suite: 302 passing.
+- **api-design checks reach FastAPI routers** — `.py` under `app/routers`/`app/api`
+  (extension-gated, so Next.js `app/api/route.ts` handlers stay out of scope — that would be
+  a silent scope change for every Next repo, and it is pinned as such): the verb-in-URL check
+  now applies; `response_model=list[...]` is flagged as an unwrapped collection (the house
+  envelope is `{ data: [...] }`); hand-built `JSONResponse({"error": ...})` bodies are
+  checked for the envelope keys with the same key patterns as the Rails check (the ONE
+  app-level exception handler remains the prescribed path); and `.post()` routes without
+  `status_code=` (or with an explicit 200) are told creation returns 201.
+
 ## [3.1.1] - 2026-07-16
 
 ### Fixed

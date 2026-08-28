@@ -6,11 +6,11 @@ A complete, audited system of skills, agents, and hooks that transforms Claude C
 
 ## What This Is
 
-This repository is a **Claude Code plugin** (`sdh`) that enforces enterprise development standards across the entire software development lifecycle. It is designed for teams building **Rails API (Phlex views) + React Native mobile + ReactJS Vite SPA + Next.js App Router** applications deployed on **AWS** and **Vercel**.
+This repository is a **Claude Code plugin** (`sdh`) that enforces enterprise development standards across the entire software development lifecycle. It is designed for teams building **Rails API (Phlex views) + React Native mobile + ReactJS Vite SPA + Next.js App Router** applications deployed on **AWS** and **Vercel**, with **Python (FastAPI/Django)** services for AI/ML and data work.
 
 Instead of relying on ad-hoc prompting, this plugin provides:
 
-- **64 skills** — 43 workflow skills (`/sdh:code-reviewer`, `/sdh:rails-architect`, `/sdh:monorepo-architect`, …), **20 `std-*` convention skills** scoped by file path (e.g. `std-rails-conventions`, `std-accessibility`), plus the unscoped `sdh-engineering-standards` skill (no `paths:`, so it is eligible anywhere; Claude loads it from its description)
+- **70 skills** — 44 workflow skills (`/sdh:code-reviewer`, `/sdh:rails-architect`, `/sdh:python-dev`, `/sdh:monorepo-architect`, …), **25 `std-*` convention skills** scoped by file path (e.g. `std-rails-conventions`, `std-fastapi`, `std-accessibility`), plus the unscoped `sdh-engineering-standards` skill (no `paths:`, so it is eligible anywhere; Claude loads it from its description)
 - **13 specialized agents** (4 with team lead protocols) that handle complex tasks with constrained tool access
 - **6 pre-defined agent team templates** for coordinated multi-agent work
 - **Quality-gate hooks** (PreToolUse blockers + a single PostToolUse dispatcher) with **wrapper-agnostic framework detection**
@@ -173,6 +173,11 @@ File you edit (under any wrapper)          std-* skills scoped to it
 **/migrations/**, **/migrate/**           -> std-database
 **/*.tf, **/*.tfvars                      -> std-terraform-conventions, std-infrastructure, std-monitoring
 **/*.test.*, **/*.spec.*                  -> std-testing
+**/*.py, **/pyproject.toml                -> std-python
+**/app/routers/**, **/app/schemas/**      -> std-fastapi (+ **/alembic/**)
+**/manage.py, **/views.py, **/urls.py     -> std-django
+**/models.py, **/queries/**               -> std-python-performance (with std-django on models.py)
+**/ml/**, **/training/**, **/*.ipynb      -> std-python-ai-ml
 ```
 
 ### Hook Domain-Aware Limits (wrapper-agnostic)
@@ -182,7 +187,8 @@ matched by canonical structure under any wrapper:
 
 | Canonical path (any wrapper) | File Limit | Rationale |
 |------------------------------|-----------|-----------|
-| `**/app/models/**/*.rb` | 200 lines | Rails models |
+| `**/app/models/**` (any source file) | 200 lines | Rails models; FastAPI models package |
+| `**/models.py` (Django per-app models file) | 200 lines | Django models |
 | `**/src/screens/**`, `**/src/pages/**`, `**/src/components/**` | 200 lines | Frontend components |
 | `**/app/components/**/*.rb`, `**/app/views/**/*.rb` | 200 lines | Phlex components |
 | `**/app/**/*.tsx` (Next.js app router) | 200 lines | Next.js components |
@@ -311,7 +317,7 @@ assets) and symlinks `node_modules`/`vendor/bundle` into worktrees.
 .claude-plugin/                    ← Plugin manifests
 │   ├── plugin.json                   (manifest: name "sdh", version 1.0.0)
 │   └── marketplace.json              (single-plugin marketplace, source "./")
-├── skills/                        ← 58 skills total (20 std-* convention skills below)
+├── skills/                        ← 69 skills total (25 std-* convention skills below)
 │   ├── sdh-engineering-standards/    (stack + library conventions, no path scope)
 │   ├── std-code-standards/           (path-scoped: all source files)
 │   ├── std-security/                 (path-scoped: all source files)
@@ -322,6 +328,11 @@ assets) and symlinks `node_modules`/`vendor/bundle` into worktrees.
 │   ├── std-react-native/
 │   ├── std-reactjs/                  (**/src/pages/**)
 │   ├── std-nextjs/                   (**/app/**/*.tsx + next.config.*)
+│   ├── std-python/                   (**/*.py, pyproject.toml)
+│   ├── std-fastapi/                  (**/app/routers/**, **/app/schemas/**, alembic)
+│   ├── std-django/                   (manage.py, models.py, views.py, migrations)
+│   ├── std-python-ai-ml/             (**/ml/**, **/training/**, *.ipynb)
+│   ├── std-python-performance/       (models.py, **/queries/**, **/repositories/**)
 │   ├── std-accessibility/            (web/next/frontend/mobile components)
 │   ├── std-design-system/            (styles/**, components/ui/**, tailwind.config.*)
 │   ├── std-api-design/
@@ -333,7 +344,7 @@ assets) and symlinks `node_modules`/`vendor/bundle` into worktrees.
 │   ├── std-monitoring/
 │   ├── std-i18n/
 │   ├── std-agent-teams/              (no path glob — eligible everywhere)
-│   └── … (37 workflow skills, see below)
+│   └── … (44 workflow skills, see below)
 ├── agents/                        ← 12 specialized agents (bundled in the plugin)
 │   ├── requirements-consultant.md    (Opus, discovery)
 │   ├── architecture-advisor.md       (Opus, read-only)
@@ -422,10 +433,10 @@ Every action Claude takes passes through deterministic quality gates:
 | **Before terraform** | `terraform-command-gate.py` | Three-tier gate: **denies** `destroy`/`state rm|mv|push`/`force-unlock`/`apply -auto-approve`, **asks** on `apply`, allows the read-only surface |
 | **Before adding an MCP** | `mcp-install-gate.py` | **Asks** on `claude mcp add` and `.mcp.json` edits — an MCP server is an instruction source, so a human picks it |
 | **Before git commits** | `pre-commit-check.py` | Validates conventional commit format, blocks force pushes |
-| **After editing files** | `auto-format.py` | Runs rubocop (**`-a`, safe autocorrect only**), prettier, black, terraform fmt. Missing tool → says so once, exits 0 |
+| **After editing files** | `auto-format.py` | Runs rubocop (**`-a`, safe autocorrect only**), prettier, ruff format, terraform fmt. Missing tool → says so once, exits 0 |
 | **After editing files** | `test-runner.py` | Reminds to run corresponding tests |
 | **After editing files** | Code quality checker | 30-line functions, 4-param max, 3-level nesting, domain-aware file limits |
-| **After editing files** | Error handling checker | Empty catch blocks, `rescue Exception` detection |
+| **After editing files** | Error handling checker | Empty catch blocks, `rescue Exception`, bare `except:`/`except BaseException` detection |
 | **After editing files** | Test coverage checker | Missing test file detection |
 | **After editing files** | Clean architecture checker | Layer boundary violation detection |
 | **After editing files** | i18n checker | Hardcoded user-facing string detection |
@@ -482,7 +493,7 @@ Claude automatically suggests creating a team when:
 
 ### Convention Skills (Scoped by File Path)
 
-The 20 `std-*` convention skills (the former `.claude/rules/`, now path-scoped skills) are limited
+The 25 `std-*` convention skills (the former `.claude/rules/`, now path-scoped skills) are limited
 by `paths:` to files matching their globs — Claude loads one when the work calls for it:
 
 | Skill | Triggers On | Key Standards |
@@ -496,6 +507,11 @@ by `paths:` to files matching their globs — Claude loads one when the work cal
 | `std-react-native` | `**/src/screens/**`, `**/src/**/*.{ts,tsx}` (RN) | Zustand, TanStack Query, Centrifugo, component patterns |
 | `std-reactjs` | `**/src/pages/**` (Vite SPA) | React Router, Tailwind CSS, Framer Motion, ApexCharts |
 | `std-nextjs` | `**/app/**/*.tsx` + `next.config.*` | Server Components, server actions, ISR/SSG, Vercel |
+| `std-python` | `**/*.py`, `**/pyproject.toml` | src/ layout, typing, uv/ruff/mypy, models/services/controllers layering |
+| `std-fastapi` | `**/app/routers/**`, `**/app/schemas/**`, alembic | Routers, Pydantic schemas, SQLAlchemy 2.0, dependency injection, Celery |
+| `std-django` | `**/manage.py`, `**/models.py`, `**/views.py`, migrations | Models, DRF viewsets/serializers, services, GeoDjango/PostGIS |
+| `std-python-ai-ml` | `**/ml/**`, `**/training/**`, `**/*.ipynb` | MLflow tracking, model serving, pgvector, LLM (Anthropic) integration, evals |
+| `std-python-performance` | `**/models.py`, `**/queries/**`, `**/repositories/**` | N+1 prevention, bulk ops, keyset pagination, pooling, Redis caching |
 | `std-accessibility` | web/Next/Vite/RN component files | WCAG 2.2 AA, semantic HTML, keyboard navigation, focus appearance, target size |
 | `std-design-system` | `**/styles/**`, `**/components/ui/**`, `**/theme/**`, `**/app/components/**`, `**/tailwind.config.*` | Design tokens, color/typography/spacing/motion rules, component styling |
 | `std-api-design` | API controllers/routes | REST conventions, error formats, pagination, versioning |
@@ -548,6 +564,7 @@ repeatable workflows. The command column below omits the `sdh:` prefix for brevi
 | `/requirements-consultant` | requirements-consultant | Requirements discovery, user stories, feasibility (Opus) |
 | `/api-designer` | — | REST API design and review |
 | `/rails-architect` | — | Rails backend architecture |
+| `/python-dev` | — | Python backend features: FastAPI (default) or Django+DRF, Alembic, Celery, uv/ruff/mypy/pytest ladder |
 | `/react-native-dev` | — | React Native feature implementation |
 | `/reactjs-dev` | — | ReactJS Vite SPA features (Tailwind, Framer Motion, ApexCharts) |
 | `/nextjs-dev` | — | Next.js App Router features (Server Components, server actions) |

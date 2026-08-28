@@ -3,8 +3,9 @@
 PostToolUse hook: Error handling checker.
 
 Checks source files for empty catch/rescue/except blocks and
-rescue Exception (should be StandardError) per the `std-error-handling` skill.
-Exits silently for non-source files.
+rescue Exception (should be StandardError) per the `std-error-handling` skill,
+and — the Python analog — bare `except:` / `except BaseException` per the
+`std-python` skill. Exits silently for non-source files.
 """
 import os
 import re
@@ -58,6 +59,25 @@ def check_rescue_exception(content, ext):
     return []
 
 
+def check_bare_except(content, ext):
+    """Bare `except:` / `except BaseException` — the Python analog of `rescue Exception`:
+    both catch SystemExit and KeyboardInterrupt, so shutdown and Ctrl-C die silently.
+    Covers the tuple form (`except (BaseException, ValueError):`) and 3.11's
+    `except*` groups. `except Exception:` is allowed here — whether it re-raises is a
+    judgement call the `std-python` skill owns; this gate flags only the unambiguous
+    width. Line-based, so a docstring QUOTING the anti-pattern can false-positive —
+    deliberate parity with check_empty_handlers above."""
+    if ext != ".py":
+        return []
+    pattern = re.compile(r"^\s*except\*?\s*(?::|[^:\n]*\bBaseException\b[^:\n]*:)", re.MULTILINE)
+    if pattern.search(content):
+        return [
+            "WARNING: Catch Exception (or narrower) — never bare `except:` or "
+            "`except BaseException` per the `std-python` skill."
+        ]
+    return []
+
+
 def check(event):
     file_path = hooklib.get_file_path(event)
     if not file_path:
@@ -74,6 +94,7 @@ def check(event):
     warnings = []
     warnings.extend(check_empty_handlers(content, ext))
     warnings.extend(check_rescue_exception(content, ext))
+    warnings.extend(check_bare_except(content, ext))
     return warnings
 
 

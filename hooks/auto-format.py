@@ -42,7 +42,10 @@ FORMATTER_MAP = {
     "yaml":  ("prettier", ["prettier", "--write"]),
     "yml":   ("prettier", ["prettier", "--write"]),
     "erb":   ("htmlbeautifier", ["htmlbeautifier"]),
-    "py":    ("black", ["black", "--quiet"]),
+    # `ruff format`, NOT `ruff check --fix`: format is the layout-only, black-compatible
+    # half (the house toolchain per std-python); `--fix` applies lint rewrites, which is
+    # the deliberate-human-act category this hook must never run unattended.
+    "py":    ("ruff", ["ruff", "format", "--quiet"]),
     "tf":    ("terraform", ["terraform", "fmt"]),
     "tfvars": ("terraform", ["terraform", "fmt"]),
 }
@@ -53,7 +56,7 @@ INSTALL_HINT = {
     "rubocop": "gem install rubocop (or add it to your Gemfile)",
     "prettier": "npm install --save-dev prettier",
     "htmlbeautifier": "gem install htmlbeautifier",
-    "black": "pip install black",
+    "ruff": "pip install ruff (or: uv tool install ruff)",
     "terraform": "https://developer.hashicorp.com/terraform/install",
 }
 

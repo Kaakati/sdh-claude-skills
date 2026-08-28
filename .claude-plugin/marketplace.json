@@ -7,13 +7,13 @@
   },
   "metadata": {
     "description": "SDH enterprise development standards as a Claude Code plugin.",
-    "version": "3.1.1"
+    "version": "3.2.0"
   },
   "plugins": [
     {
       "name": "sdh",
       "source": "./",
-      "description": "Enterprise SDLC standards: Rails + Phlex, React Native, ReactJS (Vite), Next.js, Terraform — skills, agents, and quality-gate hooks with wrapper-agnostic framework detection."
+      "description": "Enterprise SDLC standards: Rails + Phlex, Python (FastAPI/Django), React Native, ReactJS (Vite), Next.js, Terraform — skills, agents, and quality-gate hooks with wrapper-agnostic framework detection."
     }
   ]
 }

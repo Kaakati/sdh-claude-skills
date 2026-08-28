@@ -3,7 +3,7 @@
 This repository follows enterprise-grade development standards for a professional software development house. All contributors and AI agents must adhere to these guidelines.
 
 > **This repository is packaged as the `sdh` Claude Code plugin.** Components live at the
-> plugin root: `skills/` (37 workflow skills + 20 `std-*` convention skills), `agents/`,
+> plugin root: `skills/` (44 workflow skills + 25 `std-*` convention skills), `agents/`,
 > `hooks/` (with `hooks/hooks.json`), and the manifest at `.claude-plugin/plugin.json`. The
 > former `.claude/rules/*.md` are now `std-*` skills (`paths:`-scoped to the files they govern).
 > See `README.md` for install. A plugin's `CLAUDE.md` is **not** loaded as context for
@@ -19,6 +19,8 @@ We are a Software Development House building production systems for clients. Qua
 | Layer | Technology | Notes |
 |-------|-----------|-------|
 | Backend | Ruby on Rails | API-only mode, shared by all frontends |
+| Backend (Python) | FastAPI or Django + DRF | AI/ML serving, data pipelines, client-mandated stacks; FastAPI default, Django for admin-heavy CRUD |
+| AI/ML | PyTorch, scikit-learn, MLflow | Served via FastAPI; `pgvector` on PostgreSQL for embeddings |
 | View Layer | Phlex | Object-oriented Ruby views (~1.4 Gbps rendering) |
 | Serialization | Panko Serializer | High-performance JSON serialization |
 | Database | PostgreSQL + PostGIS | Geospatial-enabled relational database |
@@ -49,6 +51,10 @@ We are a Software Development House building production systems for clients. Qua
 - Web Animations: `framer-motion` | Web Charts: `react-apexcharts`
 - Web Testing: `vitest` + `@testing-library/react` + `msw`
 - Next.js Images: `next/image` | Next.js Navigation: `next/link`
+- Python Tooling: `uv` (deps/venv) + `ruff` (lint + format) + `mypy` | Validation: `pydantic` v2
+- Python HTTP: `httpx` | Jobs: `celery` (Redis broker) | ORM: SQLAlchemy 2.0 + Alembic (FastAPI) / Django ORM
+- Python Auth: `pyjwt` + `argon2-cffi` | Django API: DRF + `drf-spectacular` + `simplejwt` | Geo: GeoDjango (PostGIS)
+- Python AI/ML: `mlflow`, `pandera`, `onnxruntime`, `pgvector`, `anthropic` | Testing: `pytest` + `factory_boy`/`polyfactory`
 
 ## Git Workflow
 
@@ -72,6 +78,7 @@ We are a Software Development House building production systems for clients. Qua
 ## Architecture
 
 - **Rails Backend**: Service objects for business logic, Panko serializers for JSON, Phlex for views (Atomic Design), Sidekiq for background jobs
+- **Python Backend**: Routers (FastAPI) / ViewSets (DRF) → Services → Models, Pydantic schemas at boundaries, Celery for background jobs
 - **React Native Frontend**: Zustand stores for client state, TanStack Query for server data, Centrifugo for real-time
 - **ReactJS (Vite SPA)**: Pages → Hooks → API Client, React Router (lazy-loaded), Tailwind CSS, Framer Motion, ApexCharts
 - **Next.js (App Router)**: Server Components for data fetching, server actions for mutations, Client Components for interactivity
@@ -112,7 +119,7 @@ We are a Software Development House building production systems for clients. Qua
 
 ## Rule Reference
 
-Detailed domain-specific conventions ship as 20 path-scoped `std-*` skills under `skills/` (`paths:` scopes each to the files it governs, wrapper-directory agnostic; read the one that bears on the change):
+Detailed domain-specific conventions ship as 25 path-scoped `std-*` skills under `skills/` (`paths:` scopes each to the files it governs, wrapper-directory agnostic; read the one that bears on the change):
 
 - `std-code-standards` — Naming, SOLID, function/file limits, error handling, logging
 - `std-security` — OWASP, auth, input validation, secret management
@@ -124,6 +131,11 @@ Detailed domain-specific conventions ship as 20 path-scoped `std-*` skills under
 - `std-react-native` — React Native, Zustand, TanStack Query, Centrifugo
 - `std-reactjs` — ReactJS Vite SPA, React Router, Tailwind CSS, Framer Motion, ApexCharts
 - `std-nextjs` — Next.js App Router, Server Components, server actions, Vercel deployment
+- `std-python` — Python code standards: src/ layout, typing, uv/ruff/mypy, models/services/controllers layering
+- `std-fastapi` — FastAPI routers, Pydantic schemas, SQLAlchemy 2.0 + Alembic, dependency injection, Celery
+- `std-django` — Django models, DRF viewsets/serializers, services, QuerySet managers, GeoDjango/PostGIS
+- `std-python-ai-ml` — AI/ML pipelines, MLflow tracking, model serving, pgvector embeddings, LLM (Anthropic) integration
+- `std-python-performance` — Python ORM query performance: N+1 prevention, bulk ops, keyset pagination, pooling, caching
 - `std-infrastructure` — Terraform, Docker Compose, AWS, GCP, Vercel, CI/CD
 - `std-error-handling` — Error handling across Rails, React Native, Sidekiq, API responses
 - `std-monitoring` — Structured logging, health checks, CloudWatch alarms, Sentry
@@ -160,6 +172,7 @@ On-demand skills available via slash commands:
 - `/security-auditor` — Security audit against OWASP Top 10, SBOM generation, license compliance (routes to security-auditor agent)
 - `/api-designer` — REST API design and review
 - `/rails-architect` — Rails backend architecture with Panko, PostGIS, Sidekiq
+- `/python-dev` — Python backend features end to end: FastAPI (default) or Django+DRF, SQLAlchemy 2.0 + Alembic, pydantic v2, Celery, the uv/ruff/mypy/pytest ladder
 - `/react-native-dev` — React Native features with Zustand, TanStack, Centrifugo
 - `/mobile-signing` — iOS/Android signing identities: certificates, provisioning profiles, .p8 keys, fastlane match, keystores, Play App Signing, CI secret handling
 - `/mobile-beta-release` — Ship betas to testers: TestFlight (internal/external, Beta App Review, 90-day expiry) and Play tracks (internal/closed/open, staged rollout), fastlane lanes
@@ -212,16 +225,16 @@ Active hooks are configured in `hooks/hooks.json` (commands run via `${CLAUDE_PL
 - `mcp-install-gate.py` — Asks before `claude mcp add` / `.mcp.json` edits — an MCP server is an instruction source, so a human picks it
 
 **PostToolUse** (after tool completes):
-- `auto-format.py` — Auto-formats edited files (rubocop, prettier, terraform fmt)
+- `auto-format.py` — Auto-formats edited files (rubocop, prettier, ruff format, terraform fmt)
 - `test-runner.py` — Reminds to run tests for modified code
-- **Code quality checker** — Enforces the `std-code-standards` skill (30-line functions, 4-param max, 3-level nesting, domain-aware file limits: 200 lines for Rails models/.tsx components, 300 lines elsewhere)
-- **Error handling checker** — Enforces the `std-error-handling` skill (empty catch blocks, rescue Exception)
+- **Code quality checker** — Enforces the `std-code-standards` skill (30-line functions, 4-param max, 3-level nesting, domain-aware file limits: 200 lines for Rails models, Django `models.py`, and .tsx components, 300 lines elsewhere)
+- **Error handling checker** — Enforces the `std-error-handling` skill (empty catch blocks, rescue Exception) and the `std-python` skill's width rule (bare `except:` / `except BaseException`)
 - **Test coverage checker** — Enforces the `std-testing` skill (warns when source files lack corresponding test files)
 - **Clean architecture checker** — Enforces the `std-clean-architecture` skill (layer boundary violations, dependency direction)
 - **i18n checker** — Enforces the `std-i18n` skill (hardcoded user-facing strings in .tsx/.jsx/.erb files)
 - `accessibility-checker.py` — Enforces the `std-accessibility` skill (semantic HTML, alt text, label associations, focus indicators, ARIA misuse). A **deterministic command hook** dispatched in-process by `post-edit-dispatch.py` — *not* an agent: it spawns no model, costs no tokens, and adds no latency. Scoped to `.tsx`/`.jsx`/`.css`/`.scss` (the CSS extensions matter — `outline: none` is a CSS declaration); React Native is skipped by marker detection, under any wrapper dir
 - `api-design-checker.py` — Enforces the `std-api-design` skill (URL nouns, data wrapper, the `error`/`code`/`status`/`details`/`requestId` envelope, HTTP status codes). A **deterministic command hook** dispatched by `post-edit-dispatch.py` — *not* an agent. Scoped to `app/controllers`, `src/api`, and `src/actions` under any wrapper dir
-- `monitoring-checker.py` — Enforces the `std-monitoring` skill: **sensitive data in log statements only**. A command hook, not a prompt. It deliberately does **not** check for `request_id` on a log line — that id is attached by Rails via `config.log_tags`, so it is not in the source and the remedy is config, not an edit at the call site (see `std-monitoring/references/request-tracing.md`). Scoped to `.rb` under `app/controllers` and `app/jobs`, any wrapper dir
+- `monitoring-checker.py` — Enforces the `std-monitoring` skill: **sensitive data in log statements only**. A command hook, not a prompt. It deliberately does **not** check for `request_id` on a log line — that id is attached by Rails via `config.log_tags`, so it is not in the source and the remedy is config, not an edit at the call site (see `std-monitoring/references/request-tracing.md`). Scoped to `.rb` under `app/controllers` and `app/jobs`, and `.py` under `app/routers`, `app/api`, `app/services`, `app/tasks` (f-strings and log kwargs), any wrapper dir
 - `atomic-design-checker.py` — Validates Atomic Design hierarchy (atom independence, molecule composition, organism boundaries, naming) across Phlex, ReactJS, Next.js, React Native
 - `rails-routes-checker.py` — Flags `Sidekiq::Web` mounted in `config/routes.rb` with no authentication (reads `config/initializers/` first, since the API-only idiom protects the Rack app there rather than in routes)
 - `terraform-checker.py` — Validates Terraform .tf files (hardcoded secrets, snake_case naming, required tags, backend config, provider versions)
@@ -326,7 +339,7 @@ dirs can be named anything; detection uses canonical structure like `app/models`
 `vite.config.*`, `metro.config.js`). See `docs/monorepo-setup.md` for the full
 setup:
 
-- **Per-package `CLAUDE.md`** starter templates in `docs/templates/` (backend, mobile, web, next, shared) — copy into each package dir so its conventions layer on the root `CLAUDE.md`.
+- **Per-package `CLAUDE.md`** starter templates in `docs/templates/` (backend, mobile, web, next, python, shared) — copy into each package dir so its conventions layer on the root `CLAUDE.md`.
 - **`.claude/settings.local.json.template`** — per-developer overrides: `claudeMdExcludes` (skip packages you don't touch), `additionalDirectories` (cross-package access), `worktree.sparsePaths` (scope worktree checkouts).
 - **Build-artifact read denies** and **worktree symlinks** are pre-set in `.claude/settings.json` (`dist/`, `build/`, `.next/`, `coverage/`, `*.min.*`, `vendor/`, Rails assets; `node_modules`/`vendor/bundle` symlinked into worktrees).
 - **Code intelligence** — install language-server plugins (`typescript-lsp`, Ruby LSP) to cut file reads.

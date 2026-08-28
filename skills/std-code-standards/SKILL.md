@@ -37,8 +37,9 @@ These are the numbers the `code-quality-checker` hook actually warns on. If a wa
 you, the number below is why — not the hook being arbitrary.
 
 - **Function length**: Maximum 30 lines. If a function exceeds this, decompose it into smaller, well-named helper functions.
-- **File length**: **300 lines — but 200 for Rails models and UI components.**
-  - `**/app/models/**/*.rb`, and components (`**/src/components/**`, `**/src/screens/**`,
+- **File length**: **300 lines — but 200 for models and UI components.**
+  - `**/app/models/**` (Rails models — and a FastAPI `app/models/` package), Django's per-app
+    `models.py` file, and components (`**/src/components/**`, `**/src/screens/**`,
     `**/src/pages/**`, `**/app/components/**/*.rb`, `**/app/views/**/*.rb`, and Next.js
     app-router `.tsx`/`.jsx`) → **200**
   - everything else → **300**

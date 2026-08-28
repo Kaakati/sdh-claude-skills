@@ -304,12 +304,14 @@ def run_pre_blocker(check, fail_closed=False, gate_label="check"):
 # Conventions auto-load from each framework's own layout and marker files, NOT
 # from a forced top-level folder name. Rails code works under backend/, api/, or
 # the repo root; a Vite app under web/, frontend/, or root; a Next app under
-# next/, web/, or root; React Native under mobile/, app/, or root.
+# next/, web/, or root; React Native under mobile/, app/, or root; a Python
+# service (FastAPI or Django) under svc/, api/, ml/, or root.
 #
 #   under(path, "app/models")      -> matches the canonical layout anywhere
 #                                     (backend/app/models, api/app/models, app/models)
 #   replace_first_segment(...)     -> map source->test path, preserving the wrapper
-#   detect_framework(path)         -> 'rails'|'nextjs'|'vite'|'react-native'|None
+#   detect_framework(path)         -> 'rails'|'nextjs'|'vite'|'react-native'
+#                                     |'django'|'fastapi'|None
 #                                     via on-disk markers, with a path-structure fallback
 # ---------------------------------------------------------------------------
 
@@ -383,14 +385,42 @@ def _package_json(directory):
         return ""
 
 
+def _pyproject(directory):
+    """pyproject.toml content, lowercased for dependency grepping ("" if unreadable).
+
+    Lowercased because dependency tables write both `django` and `Django`; the
+    grep is for a dependency NAME, and pip/uv names are case-insensitive."""
+    try:
+        with open(os.path.join(directory, "pyproject.toml"), "r", encoding="utf-8", errors="replace") as handle:
+            return handle.read().lower()
+    except (OSError, IOError):
+        return ""
+
+
+def _pyproject_dep(pyp, name):
+    """True when `name` appears as a DEPENDENCY in lowercased pyproject content —
+    a quoted PEP 621 requirement ("django>=5.0", "fastapi[standard]") or a Poetry
+    table key (django = "^5.0"). A plain substring grep matched prose and comments
+    ("# not a django project") and misclassified plain libraries; anchoring to the
+    two dependency spellings is the pyproject analog of package.json's '"next"'."""
+    import re as _re
+
+    return bool(
+        _re.search(r"[\"']" + name + r"[\"'\[><=~!;@ ]", pyp)
+        or _re.search(r"^\s*" + name + r"\s*=", pyp, _re.M)
+    )
+
+
 def detect_framework(file_path):
     """Best-effort framework for an edited file, independent of the wrapper
-    directory name. Returns 'rails' | 'nextjs' | 'vite' | 'react-native' | None.
+    directory name. Returns 'rails' | 'nextjs' | 'vite' | 'react-native' |
+    'django' | 'fastapi' | None.
 
     Walks up from the file to the nearest framework marker (next.config /
-    vite.config / metro.config / app.json / package.json deps / Gemfile), and
-    falls back to canonical path structure when no marker is resolvable on disk
-    (e.g. relative path outside the project, or a bare scaffold)."""
+    vite.config / metro.config / app.json / package.json deps / Gemfile /
+    manage.py / pyproject.toml deps / alembic.ini), and falls back to canonical
+    path structure when no marker is resolvable on disk (e.g. relative path
+    outside the project, or a bare scaffold)."""
     norm = normalize(file_path)
     start = _deepest_existing_dir(file_path)
     if start:
@@ -415,6 +445,24 @@ def detect_framework(file_path):
                     return "react-native"
             if any(_has(d, m) for m in _RAILS_MARKERS):
                 return "rails"
+            # Python markers come after Rails within a dir: Rails is the primary
+            # backend, so on the (unlikely) mixed root, Rails wins the tie.
+            if _has(d, "manage.py"):
+                # Django's canonical marker (a legacy Flask-Script manage.py
+                # would also match — Flask is off-stack).
+                return "django"
+            pyp = _pyproject(d)
+            if pyp:
+                # Dependency-anchored grep (see _pyproject_dep). fastapi first:
+                # a FastAPI service never DEPENDS on django; the reverse mention
+                # (a Django repo's "migrate to fastapi" comment) does not count,
+                # because only dependency spellings match.
+                if _pyproject_dep(pyp, "fastapi"):
+                    return "fastapi"
+                if _pyproject_dep(pyp, "django"):
+                    return "django"
+            if _has(d, "alembic.ini") and _has(d, os.path.join("app", "main.py")):
+                return "fastapi"  # house FastAPI layout: app/main.py + alembic
             if _has(d, ".git"):
                 break  # do not walk above the repository root
 
@@ -425,6 +473,19 @@ def detect_framework(file_path):
         return "react-native"
     if under(norm, "src/pages"):
         return "vite"
+    # The .py branch must run BEFORE the src/app Next.js rule: `src/app/` is also
+    # the Python src-layout for a package named `app`, and the Next rule has no
+    # extension guard — python files would be shadowed into 'nextjs'.
+    if norm.endswith(".py"):
+        # Django-idiomatic filenames and its migrations dirs (alembic's default
+        # is alembic/versions; a Flask-Migrate-style migrations/ dir would also
+        # land here, but Flask is off-stack).
+        if norm.endswith("/manage.py") or norm == "manage.py" or under(norm, "migrations"):
+            return "django"
+        # House FastAPI package shape (std-fastapi): routers/schemas under app/.
+        if under_any(norm, ("app/routers", "app/api", "app/schemas")) or norm.endswith("/app/main.py"):
+            return "fastapi"
+        return None
     if under(norm, "src/app") or (under(norm, "app") and (norm.endswith(".tsx") or norm.endswith(".jsx"))):
         return "nextjs"
     return None

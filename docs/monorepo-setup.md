@@ -40,6 +40,7 @@ Keep the repo-root `CLAUDE.md` for repository-wide rules, and add a small
 | `docs/templates/mobile.CLAUDE.md` | React Native package (`mobile/`, `app/`, …) |
 | `docs/templates/web.CLAUDE.md` | Vite SPA package (`web/`, `frontend/`, …) |
 | `docs/templates/next.CLAUDE.md` | Next.js package (`next/`, `site/`, …) |
+| `docs/templates/python.CLAUDE.md` | Python service package — FastAPI or Django (`svc/`, `api/`, `ml/`, …) |
 | `docs/templates/shared.CLAUDE.md` | shared TS package (`shared/`, `common/`, …) |
 
 ```bash

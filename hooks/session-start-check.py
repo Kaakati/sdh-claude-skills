@@ -41,6 +41,8 @@ AREA_RULES = {
     "nextjs": "std-nextjs, std-accessibility, std-i18n, std-testing, std-clean-architecture",
     "vite": "std-reactjs, std-accessibility, std-i18n, std-testing, std-clean-architecture",
     "react-native": "std-react-native, std-accessibility, std-i18n, std-clean-architecture",
+    "django": "std-python, std-django, std-python-performance, std-api-design, std-database, std-clean-architecture",
+    "fastapi": "std-python, std-fastapi, std-python-performance, std-api-design, std-database, std-clean-architecture",
 }
 
 # Fallback sentinels: a representative sample of the critical tiers (secrets,
@@ -199,7 +201,9 @@ def main():
 
     area = detect_area(cwd)
     if area in AREA_RULES:
-        parts.append(f"detected {area} area — these rules auto-load: {AREA_RULES[area]}")
+        # "scoped", not "auto-load": paths: limits WHEN a skill may load; Claude
+        # still chooses to read it (the v3.1.0 docs correction, applied here too).
+        parts.append(f"detected {area} area — the scoped convention skills for it: {AREA_RULES[area]}")
 
     print(", ".join(parts) + ".")
     sys.exit(0)

@@ -2864,7 +2864,9 @@ def test_autoformat_never_changes_semantics():
     af = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(af)
 
-    unsafe_flags = {"--autocorrect-all", "-A", "--auto-correct-all"}
+    # `--fix`/`--unsafe-fixes` are ruff's rewrite flags: `ruff format` is the layout-only
+    # half; `ruff check --fix` applies lint corrections and belongs to a human with a diff.
+    unsafe_flags = {"--autocorrect-all", "-A", "--auto-correct-all", "--fix", "--unsafe-fixes"}
     offenders = []
     for ext, (binary, cmd) in af.FORMATTER_MAP.items():
         bad = unsafe_flags.intersection(cmd)
@@ -2887,7 +2889,9 @@ def test_autoformat_never_changes_semantics():
         print(f"  FAIL: .rb lost its autocorrect entirely: {rb}")
 
     # The other formatters are layout-only by nature; assert they stayed that way.
-    for ext, expect in (("ts", "prettier"), ("py", "black"), ("tf", "terraform")):
+    # .py moved black -> ruff format in v3.2.0 (house toolchain, std-python): same
+    # layout-only contract, one tool for lint and format.
+    for ext, expect in (("ts", "prettier"), ("py", "ruff"), ("tf", "terraform")):
         entry = af.FORMATTER_MAP.get(ext)
         if entry and entry[0] == expect:
             PASS += 1
@@ -3423,6 +3427,314 @@ def test_rule_taxonomy_checker():
             print("  FAIL: gate rejects a legitimate heading style — it will be ignored as noise")
 
 
+def test_python_skills_load_for_their_own_framework():
+    """The Python mirror of test_framework_skills_load_for_their_own_framework.
+
+    v3.2.0 added two Python framework skills whose `paths:` were designed for mutual
+    exclusivity: `models.py`/`views.py`/`manage.py`/`migrations/` are Django-idiomatic
+    filenames, the `app/` package shape and `alembic/` are the house FastAPI layout, and
+    only the GENERAL `std-python` claims universal Python files (`**/*.py`,
+    `pyproject.toml`, `requirements*.txt`) — a framework skill claiming those would
+    surface FastAPI conventions in every Django repo and vice versa, the exact
+    tsconfig.json failure the JS test above pins. This pins the Python edition."""
+    print("\n[each Python framework skill must load for its own framework only]")
+    global PASS, FAIL
+    import glob as _glob
+    import re
+
+    repo = os.path.abspath(os.path.join(HOOKS_DIR, ".."))
+
+    def matches(pat, path):
+        rx = (re.escape(pat).replace(r"\*\*/", "(?:.*/)?").replace(r"\*\*", ".*")
+              .replace(r"\*", "[^/]*"))
+        return re.fullmatch(rx, path) is not None
+
+    skills = {}
+    for p in sorted(_glob.glob(os.path.join(repo, "skills", "std-*", "SKILL.md"))):
+        n = os.path.basename(os.path.dirname(p))
+        src = open(p, encoding="utf-8").read()
+        fm = src.split("---")[1] if src.startswith("---") else ""
+        m = re.search(r"^paths:\s*\n((?:\s+-.*\n)+)", fm, re.M)
+        if m:
+            skills[n] = re.findall(r'-\s*["\']?([^"\'\n]+?)["\']?\s*$', m.group(1), re.M)
+    if "std-fastapi" not in skills or "std-django" not in skills:
+        FAIL += 1
+        print("  FAIL: std-fastapi/std-django paths not parsed — parser broke, or the skills are gone.")
+        return
+
+    FRAMEWORK = ("std-fastapi", "std-django")
+    cases = [
+        ("api/app/routers/users.py", "std-fastapi"),          # house FastAPI package shape
+        ("api/app/main.py", "std-fastapi"),
+        ("api/alembic/versions/0001_init.py", "std-fastapi"),  # alembic pairs with SQLAlchemy
+        ("backend/manage.py", "std-django"),                   # Django's unambiguous marker
+        ("backend/apps/orders/models.py", "std-django"),
+        ("backend/apps/orders/views.py", "std-django"),
+    ]
+    bad = 0
+    for path, expect in cases:
+        hits = sorted(s for s, pats in skills.items()
+                      if s in FRAMEWORK and any(matches(p, path) for p in pats))
+        if hits != [expect]:
+            bad += 1
+            if expect not in hits:
+                print(f"  FAIL: {path} loads {hits or 'NOTHING'} — `{expect}` never loads for "
+                      f"its own framework. Add a pattern to skills/{expect}/SKILL.md.")
+            else:
+                print(f"  FAIL: {path} also loads {[h for h in hits if h != expect]} — another "
+                      f"framework's skill claiming this file. Narrow its `paths:`.")
+    if bad:
+        FAIL += 1
+    else:
+        PASS += 1
+        print(f"  PASS: all {len(cases)} canonical Python paths load exactly one framework skill")
+
+    # Universal Python files: claimed by NO framework skill (the general std-python owns them).
+    for path in ("svc/pyproject.toml", "svc/requirements.txt", "svc/requirements-dev.txt"):
+        claimers = sorted(s for s, pats in skills.items()
+                          if s in FRAMEWORK and any(matches(p, path) for p in pats))
+        if claimers:
+            FAIL += 1
+            print(f"  FAIL: {path} (universal) claimed by {claimers} — that framework's "
+                  f"conventions would surface in every Python repo. Remove the glob.")
+        else:
+            PASS += 1
+            print(f"  PASS: {path} (universal) claimed by no framework skill")
+
+    # And the general skill must actually claim them — a universal file nobody claims
+    # means the Python conventions never become eligible at all.
+    for path in ("svc/pyproject.toml", "svc/app/services/billing.py"):
+        if any(matches(p, path) for p in skills.get("std-python", [])):
+            PASS += 1
+            print(f"  PASS: {path} eligible via the general std-python")
+        else:
+            FAIL += 1
+            print(f"  FAIL: {path} not claimed by std-python — the general Python skill "
+                  f"cannot load for it.")
+
+    # No Python skill may claim another stack's canonical files (and none of the three
+    # Python-suffix skills claims .rb/.tsx globs at all today — pin it).
+    for path in ("web/src/pages/Dashboard.tsx", "backend/app/models/user.rb",
+                 "next/src/app/page.tsx"):
+        claimers = sorted(
+            s for s, pats in skills.items()
+            if s in ("std-python", "std-fastapi", "std-django",
+                     "std-python-ai-ml", "std-python-performance")
+            and any(matches(p, path) for p in pats))
+        if claimers:
+            FAIL += 1
+            print(f"  FAIL: {path} (another stack) claimed by {claimers}.")
+        else:
+            PASS += 1
+            print(f"  PASS: {path} untouched by the Python skills")
+
+
+def test_python_stack_enforcement():
+    """The Python secondary stack must be reached by the same deterministic
+    enforcement that reaches Rails — a convention that only exists while a skill is
+    open is not a standard. Pins the v3.2.0 hook work: bare-except warnings,
+    the Django models.py file limit, sensitive-data-in-logs for FastAPI dirs, and
+    django/fastapi framework detection with its Rails-first tie-break."""
+    print("\n[python enforcement — the hooks reach .py the way they reach .rb]")
+    global PASS, FAIL
+    import importlib.util
+    import tempfile
+
+    tmp = tempfile.mkdtemp()
+
+    def write(rel, content):
+        path = os.path.join(tmp, *rel.split("/"))
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(content)
+        return path
+
+    # --- error-handling: bare except / BaseException (the rescue Exception analog) ---
+    bare = write("svc/app/services/a.py", "try:\n    run()\nexcept:\n    recover()\n")
+    assert_output_contains("bare `except:` flagged, names std-python",
+                           "error-handling-checker.py", "Edit", {"file_path": bare}, "std-python")
+    base = write("svc/app/services/b.py",
+                 "try:\n    run()\nexcept BaseException as exc:\n    recover(exc)\n")
+    assert_output_contains("`except BaseException` flagged",
+                           "error-handling-checker.py", "Edit", {"file_path": base}, "std-python")
+    tup = write("svc/app/services/e.py",
+                "try:\n    run()\nexcept (BaseException, ValueError) as exc:\n    recover(exc)\n")
+    assert_output_contains("tuple `except (BaseException, ...)` flagged — same width, different spelling",
+                           "error-handling-checker.py", "Edit", {"file_path": tup}, "std-python")
+    narrow = write("svc/app/services/c.py",
+                   "try:\n    run()\nexcept ValueError as exc:\n    raise AppError() from exc\n")
+    assert_silent("narrow except with re-raise is not flagged",
+                  "error-handling-checker.py", "Edit", {"file_path": narrow})
+    empty = write("svc/app/services/d.py", "try:\n    run()\nexcept Exception:\n    pass\n")
+    assert_output_contains("empty `except: pass` still flagged (regression)",
+                           "error-handling-checker.py", "Edit", {"file_path": empty}, "empty error handler")
+
+    # --- code-quality: Django's one-FILE models module gets the models limit ---
+    filler = "".join(f"F{i} = {i}\n" for i in range(220))
+    dj_models = write("backend/apps/orders/models.py", filler)
+    assert_output_contains("220-line Django models.py exceeds the 200-line model limit",
+                           "code-quality-checker.py", "Edit", {"file_path": dj_models}, "200-line")
+    service = write("svc/app/services/billing.py", filler)
+    assert_silent("220-line service file is within the 300-line default",
+                  "code-quality-checker.py", "Edit", {"file_path": service})
+
+    # --- monitoring: sensitive data in logs, Python edition ---
+    fstr = write("svc/app/routers/auth.py", 'logger.info(f"login failed for {password}")\n')
+    assert_output_contains("f-string secret in a router log flagged",
+                           "monitoring-checker.py", "Edit", {"file_path": fstr}, "sensitive")
+    kwarg = write("svc/app/tasks/sync.py", 'logger.warning("retry", token=raw_token)\n')
+    assert_output_contains("structlog kwarg secret in a task log flagged",
+                           "monitoring-checker.py", "Edit", {"file_path": kwarg}, "sensitive")
+    compound = write("svc/app/routers/oauth.py", 'logger.info("issued", access_token=at)\n')
+    assert_output_contains("compound kwarg (`access_token=`) flagged — the dominant real spelling",
+                           "monitoring-checker.py", "Edit", {"file_path": compound}, "sensitive")
+    positional = write("svc/app/routers/legacy.py", 'logger.info("pw %s", password)\n')
+    assert_output_contains("stdlib %-style positional secret flagged",
+                           "monitoring-checker.py", "Edit", {"file_path": positional}, "sensitive")
+    benign = write("svc/app/routers/count.py", 'logger.info("usage", token_count=n, max_tokens=5)\n')
+    assert_silent("`token_count=`/`max_tokens=` are counters, not secrets",
+                  "monitoring-checker.py", "Edit", {"file_path": benign})
+    outside = write("svc/scripts/tool.py", 'logger.info(f"login failed for {password}")\n')
+    assert_silent("same line outside the boundary dirs is not the hook's business",
+                  "monitoring-checker.py", "Edit", {"file_path": outside})
+    catalog = write("svc/app/services/cat.py", "catalog.update(token=tok)\n")
+    assert_silent("`catalog.update(token=...)` is not a log call",
+                  "monitoring-checker.py", "Edit", {"file_path": catalog})
+    ruby = write("backend/app/controllers/s_controller.rb",
+                 'Rails.logger.info "pw #{password}"\n')
+    assert_output_contains("Ruby interpolation path unchanged (regression)",
+                           "monitoring-checker.py", "Edit", {"file_path": ruby}, "sensitive")
+
+    # --- api-design: FastAPI routers speak the same contract as Rails controllers ---
+    verb = write("svc/app/routers/users_bad.py",
+                 '@router.get("/getUsers")\nasync def list_users():\n    return []\n')
+    assert_output_contains("verb in a FastAPI route path flagged",
+                           "api-design-checker.py", "Edit", {"file_path": verb}, "verb")
+    lst = write("svc/app/routers/orders.py",
+                '@router.get("", response_model=list[OrderRead])\nasync def index():\n    ...\n')
+    assert_output_contains("response_model=list[...] is an unwrapped collection",
+                           "api-design-checker.py", "Edit", {"file_path": lst}, "data key")
+    envm = write("svc/app/routers/errors_bad.py",
+                 'return JSONResponse(status_code=404, content={"error": "Not found"})\n')
+    assert_output_contains("hand-built error body missing code/requestId",
+                           "api-design-checker.py", "Edit", {"file_path": envm}, "missing")
+    envok = write("svc/app/routers/errors_ok.py",
+                  'return JSONResponse(status_code=404, content={"error": msg, "code": "NOT_FOUND", '
+                  '"status": 404, "requestId": rid})\n')
+    assert_silent("a complete envelope is not flagged",
+                  "api-design-checker.py", "Edit", {"file_path": envok})
+    post200 = write("svc/app/routers/create_bad.py",
+                    '@router.post("")\nasync def create(payload: OrderCreate):\n    ...\n')
+    assert_output_contains("POST without status_code defaults to 200",
+                           "api-design-checker.py", "Edit", {"file_path": post200}, "201")
+    post201 = write("svc/app/routers/create_ok.py",
+                    '@router.post("", response_model=OrderRead, status_code=201)\n'
+                    'async def create(payload: OrderCreate):\n    ...\n')
+    assert_silent("POST with status_code=201 passes",
+                  "api-design-checker.py", "Edit", {"file_path": post201})
+    pyout = write("svc/app/services/not_api.py",
+                  'return JSONResponse(content={"error": "x"})\n')
+    assert_silent(".py outside app/routers|app/api is not this checker's business",
+                  "api-design-checker.py", "Edit", {"file_path": pyout})
+    nextroute = write("next/app/api/route.ts", "res.json([1, 2, 3])\n")
+    assert_silent("a Next.js app/api route.ts stays out of scope (FastAPI dirs are .py-only)",
+                  "api-design-checker.py", "Edit", {"file_path": nextroute})
+
+    # --- framework detection: markers, tie-break, and fallback ---
+    sys.path.insert(0, HOOKS_DIR)
+    import _hooklib
+
+    def detect_case(name, root_files, probe_rel, expect):
+        global PASS, FAIL
+        root = tempfile.mkdtemp()
+        os.makedirs(os.path.join(root, ".git"), exist_ok=True)  # stop the ancestor walk here
+        for rel, content in root_files.items():
+            path = os.path.join(root, *rel.split("/"))
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(content)
+        probe = os.path.join(root, *probe_rel.split("/"))
+        os.makedirs(os.path.dirname(probe), exist_ok=True)
+        got = _hooklib.detect_framework(probe)
+        if got == expect:
+            PASS += 1
+            print(f"  PASS: {name}")
+        else:
+            FAIL += 1
+            print(f"  FAIL: {name} — expected {expect!r}, got {got!r}")
+
+    detect_case("manage.py marks a Django project",
+                {"manage.py": "#!/usr/bin/env python\n"},
+                "apps/orders/services.py", "django")
+    detect_case("pyproject fastapi dependency marks a FastAPI project",
+                {"pyproject.toml": '[project]\ndependencies = ["fastapi[standard]"]\n'},
+                "app/routers/users.py", "fastapi")
+    detect_case("alembic.ini + app/main.py marks a FastAPI project",
+                {"alembic.ini": "[alembic]\n", "app/main.py": "app = create_app()\n"},
+                "app/services/billing.py", "fastapi")
+    detect_case("mixed root: Rails markers win the tie (Rails is the primary backend)",
+                {"Gemfile": "source 'https://rubygems.org'\n", "manage.py": "#\n"},
+                "app/models/user.rb", "rails")
+    detect_case("a plain Python library is neither framework",
+                {"pyproject.toml": '[project]\ndependencies = ["requests"]\n'},
+                "src/util.py", None)
+    detect_case("prose/comment mention of django does not misclassify (dependency-anchored grep)",
+                {"pyproject.toml": '[project]\ndependencies = ["pandas", "pyarrow"]\n'
+                                   '[tool.ruff.lint]\n'
+                                   '# DJ rules are for django projects; we do not use django here\n'
+                                   'ignore = ["DJ001"]\n'},
+                "src/util.py", None)
+    detect_case("a django DEPENDENCY beats a fastapi comment",
+                {"pyproject.toml": '[project]\ndependencies = ["django>=5.0", "celery"]\n'
+                                   '# TODO: evaluate migrating the admin API to fastapi\n'},
+                "scripts/seed.py", "django")
+    detect_case("poetry-style django table key detected",
+                {"pyproject.toml": '[tool.poetry.dependencies]\npython = "^3.12"\ndjango = "^5.0"\n'},
+                "apps/shop/services.py", "django")
+
+    # Path-structure fallback: no markers on disk at all.
+    bare_root = tempfile.mkdtemp()
+    os.makedirs(os.path.join(bare_root, ".git"), exist_ok=True)
+    for probe_rel, expect, label in (
+            ("svc/app/routers/users.py", "fastapi", "fallback: app/routers shape is FastAPI"),
+            ("backend/apps/orders/migrations/0001_init.py", "django",
+             "fallback: migrations dirs are Django (alembic uses alembic/versions)"),
+            ("svc/src/app/main.py", "fastapi",
+             "fallback: src-layout `app` package is Python — the .py guard runs before "
+             "the extension-blind src/app Next.js rule")):
+        got = _hooklib.detect_framework(os.path.join(bare_root, *probe_rel.split("/")))
+        if got == expect:
+            PASS += 1
+            print(f"  PASS: {label}")
+        else:
+            FAIL += 1
+            print(f"  FAIL: {label} — expected {expect!r}, got {got!r}")
+
+    # --- SessionStart AREA_RULES: the detected areas must announce real skills ---
+    spec = importlib.util.spec_from_file_location(
+        "ssc", os.path.join(HOOKS_DIR, "session-start-check.py"))
+    ssc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ssc)
+    repo = os.path.abspath(os.path.join(HOOKS_DIR, ".."))
+    for area in ("django", "fastapi"):
+        rules = ssc.AREA_RULES.get(area, "")
+        named = [r.strip() for r in rules.split(",") if r.strip()]
+        missing = [n for n in named
+                   if not os.path.isfile(os.path.join(repo, "skills", n, "SKILL.md"))]
+        if not named:
+            FAIL += 1
+            print(f"  FAIL: AREA_RULES has no '{area}' entry — detection exists but announces nothing")
+        elif missing:
+            FAIL += 1
+            print(f"  FAIL: AREA_RULES['{area}'] names skills that do not exist: {missing}")
+        elif "std-python" not in named:
+            FAIL += 1
+            print(f"  FAIL: AREA_RULES['{area}'] omits the general std-python skill")
+        else:
+            PASS += 1
+            print(f"  PASS: AREA_RULES['{area}'] announces {len(named)} real skills")
+
+
 def main():
     print("=" * 60)
     print("Hook Test Harness")
@@ -3460,6 +3772,8 @@ def main():
     test_the_adr_template_has_one_section_set()
     test_the_error_envelope_has_one_shape()
     test_framework_skills_load_for_their_own_framework()
+    test_python_skills_load_for_their_own_framework()
+    test_python_stack_enforcement()
     test_checks_match_this_stack()
     test_gates_actually_fire_where_registered()
     test_gates_do_not_fire_on_correct_work()

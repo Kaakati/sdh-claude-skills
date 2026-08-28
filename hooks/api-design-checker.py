@@ -4,9 +4,11 @@ PostToolUse hook: API design checker for controller and API route files.
 
 Replaces the agent-based API design hook with a deterministic command hook.
 Checks files under backend/app/controllers/, mobile/src/api/, web/src/api/, next/src/actions/
+— and, for `.py` only, FastAPI routers under app/routers/ and app/api/ —
 for common API design violations per the `std-api-design` skill.
 Exits silently (exit 0, no output) for non-matching files.
 """
+import os
 import re
 
 import _hooklib as hooklib
@@ -18,6 +20,14 @@ ALLOWED_DIRS = (
     "app/controllers",
     "src/api",
     "src/actions",
+)
+
+# FastAPI's boundary dirs — claimed for `.py` ONLY. `app/api` is also where Next.js
+# App Router keeps route.ts handlers; gating on extension keeps this a Python
+# extension rather than a silent scope change for every Next repo.
+PY_ALLOWED_DIRS = (
+    "app/routers",
+    "app/api",
 )
 
 # Common verbs that should not appear in URL route paths
@@ -103,6 +113,30 @@ KEY_SNAKE_REQUEST_ID = re.compile(r"""(?:^|[{,\s])(?:request_id\s*:|["']request_
 KEY_CODE = re.compile(r"""(?:^|[{,\s])(?:code\s*:|["']code["']\s*:)""", re.M)
 
 
+def _envelope_warnings(block):
+    """Missing/miscased envelope keys for one rendered error block (any language —
+    the KEY_* patterns match both Ruby symbol keys and quoted dict/object keys)."""
+    missing = []
+    if not KEY_CODE.search(block):
+        missing.append("code")
+    if not KEY_REQUEST_ID.search(block):
+        # Distinguish "absent" from "present but snake_case" — different bug, different fix.
+        if KEY_SNAKE_REQUEST_ID.search(block):
+            return [
+                "WARNING: Error response uses `request_id`; JSON response keys are camelCase "
+                "on this stack — use `requestId: request.request_id` per the "
+                "`std-api-design` skill."
+            ]
+        missing.append("requestId")
+    if missing:
+        return [
+            f"WARNING: Error response missing {'/'.join(missing)}. The envelope is "
+            f"`error`, `code`, `status`, optional `details`, `requestId` per the "
+            f"`std-api-design` skill."
+        ]
+    return []
+
+
 def check_error_response_format(content):
     """Check rendered error bodies carry `code` and `requestId`, per the canonical envelope.
 
@@ -115,27 +149,7 @@ def check_error_response_format(content):
     warnings = []
     error_render = re.compile(r"render\s+json:\s*\{[^}]*\berror\b[^}]*\}", re.DOTALL)
     for match in error_render.finditer(content):
-        block = match.group(0)
-        missing = []
-        if not KEY_CODE.search(block):
-            missing.append("code")
-        if not KEY_REQUEST_ID.search(block):
-            # Distinguish "absent" from "present but snake_case" — different bug, different fix.
-            if KEY_SNAKE_REQUEST_ID.search(block):
-                warnings.append(
-                    "WARNING: Error response uses `request_id`; JSON response keys are camelCase "
-                    "on this stack — use `requestId: request.request_id` per the "
-                    "`std-api-design` skill."
-                )
-                continue
-            missing.append("requestId")
-        if missing:
-            warnings.append(
-                f"WARNING: Error response missing {'/'.join(missing)}. The envelope is "
-                f"`error`, `code`, `status`, optional `details`, `requestId` per the "
-                f"`std-api-design` skill."
-            )
-
+        warnings.extend(_envelope_warnings(match.group(0)))
     return warnings
 
 
@@ -168,14 +182,69 @@ def check_post_returns_200(content):
     return warnings
 
 
+def check_fastapi_unwrapped_list(content):
+    """`response_model=list[XRead]` serializes a bare JSON array — the house
+    collection envelope is `{ data: [...] }` (std-api-design), so list responses
+    need a wrapper schema."""
+    if re.search(r"response_model\s*=\s*(?:list|List)\s*\[", content):
+        return [
+            "WARNING: Collection response not wrapped in data key per the "
+            "`std-api-design` skill. Use a wrapper schema ({ data: [...] }), not "
+            "response_model=list[...]."
+        ]
+    return []
+
+
+def check_fastapi_error_envelope(content):
+    """Hand-built JSONResponse error bodies bypass the ONE app-level exception
+    handler std-fastapi prescribes — when they exist anyway, they must still carry
+    the envelope keys. Same inline-literal blind spot as the Rails check, same
+    reason: the inline dict is what gets written when someone is NOT using the
+    handler, which is exactly the case worth catching."""
+    warnings = []
+    error_body = re.compile(
+        r"JSONResponse\s*\(\s*(?:[^()]*?content\s*=\s*)?\{[^}]*[\"']error[\"'][^}]*\}",
+        re.DOTALL,
+    )
+    for match in error_body.finditer(content):
+        warnings.extend(_envelope_warnings(match.group(0)))
+    return warnings
+
+
+def check_fastapi_post_default_200(content):
+    """FastAPI's `.post()` decorator defaults to 200; creation returns 201 on this
+    stack. The decorator window runs to the following `def` so multi-line decorator
+    args (dependencies=[Depends(...)]) are read whole."""
+    warnings = []
+    for match in re.finditer(
+            r"@\w+\.post\s*\((.*?)\n\s*(?:async\s+)?def\s", content, re.DOTALL):
+        args = match.group(1)
+        if re.search(r"status_code\s*=\s*200\b", args):
+            warnings.append(
+                "WARNING: POST route sets status_code=200; creation returns 201 "
+                "Created per the `std-api-design` skill."
+            )
+        elif "status_code" not in args:
+            warnings.append(
+                "WARNING: POST route without status_code= defaults to 200 — set "
+                "status_code=201 for creations per the `std-api-design` skill."
+            )
+    return warnings
+
+
 def check(event):
     file_path = hooklib.get_file_path(event)
 
     if not file_path:
         return []
 
-    # Check canonical directory (wrapper-agnostic)
-    if not hooklib.under_any(file_path, ALLOWED_DIRS):
+    # Check canonical directory (wrapper-agnostic); FastAPI dirs are .py-only —
+    # `app/api` also holds Next.js route.ts handlers, which stay out of scope.
+    _, ext = os.path.splitext(file_path)
+    if ext == ".py":
+        if not hooklib.under_any(file_path, PY_ALLOWED_DIRS):
+            return []
+    elif not hooklib.under_any(file_path, ALLOWED_DIRS):
         return []
 
     # Read and analyze file
@@ -185,9 +254,14 @@ def check(event):
 
     warnings = []
     warnings.extend(check_verbs_in_routes(content))
-    warnings.extend(check_unwrapped_array_response(content))
-    warnings.extend(check_error_response_format(content))
-    warnings.extend(check_post_returns_200(content))
+    if ext == ".py":
+        warnings.extend(check_fastapi_unwrapped_list(content))
+        warnings.extend(check_fastapi_error_envelope(content))
+        warnings.extend(check_fastapi_post_default_200(content))
+    else:
+        warnings.extend(check_unwrapped_array_response(content))
+        warnings.extend(check_error_response_format(content))
+        warnings.extend(check_post_returns_200(content))
 
     deduped = []
     if warnings:
