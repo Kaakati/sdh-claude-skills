@@ -18,6 +18,11 @@ does NOT live in routes.rb. `Sidekiq::Web.use Rack::Auth::Basic` goes in
 a gate that flags correct code is a gate people learn to ignore. So the initializers are read
 from disk before warning.
 
+The false-NEGATIVE trap beside it: the same API-only app must also hand Sidekiq::Web a session
+(`Sidekiq::Web.use ActionDispatch::Cookies`, `...Session::CookieStore`) before the dashboard
+works at all. That middleware is required and is not authentication, so it must not silence the
+warning; neither must `Sidekiq::Web.app_url`, which only sets the dashboard's "Back to App" link.
+
 Returns no warnings for non-matching files.
 """
 import os
@@ -29,13 +34,22 @@ MOUNT = re.compile(r"^\s*mount\s+Sidekiq::Web\b", re.M)
 
 # Wrappers that constitute authentication in routes.rb itself. `authenticate` is Devise's route
 # helper; `constraints` covers a custom constraint class.
-ROUTE_GUARD = re.compile(r"^\s*(?:authenticate\b|authenticated\b|constraints\b)", re.M)
+ROUTE_GUARD = re.compile(r"^\s*(?:authenticate\b|authenticated\b|constraints\b)")
+INLINE_CONSTRAINT = re.compile(r"\bconstraints:\s*\S")
+OPENS_BLOCK = re.compile(r"\bdo\s*(?:\|[^|]*\|)?\s*(?:#.*)?$")
 
-# Protection applied to the Rack app itself, conventionally in an initializer.
-INIT_GUARD = re.compile(
-    r"Sidekiq::Web\.use\b|Rack::Auth::Basic|Sidekiq::Web\.app_url|"
-    r"Sidekiq::Web\.set\s*\(?\s*:session_secret",
-)
+# Authentication applied to the Rack app itself, conventionally in an initializer: Basic/Digest
+# auth, or any other middleware handed to Sidekiq::Web that is not session plumbing.
+INIT_AUTH = re.compile(r"Rack::Auth::(?:Basic|Digest)\b")
+WEB_USE = re.compile(r"Sidekiq::Web\.use\s*\(?\s*([\w:]+)")
+SESSION_MIDDLEWARE = re.compile(r"Session|Cookies?\b|Flash\b|Rack::Protection|MethodOverride")
+
+
+def _protects_rack_app(content):
+    """True if an initializer's content authenticates the Sidekiq Rack app."""
+    if INIT_AUTH.search(content):
+        return True
+    return any(not SESSION_MIDDLEWARE.search(m.group(1)) for m in WEB_USE.finditer(content))
 
 
 def _initializers_guard_it(routes_path):
@@ -54,35 +68,32 @@ def _initializers_guard_it(routes_path):
         names = os.listdir(init_dir)
     except OSError:
         return True  # cannot tell; do not accuse
-    for name in names:
-        if not name.endswith(".rb"):
-            continue
-        content = hooklib.read_file(os.path.join(init_dir, name))
-        if content and INIT_GUARD.search(content):
-            return True
-    return False
+    return any(_protects_rack_app(hooklib.read_file(os.path.join(init_dir, name)))
+               for name in names if name.endswith(".rb"))
 
 
 def _mount_is_guarded(content, match_start):
-    """True if the mount sits inside an authenticate/constraints block.
+    """True if the mount carries its own `constraints:`, or sits inside an authenticate/constraints
+    block.
 
-    Indentation-based rather than a Ruby parse: a guarded mount is nested inside a `do` block, so
-    it is indented under a guard line that appears above it.
+    Indentation-based rather than a Ruby parse. Walking up from the mount, only a `do` line
+    indented LESS than every enclosing line found so far can contain it, and each one found
+    narrows that limit. The earlier walk compared every line with the mount's own indent, so a
+    guard block that had already CLOSED above the mount — a sibling, not a parent — counted as
+    wrapping it, and an unauthenticated mount passed silently.
     """
-    before = content[:match_start]
-    lines = before.split("\n")
-    mount_line = content[match_start:].split("\n")[0]
-    mount_indent = len(mount_line) - len(mount_line.lstrip())
-    if mount_indent == 0:
-        return False  # top-level mount cannot be inside a block
-    for line in reversed(lines):
-        if not line.strip():
-            continue
+    line_start = content.rfind("\n", 0, match_start) + 1
+    mount_line = content[line_start:].split("\n", 1)[0]
+    if INLINE_CONSTRAINT.search(mount_line):
+        return True
+    limit = len(mount_line) - len(mount_line.lstrip())
+    for line in reversed(content[:line_start].split("\n")):
         indent = len(line) - len(line.lstrip())
-        if indent < mount_indent and ROUTE_GUARD.match(line) and line.rstrip().endswith("do"):
+        if not line.strip() or indent >= limit or not OPENS_BLOCK.search(line):
+            continue
+        if ROUTE_GUARD.match(line):
             return True
-        if indent == 0 and line.strip().startswith("end"):
-            return False
+        limit = indent
     return False
 
 
@@ -111,7 +122,7 @@ def check(event):
         return []
 
     norm = hooklib.normalize(file_path)
-    if not norm.endswith("config/routes.rb"):
+    if not ("/" + norm).endswith("/config/routes.rb"):
         return []
 
     content = hooklib.read_file(file_path)

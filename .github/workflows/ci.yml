@@ -45,6 +45,28 @@ jobs:
       - name: Run the hook fixture suite (via the cross-platform launcher)
         run: bash hooks/run-python.sh hooks/tests/run-all.py
 
+  hook-fixtures-windows:
+    name: Orthogonality fixtures (Windows)
+    # Release 4.0.0, owner decision I. The orthogonality engine has code paths that only Windows takes:
+    # os.replace retries onto an index file another process holds open, `.cmd`/`.bat` tool shims run
+    # through cmd.exe, case-folded project keys, backslash paths in hook events, and first-open file
+    # scanning on freshly generated trees. The Linux job above never reaches them, so this job runs the
+    # harness filtered to the orthogonality tests (`--only orthogonality`: the parsers, registry,
+    # scripts, store, performance guards, fail-open checks and the orthogonality trigger-matrix rows).
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      # autocrlf would check the repo out with CRLF endings; the hooks and the fixtures assume LF.
+      - name: Check out with LF line endings
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run the orthogonality tests (via the cross-platform launcher)
+        shell: bash
+        run: bash hooks/run-python.sh hooks/tests/run-all.py --only orthogonality
+
   plugin-manifest:
     name: Plugin manifest & structure
     runs-on: ubuntu-latest
@@ -238,7 +260,7 @@ jobs:
 
           floor_changed=0
           if echo "$CHANGED" | grep -qE '^\.claude/settings\.json$'; then
-            if ! git diff "$BASE"...HEAD -- .claude/settings.json | grep -qE '^[+-].*"(Read|Bash)\('; then
+            if ! git diff "$BASE"...HEAD -- .claude/settings.json | grep -qE '^[+-].*"(Read|Bash|PowerShell)\('; then
               echo "settings.json changed but no deny/allow rules moved — not an interface change."
             else
               floor_changed=1
@@ -308,41 +330,63 @@ jobs:
         # The managed template went stale once already (it missed the terraform denies added
         # to the reference floor). Layer 5's floor is deliberately a SUBSET — the catastrophic
         # tier only, never the build-artifact/context denies (that would be maximalism) — so
-        # this checks containment of the security tier, not equality.
+        # this checks containment of the security tier, not equality. The tier is
+        # session-start-check's managed_tier(): this job and the sentinel share one definition,
+        # so a template CI passes is one the sentinel reports complete.
         run: |
           python - <<'EOF'
-          import json, re, sys
+          import importlib.util, json, re, sys
 
           def deny(path):
-              raw = open(path, encoding="utf-8").read()
-              # strip _comment / _README style annotation keys before parsing
-              return json.loads(raw).get("permissions", {}).get("deny", [])
+              return json.load(open(path, encoding="utf-8")).get("permissions", {}).get("deny", [])
 
-          project = set(deny(".claude/settings.json"))
-          managed = set(deny(".claude/managed-settings.template.json"))
+          spec = importlib.util.spec_from_file_location("sentinel", "hooks/session-start-check.py")
+          sentinel = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(sentinel)
 
-          # The catastrophic tier: secrets, privilege escalation, remote-exec, irreversible infra.
-          CATASTROPHIC = re.compile(
-              r"\.env|secrets/|master\.key|credentials|sudo|rm -rf|chmod 777|"
-              r"\| bash|terraform destroy|tofu destroy|terraform state (rm|mv|push)|force-unlock"
-          )
-          required = {r for r in project if CATASTROPHIC.search(r)}
-          missing = sorted(required - managed)
+          project = deny(".claude/settings.json")
+          managed = deny(".claude/managed-settings.template.json")
+          required = set(sentinel.managed_tier(project))
+          missing = sorted(required - set(managed))
+
+          # Every shell deny carries its PowerShell mirror, in both files: the PowerShell tool is on
+          # by default on Windows, and a Bash(...) rule never matches it. A native program keeps its
+          # argv; `rm -rf /` and `curl | bash` mirror as cmdlet rules (PowerShell checks each
+          # pipeline stage alone, so remote exec is denied at Invoke-Expression). No backslashes:
+          # Claude Code can read one inside a rule as an escape character.
+          ROOT_DELETE = ["PowerShell(Remove-Item / *)", "PowerShell(Remove-Item * /)",
+                         "PowerShell(Remove-Item * / *)", "PowerShell(Remove-Item *:/)",
+                         "PowerShell(Remove-Item *:/ *)"]
+          CMDLET_MIRRORS = {"Bash(rm -rf /)": ROOT_DELETE, "Bash(rm -rf /*)": ROOT_DELETE,
+                            "Bash(curl * | bash)": ["PowerShell(Invoke-Expression:*)"],
+                            "Bash(wget * | bash)": ["PowerShell(Invoke-Expression:*)"]}
+          NATIVE = re.compile(r"^Bash\(((?:sudo|chmod|nc|ncat|terraform|tofu)\b.*)\)$")
+
+          def unmirrored(path, rules):
+              gaps = []
+              for rule in (r for r in rules if r.startswith("Bash(")):
+                  native = NATIVE.match(rule)
+                  mirrors = [f"PowerShell({native.group(1)})"] if native else CMDLET_MIRRORS.get(rule)
+                  if mirrors is None:
+                      gaps.append(f"{path}: {rule} has no PowerShell mirror mapping in this job; add one")
+                  gaps += [f"{path}: {rule} lacks its PowerShell mirror {m}" for m in mirrors or [] if m not in rules]
+              return gaps
 
           # And the inverse: context-economy denies must NOT be in non-overridable org policy.
           CONTEXT_ONLY = re.compile(r"dist/|build/|\.next/|coverage/|\.min\.|generated|public/(assets|packs)|tmp/cache")
           overreach = sorted(r for r in managed if CONTEXT_ONLY.search(r))
 
-          fail = []
-          if missing:
-              fail += [f"managed template is STALE — missing catastrophic deny: {r}" for r in missing]
-          if overreach:
-              fail += [f"managed template overreaches — {r} is a context-economy rule, not a security "
-                       f"one; non-overridable org policy for it is maximalism" for r in overreach]
+          fail = [f"managed template is STALE — missing catastrophic deny: {r}" for r in missing]
+          fail += unmirrored(".claude/settings.json", project)
+          fail += unmirrored(".claude/managed-settings.template.json", managed)
+          fail += [f"managed template overreaches — {r} is a context-economy rule, not a security "
+                   f"one; non-overridable org policy for it is maximalism" for r in overreach]
           if fail:
               for x in fail: print("FAIL: " + x)
               sys.exit(1)
-          print(f"managed floor OK — carries all {len(required)} catastrophic denies, no context-economy overreach")
+          mirrors = sum(r.startswith("PowerShell(") for r in required)
+          print(f"managed floor OK — carries all {len(required)} catastrophic denies ({mirrors} PowerShell "
+                f"mirrors), every shell deny mirrored, no context-economy overreach")
           EOF
 
   sentinel-guard:

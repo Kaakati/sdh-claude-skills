@@ -2,9 +2,10 @@
 """PostToolUse hook: Monitoring standards checker.
 
 Checks .rb files under app/controllers/ and app/jobs/ (any wrapper) for sensitive
-data interpolated into log statements — and .py files under the house FastAPI
-layout (app/routers/, app/api/, app/services/, app/tasks/) for the same defect
-in f-strings, log keyword arguments, and %-style positional arguments.
+data in log statements — and .py files where request and job data meets logging: the house
+FastAPI layout (app/routers/, app/api/), a services or tasks package, and a Django app's
+views.py / viewsets.py / services.py / tasks.py — in f-strings, log keyword arguments, and
+%-style positional arguments.
 
 It does NOT check for request_id on each log line: that id is attached by Rails via
 `config.log_tags`, so it is not present in the source, and the remedy for its absence
@@ -17,10 +18,25 @@ import re
 import _hooklib as hooklib
 
 ALLOWED_DIRS = ("app/controllers", "app/jobs")
-# The Python face of the same rule: the house FastAPI layout's boundary dirs
-# (std-fastapi) plus Celery task modules — where request/job data meets logging.
-PY_ALLOWED_DIRS = ("app/routers", "app/api", "app/services", "app/tasks")
+# The Python face of the same rule: FastAPI's boundary dirs (std-fastapi), service and Celery task
+# packages (the std-python src layout puts them under src/<package>/, not app/), and Django's
+# per-app modules (std-django: `models.py serializers.py views.py services.py tasks.py`).
+PY_ALLOWED_DIRS = ("app/routers", "app/api", "services", "tasks", "views")
+PY_ALLOWED_FILES = ("views.py", "viewsets.py", "services.py", "tasks.py")
 SENSITIVE_WORDS = ("password", "token", "secret", "ssn", "credit_card")
+
+PY_LOG_CALL = re.compile(r"\b(?:logger|logging|log)\.\w+")  # \b: `catalog.update` is not `log.`
+RB_LOG_CALL = re.compile(r"(?:Rails\.logger|logger)\.\w+")
+MAX_CALL_CHARS = 1000
+
+# "token" is the one sensitive word with a dominant innocent meaning on this stack: LLM usage
+# (`{usage.output_tokens}`, `{token_count}`) and tokenizers, logged by every AI service. The kwarg
+# and positional forms already let a suffix break the match (`token_count=` escapes); interpolation
+# matched the word ANYWHERE inside the braces, so logging token usage read as leaking a secret.
+TOKEN_IS_A_COUNT = r"(?!s\b|s_|_count|_usage|_limit|_budget|_type|iz)"
+
+WARNING = ("WARNING: Potentially sensitive data in log statement "
+           "per the `std-monitoring` skill. Never log passwords, tokens, PII, or secrets.")
 
 
 # REMOVED: check_log_without_request_id.
@@ -46,37 +62,61 @@ SENSITIVE_WORDS = ("password", "token", "secret", "ssn", "credit_card")
 # genuinely a property of the call site.
 
 
-def check_sensitive_data_in_logs(content, ext=".rb"):
-    """Check for sensitive data words in log interpolation.
+def _py_leak(word):
+    """Three ways a secret reaches a Python log call. `\\w*` prefixes let compound names
+    (`access_token=`) match while `token_count=` still escapes — the suffix breaks the
+    `=`/word-boundary adjacency."""
+    tail = TOKEN_IS_A_COUNT if word == "token" else ""
+    return (r"\{[^}]*" + word + tail            # f-string {access_token}
+            + r"|\w*" + word + r"\s*="           # kwarg access_token=...
+            + r"|,\s*\w*" + word + r"\b")        # positional ..., password)
 
-    Ruby: `#{...}` interpolation inside a Rails.logger/logger call.
-    Python: f-string `{...}` interpolation, a keyword argument (structlog idiom —
-    compound names like `access_token=` count), or a positional argument after a
-    comma (stdlib `%`-style: `logger.info("pw %s", password)`). Plain string
-    concatenation (`"pw " + password`) is the one idiom not matched."""
+
+def _rb_leak(word):
+    """Ruby: `#{...}` interpolation, or a hash key — the structured (lograge) form the
+    `std-monitoring` skill prescribes: `logger.info(event: "x", password: p)`, `:password =>`.
+    The key must follow `(`, `,` or `{`, so `"token: #{id}"` inside a string is not a key."""
+    tail = TOKEN_IS_A_COUNT if word == "token" else ""
+    return (r"[#$]\{[^}]*" + word + tail
+            + r"|[(,{]\s*\w*" + word + r":\s"
+            + r"|[(,{]\s*[:\"']\w*" + word + r"[\"']?\s*=>")
+
+
+def _call_text(content, name_end):
+    """The log call's arguments: through the balanced `)` when the call has parentheses, so a
+    call a formatter wrapped across lines (`ruff format` does, at 88 columns) is read whole;
+    otherwise the rest of the line (paren-less Ruby, block form)."""
+    rest = content[name_end:name_end + MAX_CALL_CHARS]
+    stripped = rest.lstrip(" \t")
+    if not stripped.startswith("("):
+        return rest.split("\n", 1)[0]
+    depth = 0
+    for i, ch in enumerate(stripped):
+        depth += 1 if ch == "(" else -1 if ch == ")" else 0
+        if depth == 0:
+            return stripped[:i + 1]
+    return stripped
+
+
+def check_sensitive_data_in_logs(content, ext=".rb"):
+    """Check for sensitive data words in log interpolation, keyword/hash keys, and arguments.
+
+    Plain string concatenation (`"pw " + password`) is the one idiom not matched."""
+    call, leak_of = (PY_LOG_CALL, _py_leak) if ext == ".py" else (RB_LOG_CALL, _rb_leak)
+    for m in call.finditer(content):
+        text = _call_text(content, m.end()).lower()
+        if any(word in text and re.search(leak_of(word), text) for word in SENSITIVE_WORDS):
+            return [WARNING]  # One warning is enough
+    return []
+
+
+def _in_scope(file_path, ext):
+    if ext == ".rb":
+        return hooklib.under_any(file_path, ALLOWED_DIRS)
     if ext == ".py":
-        # \b so `catalog.update(...)` is not read as a `log.` call.
-        log_pattern = re.compile(r"\b(?:logger|logging|log)\.\w+.*?$", re.MULTILINE)
-        # Three ways a secret reaches a Python log line. `\w*` prefixes let
-        # compound names (`access_token=`) match while `token_count=` still
-        # escapes — the suffix breaks the `=`/word-boundary adjacency.
-        interp_of = lambda word: (r"(?:\{[^}]*" + word          # f-string {access_token}
-                                  + r"|\w*" + word + r"\s*="     # kwarg access_token=...
-                                  + r"|,\s*\w*" + word + r"\b)")  # positional ..., password)
-    else:
-        log_pattern = re.compile(r"(?:Rails\.logger|logger)\.\w+.*?$", re.MULTILINE)
-        interp_of = lambda word: r"[#$]\{[^}]*" + word
-    warnings = []
-    for m in log_pattern.finditer(content):
-        line = m.group(0).lower()
-        for word in SENSITIVE_WORDS:
-            if word in line and re.search(interp_of(word), line):
-                warnings.append(
-                    "WARNING: Potentially sensitive data in log statement "
-                    "per the `std-monitoring` skill. Never log passwords, tokens, PII, or secrets."
-                )
-                return warnings  # One warning is enough
-    return warnings
+        return (hooklib.under_any(file_path, PY_ALLOWED_DIRS)
+                or os.path.basename(file_path) in PY_ALLOWED_FILES)
+    return False
 
 
 def check(event):
@@ -85,22 +125,14 @@ def check(event):
         return []
 
     _, ext = os.path.splitext(file_path)
-    if ext == ".rb":
-        if not hooklib.under_any(file_path, ALLOWED_DIRS):
-            return []
-    elif ext == ".py":
-        if not hooklib.under_any(file_path, PY_ALLOWED_DIRS):
-            return []
-    else:
+    if not _in_scope(file_path, ext):
         return []
 
     content = hooklib.read_file(file_path)
     if not content:
         return []
 
-    warnings = []
-    warnings.extend(check_sensitive_data_in_logs(content, ext))
-    return warnings
+    return check_sensitive_data_in_logs(content, ext)
 
 
 if __name__ == "__main__":

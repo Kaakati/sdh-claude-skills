@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """Shared helpers for Claude Code hooks.
 
-Centralizes event parsing, file reading, path normalization, and the run loops
-for advisory checkers (PostToolUse) and gates (PreToolUse) so individual hooks
-stay small and behave consistently across platforms.
+Centralizes event parsing, file reading, notices, output and the run loops for advisory checkers
+(PostToolUse) and gates (PreToolUse), so individual hooks stay small and behave consistently
+across platforms. Two responsibilities live in their own modules and are re-exported here, so
+every hook keeps calling `hooklib.<name>` with unchanged signatures:
+
+  * `_hookpaths.py` — project-relative matching (`under`, `rel_to_root`, `project_root`,
+    `replace_first_segment`, `normalize`) and framework detection (`detect_framework`)
+  * `_hookaudit.py` — the audit trail (`redact`, `audit_dir`, `append_audit`)
 
 Contract:
   * Advisory checker  -> `check(event) -> list[str]`  (warning lines; never blocks)
@@ -12,11 +17,75 @@ Contract:
 Run a checker standalone with `run_post_checker(check)`; run a gate with
 `run_pre_blocker(check, fail_closed=...)`. Both always exit 0 — blocking is
 communicated to Claude Code via the permissionDecision JSON, not the exit code.
+A fail-closed gate that cannot even START (no Python, a broken import) is the launcher's
+job: `run-python.sh --fail-closed` turns that into exit 2.
 """
 
+import hashlib
+import io
 import json
 import os
+import re
 import sys
+
+from _hookaudit import (  # noqa: F401  re-exported: hooks call these as hooklib.<name>
+    _REDACTIONS, _append_line, _ensure_audit_dir, _main_checkout, append_audit, audit_dir, redact,
+)
+from _hookpaths import (  # noqa: F401  re-exported: hooks call these as hooklib.<name>
+    _BACKEND_EXTENSIONS, _NEXT_CONFIGS, _PACKAGE_MARKERS, _RAILS_APP_MARKERS, _RAILS_MARKERS,
+    _RN_CONFIGS, _VITE_CONFIGS, _ancestors, _backend_label, _deepest_existing_dir, _fold, _has,
+    _js_label, _label_for_dir, _package_json, _package_root, _pyproject, _pyproject_dep, _read_text,
+    _session_root, _structure_label, detect_framework, is_react_native, is_web_react, normalize,
+    project_root, rel_to_root, replace_first_segment, set_current_event, under, under_any,
+)
+
+# The event the running hook parsed. Path scoping reads its `cwd`, and gate decisions read its
+# tool and target for the audit trail, without threading the event through every caller.
+_CURRENT_EVENT = {}
+
+
+def _read_stream(stream):
+    """(text, error) from `stream` (default stdin). Never raises."""
+    try:
+        return (stream if stream is not None else sys.stdin).read(), None
+    except (OSError, ValueError, AttributeError) as exc:
+        return "", f"stdin could not be read ({type(exc).__name__})"
+
+
+def _parse(raw, read_error=None):
+    """(value, error): the decoded JSON, or {} and why it is not an event."""
+    if read_error:
+        return {}, read_error
+    if not raw.strip():
+        return {}, "empty event on stdin"
+    try:
+        return json.loads(raw), None
+    except ValueError as exc:
+        return {}, f"unparseable event on stdin ({type(exc).__name__}: {exc})"
+
+
+def _remember(event):
+    """Keep the parsed event current here and in `_hookpaths`, where the `cwd` fallbacks read it."""
+    global _CURRENT_EVENT
+    _CURRENT_EVENT = event if isinstance(event, dict) else {}
+    set_current_event(_CURRENT_EVENT)
+    _safe_stdio()
+
+
+def _safe_stdio():
+    """Never let a character the console codepage cannot encode crash a hook.
+
+    The launcher exports PYTHONUTF8=1, so in production stdout is already UTF-8. Run directly
+    (the harness, the documented dev loop) on a cp932 console, a plain print of an em dash raised
+    UnicodeEncodeError and the hook exited 1. The encoding stays what the reader decodes with —
+    the harness reads with the same locale — and only unencodable characters are replaced.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            if (stream.encoding or "").lower().replace("-", "") != "utf8":
+                stream.reconfigure(errors="replace")
+        except (AttributeError, ValueError, OSError):
+            pass
 
 
 def load_event(stream=None):
@@ -24,82 +93,238 @@ def load_event(stream=None):
 
     Returns {} on any parse error. A malformed or empty event must not crash a
     hook (fail-open at the parse boundary); gates add their own fail-closed
-    policy around the check logic via run_pre_blocker.
+    policy around the check logic via run_pre_blocker. To tell an empty or
+    unparseable event from a real one, use `load_event_strict`.
     """
-    if stream is None:
-        stream = sys.stdin
-    try:
-        return json.load(stream)
-    except (json.JSONDecodeError, EOFError, ValueError):
-        return {}
+    value, _error = _parse(*_read_stream(stream))
+    _remember(value)
+    return value
+
+
+def load_event_strict(stream=None):
+    """(event, error) — `error` is None only for a well-formed event object.
+
+    `load_event` folds "no event", "garbage" and "a JSON list" into `{}`, which a checker reads as
+    "nothing to check" and a gate as "nothing to deny". Right for fail-open code; wrong for the
+    callers that must refuse or report what they could not evaluate. A truncated event used to be
+    ALLOWED by the fail-closed gates, and an empty one looked exactly like a clean edit to the
+    dispatcher.
+    """
+    value, error = _parse(*_read_stream(stream))
+    if error is None and not isinstance(value, dict):
+        value, error = {}, f"event is a JSON {type(value).__name__}, not an object"
+    if error is None and not isinstance(value.get("tool_input", {}), dict):
+        error = "tool_input is not a JSON object"
+    _remember(value)
+    return value, error
 
 
 def tool_name(event):
-    return event.get("tool_name", "") or ""
+    return (event.get("tool_name", "") or "") if isinstance(event, dict) else ""
 
 
 def tool_input(event):
-    return event.get("tool_input", {}) or {}
+    data = event.get("tool_input", {}) if isinstance(event, dict) else {}
+    return data if isinstance(data, dict) else {}
+
+
+# The tools that run a shell command from `tool_input.command`. hooks.json registers every shell gate
+# on "Bash|PowerShell|Monitor". The hooks reference: "Match `Bash|PowerShell` in hooks that inspect
+# shell commands ... On Windows without Git Bash, the tool is enabled automatically and Claude Code
+# doesn't register the Bash tool at all. A hook that matches only `Bash` never fires there." Monitor
+# runs a watch command in the background under "the same permission rules as Bash" (tools reference).
+SHELL_TOOLS = ("Bash", "PowerShell", "Monitor")
+
+
+def is_shell_tool(event):
+    """True for a Bash, PowerShell or Monitor call."""
+    return tool_name(event) in SHELL_TOOLS
+
+
+def shell_command(event):
+    """The command a shell tool runs; "" for any other tool, and for a Monitor WebSocket watch (it
+    sends `ws` "in place of `command`"). A non-string command is returned as is, so a fail-closed gate
+    errors on it and denies rather than reading it as an empty command."""
+    command = tool_input(event).get("command") if is_shell_tool(event) else None
+    return "" if command is None else command
+
+
+def shell_dialect(event):
+    """"powershell" for the PowerShell tool; "bash" for Bash and Monitor (the `_shell` lexer dialects)."""
+    return "powershell" if tool_name(event) == "PowerShell" else "bash"
+
+
+# The MCP tools that write a file: hooks.json registers security-scan and mcp-install-gate on this
+# string verbatim, and both scripts test tool names against it (the registration test compares all
+# three). A matcher holding regex characters is "JavaScript regular expression, unanchored" in the
+# hooks reference, so it is anchored with ^ and $ and lists whole tool names: the verb-prefix
+# pattern it replaced, `mcp__.*__(write|edit|create|move).*`, put Gmail `create_draft`, Calendar
+# `create_event` and memory `create_entities` in front of a fail-closed gate. The server segment
+# stays open, since tools are named `mcp__<server>__<tool>` and a plugin-bundled server's
+# `mcp__plugin_<plugin>_<server>__<tool>`. The names are the reference filesystem server's four
+# writers, the GitHub server's `create_or_update_file` (a repository file sent as `path` and
+# `content`) and its `push_files`, which commits many files at once: `files`, "Array of file objects to
+# push, each object with path (string) and content (string)" (github-mcp-server README), read by
+# `get_file_entries`. `create_file` is out on purpose: the claude.ai Google Drive connector's
+# `create_file` takes a title and no path.
+MCP_FILE_WRITE_MATCHER = (r"^mcp__[^_].*__(write_file|edit_file|create_directory|move_file|create_or_update_file"
+                          r"|push_files)$")
+MCP_FILE_WRITE_TOOL = re.compile(MCP_FILE_WRITE_MATCHER)
+
+
+def is_mcp_file_write(name):
+    """True for an MCP tool the PreToolUse file gates are registered for (MCP_FILE_WRITE_MATCHER)."""
+    return isinstance(name, str) and bool(MCP_FILE_WRITE_TOOL.search(name))
 
 
 def get_file_path(event):
-    return tool_input(event).get("file_path", "") or ""
+    """The file a writing tool targets.
+
+    Write/Edit (and MultiEdit, on releases that still ship it) send `file_path`, NotebookEdit sends
+    `notebook_path`, and MCP filesystem writers send `path`, or `destination` for a move or copy.
+    `path` and `destination` count only for `mcp__*` tools: Grep and Glob take a `path` too, and a
+    directory being searched is not an edit target.
+    """
+    data = tool_input(event)
+    found = data.get("file_path") or data.get("notebook_path")
+    if not found and tool_name(event).startswith("mcp__"):
+        found = data.get("path") or data.get("destination")
+    return found if isinstance(found, str) else ""
+
+
+_CONTENT_KEYS = ("content", "new_string", "new_source")
 
 
 def get_content(event):
-    """The content being written (Write -> content, Edit -> new_string)."""
+    """Every piece of text the tool is about to write, joined.
+
+    Write -> content, Edit -> new_string, NotebookEdit -> new_source, plus each `edits[]` entry
+    (MultiEdit's new_string, the MCP filesystem editor's newText) and each `files[]` entry an MCP
+    call commits (`get_file_entries`). Reading only the first key scanned a one-key tool fine and a
+    notebook cell or a multi-edit not at all.
+    """
     data = tool_input(event)
-    return data.get("content", "") or data.get("new_string", "") or ""
+    parts = [data.get(key) for key in _CONTENT_KEYS]
+    edits = data.get("edits")
+    for edit in edits if isinstance(edits, list) else []:
+        if isinstance(edit, dict):
+            parts.extend((edit.get("new_string"), edit.get("newText")))
+    parts.extend(content for _path, content in get_file_entries(event))
+    return "\n".join(p for p in parts if isinstance(p, str) and p)
 
 
-def normalize(path):
-    """Normalize Windows backslashes to forward slashes for path matching."""
-    return (path or "").replace("\\", "/")
+def get_file_entries(event):
+    """(path, content) for each file an MCP call writes as a list: the GitHub server's `push_files`
+    sends `files`, each "with path (string) and content (string)". [] for every other tool — a single
+    target is `get_file_path`'s. A non-string content reads as ""."""
+    files = tool_input(event).get("files") if tool_name(event).startswith("mcp__") else None
+    entries = [entry for entry in files if isinstance(entry, dict)] if isinstance(files, list) else []
+    return [(entry["path"], entry.get("content") if isinstance(entry.get("content"), str) else "")
+            for entry in entries if isinstance(entry.get("path"), str)]
+
+
+def match_path(path):
+    """`normalize(path)`, lowercased where the filesystem itself folds case.
+
+    For a comparison that must follow the filesystem the hook runs on: NTFS and default APFS treat
+    `.ENV` and `.env` as one file, ext4 does not. Compare lowercase patterns against this.
+
+    security-scan does NOT use it, on purpose: its protected names (`.env`, `secrets/`, key files)
+    are semantic, and it folds case on every OS. A repository travels between NTFS, APFS and ext4
+    checkouts, so a `.ENV` or `Secrets/db.yml` write gets the same decision on every machine rather
+    than a deny on a laptop and an allow in Linux CI; its code-suffix exemption keeps a
+    `Private/Route.tsx` component allowed everywhere.
+    """
+    norm = normalize(path)
+    return norm.lower() if _folds_case(path) else norm
+
+
+def _folds_case(path):
+    if os.name == "nt":
+        return True
+    probe = _deepest_existing_dir(path) or ""
+    swapped = probe.swapcase()
+    if swapped == probe:
+        return sys.platform == "darwin"  # nothing to test with; APFS defaults to folding
+    try:
+        return os.path.exists(swapped) and os.path.samefile(probe, swapped)
+    except OSError:
+        return False
 
 
 def read_file(path):
-    """Read a file as UTF-8, replacing undecodable bytes. Returns "" on error."""
+    """Read a file as UTF-8, replacing undecodable bytes. Returns "" on error.
+
+    An empty read of a file that is not empty on disk is retried once: a formatter rewriting in
+    place truncates before it writes, and a checker landing in that window saw "" and passed
+    every rule without a word.
+    """
+    text = _read_text(path)
     try:
-        with open(path, "r", encoding="utf-8", errors="replace") as handle:
-            return handle.read()
-    except (OSError, IOError):
-        return ""
+        if not text and os.path.getsize(path) > 0:
+            text = _read_text(path)
+    except OSError:
+        pass
+    return text
 
 
-def emit(warnings, event_name="PostToolUse"):
+EMIT_MAX_LINES = 20
+EMIT_MAX_CHARS = 4000
+
+
+def emit(warnings, event_name="PostToolUse", system_message=None):
     """Deliver advisory warnings to the MODEL, not to a log nobody reads.
 
-    This used to be a bare `print(line)`, and that is where every advisory checker's output went
-    to die. The hook contract is explicit: *"For most events, stdout is written to the debug log
-    but not shown in the transcript. The exceptions are `UserPromptSubmit`,
-    `UserPromptExpansion`, and `SessionStart`, where stdout is added as context."* PostToolUse is
-    not one of the exceptions — so 14 checkers computed a correct warning, printed it, and threw
-    it away. Nobody was reading them: not the model, not the developer.
+    The hook contract: *"For most events, stdout is written to the debug log but not shown in the
+    transcript. The exceptions are `UserPromptSubmit`, `UserPromptExpansion`, and `SessionStart`."*
+    A bare `print(line)` from PostToolUse therefore reached nobody; `additionalContext` is the
+    supported channel, wrapped as a system reminder next to the tool result. Hooks are the one
+    component a plugin ships that fires deterministically on every matching edit, so this is the
+    plugin's only way to get a rule to the model automatically.
 
-    The supported way to reach the model from PostToolUse is `hookSpecificOutput.additionalContext`,
-    which the harness wraps as a system reminder next to the tool result that triggered it. This
-    repo already knew that — `vague-request-detector.py` has used the same contract all along —
-    the advisory path just never adopted it.
-
-    Why this matters beyond a bug: a plugin **cannot** ship `.claude/rules/`, so the path-scoped
-    auto-injection the `rules/` → `std-*` skills conversion gave up is unrecoverable via skills
-    (`paths:` only *limits* eligibility; the model still chooses). Hooks are the one component a
-    plugin ships that fires deterministically on every matching edit. This function is therefore
-    the plugin's only mechanism for getting a rule to the model automatically — which is exactly
-    Ch. 7's placement test arriving as an implementation detail: what must hold whether or not it
-    is read is a hook.
+    PostToolUse volume is capped (`_cap`): one legacy module put 402 lines / 32K chars into context
+    on every edit. HOOK ERROR lines are never dropped. `system_message` also shows a line to the
+    USER; `event_name=None` sends only that (for events with no context channel).
     """
-    if isinstance(warnings, str):
-        warnings = [warnings]
-    lines = [l for l in (warnings or []) if l]
-    if not lines:
-        return
-    print(json.dumps({
-        "hookSpecificOutput": {
-            "hookEventName": event_name,
-            "additionalContext": "\n".join(lines),
-        }
-    }))
+    lines = [line for line in ([warnings] if isinstance(warnings, str) else warnings or []) if line]
+    if event_name == "PostToolUse":
+        lines = _cap(lines)
+    payload = {}
+    if lines and event_name:
+        payload["hookSpecificOutput"] = {"hookEventName": event_name,
+                                         "additionalContext": "\n".join(lines)}
+    if system_message:
+        payload["systemMessage"] = system_message
+    if payload:
+        print(json.dumps(payload))
+
+
+def _max_lines():
+    """EMIT_MAX_LINES, overridable with SDH_HOOK_MAX_WARNINGS (0 = no cap, for a full report)."""
+    try:
+        return int(os.environ.get("SDH_HOOK_MAX_WARNINGS", EMIT_MAX_LINES))
+    except ValueError:
+        return EMIT_MAX_LINES
+
+
+def _cap(lines):
+    """Every HOOK ERROR line, the first warnings that fit, and a count of the rest."""
+    limit = _max_lines()
+    if limit <= 0:
+        return lines
+    kept, dropped, budget = [], 0, EMIT_MAX_CHARS
+    for line in lines:
+        is_error = str(line).startswith("HOOK ERROR")
+        if is_error or (limit > 0 and budget >= len(line)):
+            kept.append(line)
+            limit -= 0 if is_error else 1
+            budget -= len(line)
+        else:
+            dropped += 1
+    if dropped:
+        kept.append(f"+{dropped} more warning(s) not shown. Fix the ones above first, or run the "
+                    "checker standalone with SDH_HOOK_MAX_WARNINGS=0 for the full list.")
+    return kept
 
 
 def hook_error(label, exc):
@@ -162,10 +387,8 @@ def protected_branches():
 
 def branch_alternation(extra=()):
     """Regex alternation of the protected branches, safely escaped."""
-    import re as _re
-
     names = list(protected_branches()) + [e for e in extra if e not in protected_branches()]
-    return "|".join(_re.escape(n) for n in names)
+    return "|".join(re.escape(n) for n in names)
 
 
 def _notice_dir():
@@ -174,56 +397,17 @@ def _notice_dir():
     return os.path.join(tempfile.gettempdir(), "sdh-hook-notices")
 
 
-def seen_this_session(event, key):
-    """True if `key` has already been raised this session; marks it seen otherwise.
+def first_in_session(event, key):
+    """True exactly once per (session_id, key); False on every later call in that session.
 
-    The non-emitting half of `notice_once`, for checkers that RETURN their lines to a dispatcher
-    that emits once. Calling `notice_once` from inside a dispatched checker would print a second
-    JSON object and corrupt the hook's reply.
+    The one marker implementation behind `notice_once` and `seen_this_session`. Use it directly
+    from a checker that RETURNS its lines to the dispatcher (which emits once): calling
+    `notice_once` from inside a dispatched checker would print a second JSON object and corrupt
+    the hook's reply.
 
-    Why a checker would want this at all: `test-runner` said "Related test files found… consider
-    running tests" on *every* edit of a file that has tests, while `test-coverage-checker` says
-    "no test file found" on every edit of one that does not. Between them, **every source edit
-    produced a message** — and now that these reach the model rather than a debug log, a 100%
-    injection rate is the Ch. 5 attention problem in its purest form. A nudge is useful once and
-    wallpaper by the fifth time.
-
-    Fails toward speaking: if the marker cannot be written, return False (not seen) rather than
-    silently suppressing. A repeated notice is visible and fixable; a swallowed one is neither.
-    """
-    session = str((event or {}).get("session_id") or "nosession")
-    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in f"{session}-{key}")
-    try:
-        os.makedirs(_notice_dir(), exist_ok=True)
-        marker = os.path.join(_notice_dir(), safe)
-        if os.path.exists(marker):
-            return True
-        with open(marker, "w", encoding="utf-8") as fh:
-            fh.write("1")
-        return False
-    except OSError:
-        return False
-
-
-def notice_once(event, key, message):
-    """Print `message` at most once per session, then stay quiet. Returns True if printed.
-
-    Ch. 13: a hook whose tool is missing "should say so once and exit 0, not crash
-    on every write". Both other options are wrong: crashing punishes the user for
-    not having our toolchain, and exiting silently is Ch. 9's "silent failure is
-    invisible failure" — the user watches formatting never happen and has no idea
-    why. Once per session is the whole point: the notice is actionable the first
-    time and pure noise by the fifth.
-
-    If the marker cannot be written (read-only or missing temp dir), we speak
-    rather than stay silent — a repeated notice is visible and fixable; a silent
-    hole is neither. Deliberate, not a default.
-
-    The delivery bug this docstring used to embody: it called bare `print()`, and its only caller
-    (`auto-format.py`) is a **PostToolUse** hook — where stdout goes to the debug log, not to the
-    model and not to the transcript. So a function whose whole argument is *"silent failure is
-    invisible failure"* was itself silent, and the "rubocop is not installed" notice reached
-    nobody. It now routes through `emit()`, i.e. `hookSpecificOutput.additionalContext`.
+    Fails toward speaking: if the marker cannot be written (read-only or missing temp dir), it
+    returns True — every time. A repeated notice is visible and fixable; a swallowed one is
+    neither. Deliberate, not a default.
     """
     session = str((event or {}).get("session_id") or "nosession")
     safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in f"{session}-{key}")
@@ -235,9 +419,63 @@ def notice_once(event, key, message):
         with open(marker, "w", encoding="utf-8") as fh:
             fh.write("1")
     except Exception:
-        pass
+        return True
+    return True
+
+
+def seen_this_session(event, key):
+    """True if `key` has already been raised this session; marks it seen otherwise.
+
+    The inverse spelling of `first_in_session`, and it fails the same way: toward speaking (an
+    unwritable marker reads as "not seen").
+
+    Why a checker would want this at all: `test-runner` said "Related test files found… consider
+    running tests" on *every* edit of a file that has tests, while `test-coverage-checker` says
+    "no test file found" on every edit of one that does not. Between them, **every source edit
+    produced a message** — and now that these reach the model rather than a debug log, a 100%
+    injection rate is the Ch. 5 attention problem in its purest form. A nudge is useful once and
+    wallpaper by the fifth time.
+    """
+    return not first_in_session(event, key)
+
+
+def notice_once(event, key, message):
+    """Print `message` at most once per session, then stay quiet. Returns True if printed.
+
+    Ch. 13: a hook whose tool is missing "should say so once and exit 0, not crash
+    on every write". Both other options are wrong: crashing punishes the user for
+    not having our toolchain, and exiting silently is Ch. 9's "silent failure is
+    invisible failure" — the user watches formatting never happen and has no idea
+    why. Once per session is the whole point: the notice is actionable the first
+    time and pure noise by the fifth. The marker policy lives in `first_in_session`.
+
+    The delivery bug this docstring used to embody: it called bare `print()`, and its only caller
+    (`auto-format.py`) is a **PostToolUse** hook — where stdout goes to the debug log, not to the
+    model and not to the transcript. It now routes through `emit()`.
+    """
+    if not first_in_session(event, key):
+        return False
     emit(message)
     return True
+
+
+def formatter_marker(event):
+    """Marker file auto-format holds while it rewrites this edit's file; None for a fixture.
+
+    Matching PostToolUse hooks run in PARALLEL, so the dispatcher's checkers could read a file in
+    a formatter's truncate-then-write window, see "", and pass every rule. auto-format writes
+    "running" then "done" here and the dispatcher waits (bounded) for "done". Keyed by
+    `tool_use_id`, the value both hooks receive for one call: the hooks reference's PostToolUse
+    input carries `"tool_use_id": "toolu_01ABC123..."`, and "The `tool_name`, `tool_input`, and
+    `tool_use_id` fields are event-specific". The session|path fallback covers an event without it.
+    A hand-built fixture has no `hook_event_name`, is paired with no formatter, and must not make
+    the dispatcher wait.
+    """
+    if not isinstance(event, dict) or not event.get("hook_event_name"):
+        return None
+    key = event.get("tool_use_id") or f"{event.get('session_id', '')}|{get_file_path(event)}"
+    digest = hashlib.sha1(str(key).encode("utf-8")).hexdigest()[:20]
+    return os.path.join(_notice_dir(), f"formatting-{digest}")
 
 
 def run_post_checker(check):
@@ -256,14 +494,43 @@ def run_post_checker(check):
     sys.exit(0)
 
 
+# ---------------------------------------------------------------------------
+# Gate decisions — every deny/ask is also appended to the audit trail (`_hookaudit.py`).
+# ---------------------------------------------------------------------------
+
+def _audit_decision(decision, reason):
+    """Record a gate's deny/ask. Returns a gap notice, or None.
+
+    PostToolUse never fires for a call a hook denied, so without this the audit trail held no
+    denial at all. Only a real event (it carries `hook_event_name`) is recorded: a hand-built
+    fixture is a test, and tests must not write audit trails into whatever directory they run in.
+    """
+    event = _CURRENT_EVENT
+    if not event.get("hook_event_name"):
+        return None
+    error = append_audit(event, {
+        "event": event.get("hook_event_name"), "tool": tool_name(event),
+        "tool_use_id": event.get("tool_use_id"), "outcome": decision,
+        "target": get_file_path(event), "reason": redact(reason)[:300],
+    })
+    if not error:
+        return None
+    return (f"HOOK ERROR: this {decision} was not recorded in the audit trail — {error}. "
+            "The audit trail now has a gap.")
+
+
 def _decision(decision, reason, event_name="PreToolUse"):
-    print(json.dumps({
+    payload = {
         "hookSpecificOutput": {
             "hookEventName": event_name,
             "permissionDecision": decision,
             "permissionDecisionReason": reason,
         }
-    }))
+    }
+    gap = _audit_decision(decision, reason)
+    if gap:
+        payload["systemMessage"] = gap
+    print(json.dumps(payload))
 
 
 def deny(reason, event_name="PreToolUse"):
@@ -283,9 +550,17 @@ def run_pre_blocker(check, fail_closed=False, gate_label="check"):
     returns. On an unexpected exception inside check():
       * fail_closed=True  -> emit a deny so a security gate never silently passes
       * fail_closed=False -> allow (advisory gates degrade open)
-    Always exits 0; the decision travels via the permissionDecision JSON.
+    A fail-closed gate also denies an event it cannot parse: `load_event` turned truncated stdin
+    into {}, check() found nothing to deny, and the write went through. Empty stdin carries no
+    action to evaluate and is left to check(). Always exits 0; the decision travels as JSON.
     """
-    event = load_event()
+    raw, _read_error = _read_stream(None)
+    event, error = load_event_strict(io.StringIO(raw))
+    if fail_closed and error and raw.strip():
+        deny(f"BLOCKED: the {gate_label} hook could not read this event ({error}), so the action "
+             "was not evaluated. Retry it; if this repeats, run the action manually outside "
+             "Claude Code and update the sdh plugin.")
+        sys.exit(0)
     try:
         check(event)
     except Exception as exc:
@@ -296,205 +571,3 @@ def run_pre_blocker(check, fail_closed=False, gate_label="check"):
                 "Fix the hook or run the action manually outside Claude Code."
             )
     sys.exit(0)
-
-
-# ---------------------------------------------------------------------------
-# Framework detection — wrapper-directory-agnostic.
-#
-# Conventions auto-load from each framework's own layout and marker files, NOT
-# from a forced top-level folder name. Rails code works under backend/, api/, or
-# the repo root; a Vite app under web/, frontend/, or root; a Next app under
-# next/, web/, or root; React Native under mobile/, app/, or root; a Python
-# service (FastAPI or Django) under svc/, api/, ml/, or root.
-#
-#   under(path, "app/models")      -> matches the canonical layout anywhere
-#                                     (backend/app/models, api/app/models, app/models)
-#   replace_first_segment(...)     -> map source->test path, preserving the wrapper
-#   detect_framework(path)         -> 'rails'|'nextjs'|'vite'|'react-native'
-#                                     |'django'|'fastapi'|None
-#                                     via on-disk markers, with a path-structure fallback
-# ---------------------------------------------------------------------------
-
-def under(path, subpath):
-    """True if `subpath` (canonical framework-internal dir, e.g. 'app/models')
-    appears as consecutive directory segments anywhere in `path`, regardless of
-    the wrapper directory. Pure string work — no disk access, works for files
-    that do not exist yet."""
-    norm = normalize(path).strip("/")
-    needle = subpath.strip("/")
-    return ("/" + needle + "/") in ("/" + norm + "/")
-
-
-def under_any(path, subpaths):
-    """True if `under(path, s)` holds for any s in `subpaths`."""
-    return any(under(path, s) for s in subpaths)
-
-
-def replace_first_segment(path, old_seg, new_seg):
-    """Replace the first path segment equal to `old_seg` with `new_seg`,
-    preserving the wrapper prefix and the rest of the path. Wrapper-agnostic
-    source->test mapping: 'api/app/models/u.rb' + (app, spec) ->
-    'api/spec/models/u.rb'. Returns the normalized path unchanged if `old_seg`
-    is not a segment."""
-    norm = normalize(path)
-    old_seg = old_seg.strip("/")
-    new_seg = new_seg.strip("/")
-    parts = norm.split("/")
-    for i, part in enumerate(parts):
-        if part == old_seg:
-            parts[i] = new_seg
-            return "/".join(parts)
-    return norm
-
-
-_NEXT_CONFIGS = ("next.config.js", "next.config.mjs", "next.config.ts", "next.config.cjs")
-_VITE_CONFIGS = ("vite.config.js", "vite.config.ts", "vite.config.mjs", "vite.config.cjs")
-_RN_CONFIGS = ("metro.config.js", "metro.config.cjs", "app.json")
-_RAILS_MARKERS = ("Gemfile", os.path.join("config", "application.rb"), os.path.join("bin", "rails"))
-
-
-def _ancestors(start_dir):
-    current = os.path.abspath(start_dir)
-    while True:
-        yield current
-        parent = os.path.dirname(current)
-        if parent == current:
-            return
-        current = parent
-
-
-def _deepest_existing_dir(file_path):
-    """Deepest existing directory at or above file_path (the file itself may not
-    exist yet, e.g. a Write of a new file)."""
-    base = os.path.dirname(os.path.abspath(file_path)) or os.path.abspath(".")
-    for d in _ancestors(base):
-        if os.path.isdir(d):
-            return d
-    return None
-
-
-def _has(directory, rel):
-    return os.path.exists(os.path.join(directory, rel))
-
-
-def _package_json(directory):
-    try:
-        with open(os.path.join(directory, "package.json"), "r", encoding="utf-8", errors="replace") as handle:
-            return handle.read()
-    except (OSError, IOError):
-        return ""
-
-
-def _pyproject(directory):
-    """pyproject.toml content, lowercased for dependency grepping ("" if unreadable).
-
-    Lowercased because dependency tables write both `django` and `Django`; the
-    grep is for a dependency NAME, and pip/uv names are case-insensitive."""
-    try:
-        with open(os.path.join(directory, "pyproject.toml"), "r", encoding="utf-8", errors="replace") as handle:
-            return handle.read().lower()
-    except (OSError, IOError):
-        return ""
-
-
-def _pyproject_dep(pyp, name):
-    """True when `name` appears as a DEPENDENCY in lowercased pyproject content —
-    a quoted PEP 621 requirement ("django>=5.0", "fastapi[standard]") or a Poetry
-    table key (django = "^5.0"). A plain substring grep matched prose and comments
-    ("# not a django project") and misclassified plain libraries; anchoring to the
-    two dependency spellings is the pyproject analog of package.json's '"next"'."""
-    import re as _re
-
-    return bool(
-        _re.search(r"[\"']" + name + r"[\"'\[><=~!;@ ]", pyp)
-        or _re.search(r"^\s*" + name + r"\s*=", pyp, _re.M)
-    )
-
-
-def detect_framework(file_path):
-    """Best-effort framework for an edited file, independent of the wrapper
-    directory name. Returns 'rails' | 'nextjs' | 'vite' | 'react-native' |
-    'django' | 'fastapi' | None.
-
-    Walks up from the file to the nearest framework marker (next.config /
-    vite.config / metro.config / app.json / package.json deps / Gemfile /
-    manage.py / pyproject.toml deps / alembic.ini), and falls back to canonical
-    path structure when no marker is resolvable on disk (e.g. relative path
-    outside the project, or a bare scaffold)."""
-    norm = normalize(file_path)
-    start = _deepest_existing_dir(file_path)
-    if start:
-        for d in _ancestors(start):
-            if any(_has(d, c) for c in _NEXT_CONFIGS):
-                return "nextjs"
-            if any(_has(d, c) for c in _VITE_CONFIGS):
-                return "vite"
-            if _has(d, "metro.config.js") or _has(d, "metro.config.cjs"):
-                return "react-native"
-            pkg = _package_json(d)
-            if pkg:
-                if '"next"' in pkg:
-                    return "nextjs"
-                if '"react-native"' in pkg:
-                    return "react-native"
-                if '"vite"' in pkg:
-                    return "vite"
-            if _has(d, "app.json") and ("expo" in _package_json(d) or under(norm, "src")):
-                # app.json is a weak RN/Expo signal; only trust with corroboration
-                if '"react-native"' in pkg or '"expo"' in pkg:
-                    return "react-native"
-            if any(_has(d, m) for m in _RAILS_MARKERS):
-                return "rails"
-            # Python markers come after Rails within a dir: Rails is the primary
-            # backend, so on the (unlikely) mixed root, Rails wins the tie.
-            if _has(d, "manage.py"):
-                # Django's canonical marker (a legacy Flask-Script manage.py
-                # would also match — Flask is off-stack).
-                return "django"
-            pyp = _pyproject(d)
-            if pyp:
-                # Dependency-anchored grep (see _pyproject_dep). fastapi first:
-                # a FastAPI service never DEPENDS on django; the reverse mention
-                # (a Django repo's "migrate to fastapi" comment) does not count,
-                # because only dependency spellings match.
-                if _pyproject_dep(pyp, "fastapi"):
-                    return "fastapi"
-                if _pyproject_dep(pyp, "django"):
-                    return "django"
-            if _has(d, "alembic.ini") and _has(d, os.path.join("app", "main.py")):
-                return "fastapi"  # house FastAPI layout: app/main.py + alembic
-            if _has(d, ".git"):
-                break  # do not walk above the repository root
-
-    # Path-structure fallback (no markers, or path not resolvable on disk).
-    if norm.endswith(".rb") and under_any(norm, ("app", "lib", "db", "config", "spec")):
-        return "rails"
-    if under_any(norm, ("src/screens", "src/navigation")):
-        return "react-native"
-    if under(norm, "src/pages"):
-        return "vite"
-    # The .py branch must run BEFORE the src/app Next.js rule: `src/app/` is also
-    # the Python src-layout for a package named `app`, and the Next rule has no
-    # extension guard — python files would be shadowed into 'nextjs'.
-    if norm.endswith(".py"):
-        # Django-idiomatic filenames and its migrations dirs (alembic's default
-        # is alembic/versions; a Flask-Migrate-style migrations/ dir would also
-        # land here, but Flask is off-stack).
-        if norm.endswith("/manage.py") or norm == "manage.py" or under(norm, "migrations"):
-            return "django"
-        # House FastAPI package shape (std-fastapi): routers/schemas under app/.
-        if under_any(norm, ("app/routers", "app/api", "app/schemas")) or norm.endswith("/app/main.py"):
-            return "fastapi"
-        return None
-    if under(norm, "src/app") or (under(norm, "app") and (norm.endswith(".tsx") or norm.endswith(".jsx"))):
-        return "nextjs"
-    return None
-
-
-def is_react_native(file_path):
-    return detect_framework(file_path) == "react-native"
-
-
-def is_web_react(file_path):
-    """A browser React file (Vite SPA or Next.js) — distinct from React Native."""
-    return detect_framework(file_path) in ("vite", "nextjs")

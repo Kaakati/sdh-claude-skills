@@ -1,104 +1,98 @@
 #!/usr/bin/env python3
 """
-SubagentStart hook: Inject tech stack and team context.
+SubagentStart hook: give every subagent the house stack, and team context only when the subagent
+is a member of THIS session's team.
 
-Prints the project tech stack summary so subagents are aware of the
-development environment. When spawning within an agent team, also
-injects team context (team name, teammates, task list location).
+Contract (https://code.claude.com/docs/en/hooks, "SubagentStart"): "SubagentStart hooks receive
+`agent_id` with the unique identifier for the subagent and `agent_type` with the agent name that
+the matcher filters on". "SubagentStart hooks can't block subagent creation, but they can inject
+context into the subagent" through `hookSpecificOutput.additionalContext`, a "String added to the
+subagent's context at the start of its conversation, before its first prompt". Plain stdout is not
+a channel for this event: it goes to the debug log, which is where the old `print(output)` sent
+everything.
 
-Always exits 0.
+The team block used to come from the most recently modified ~/.claude/teams/*/config.json on the
+whole machine, so an Explore subagent in one project was told it belonged to another client's team,
+along with that team's absolute paths. It is now read only from this session's team (`session-`
+plus the first eight characters of session_id, per the agent-teams docs), and only when agent_id
+is one of that team's members. The agent-teams docs describe "a `members` array with each member's
+name and agent ID" without naming the JSON keys; the live config spells them `name` and `agentId`.
+No paths are injected.
+
+The text states facts rather than orders: the docs warn that out-of-band imperatives can trip the
+model's prompt-injection defenses. Always exits 0.
 """
-import glob
 import json
 import os
+import re
 import sys
 
-
-CONTEXT = (
-    "You are working in a Software Development House with this tech stack: "
-    "Rails (backend), Panko Serializer, PostgreSQL + PostGIS (geospatial database), "
-    "React Native (mobile), ReactJS + Vite (web SPA), Next.js App Router (web SSR/SSG), "
-    "Tailwind CSS (web styling), Framer Motion (web animations), ApexCharts (web charts), "
-    "Zustand (client state), TanStack Query (server state), Centrifugal/Centrifugo "
-    "(real-time WebSocket), Redis (cache + Sidekiq queues), AWS + GCP (cloud), "
-    "Vercel (Next.js deployment), Terraform (IaC), Docker Compose (local dev). "
-    "Web testing uses Vitest + React Testing Library. "
-    "ALWAYS prefer established community libraries (gems, npm packages) over custom "
-    "implementations. Frame all recommendations within this stack."
+STACK_CONTEXT = (
+    "House stack (sdh plugin). Backend: Rails in API-only mode with Pundit authorization, Panko "
+    "serializers, Phlex views and Sidekiq; Python services on FastAPI (the default) or Django + DRF, "
+    "with SQLAlchemy 2.0 + Alembic, pydantic v2, Celery and uv/ruff/mypy/pytest. AI/ML: PyTorch, "
+    "scikit-learn, MLflow tracking, pgvector embeddings on PostgreSQL, the anthropic SDK. Data: "
+    "PostgreSQL + PostGIS, Redis. Mobile: React Native, with Zustand for client state and TanStack "
+    "Query for server state. Web: a React + Vite SPA and Next.js App Router, both built on shadcn/ui "
+    "(Base UI primitives for new packages; existing Radix packages stay on Radix), Tailwind CSS with "
+    "the house design tokens, CASL permission gates, react-hook-form + zod, and vitest + Testing "
+    "Library + msw. Charts, one library per stack: Next.js uses Recharts through the shadcn/ui chart "
+    "component; the Vite SPA uses Chart.js through react-chartjs-2; Rails Phlex views use Chart.js "
+    "through a house Stimulus controller. Navigation is drill-down on every platform, existing "
+    "products included: the global sidebar (the bottom tab bar on mobile) lists areas only; each "
+    "area's section nav lives in that area's own layout; breadcrumbs come from the API's ancestors; "
+    "list filters and sort live in the URL; a command palette, where a product has one, is fed by "
+    "the permission-filtered nav and the search endpoint and is never the only way to reach a page. "
+    "APIs are drill-down ready: collection routes nest one level under one parent, member routes are "
+    "flat by id, detail payloads carry permission-filtered ancestors, counts are computed inside the "
+    "caller's scope, and every level is authorized. Real-time: Centrifugo. "
+    "Infrastructure: Terraform on AWS (primary) and GCP, Vercel for Next.js, Docker Compose for local "
+    "development. Established community libraries (gems, npm packages, PyPI packages) are preferred "
+    "over custom code, and recommendations fit the house stack for the layer being worked on."
 )
-
-TEAM_CONTEXT_TEMPLATE = (
-    "\n\nYou are part of an agent team. "
-    "Team: {team_name}. "
-    "Team config: {config_path}. "
-    "Task list: {task_path}. "
-    "Teammates: {teammates}. "
-    "IMPORTANT: Coordinate via task list and messages. "
-    "Each teammate owns a distinct set of files — never edit files owned by another teammate. "
-    "Check TaskList after completing each task to find your next assignment."
-)
+# `agentId` is the key the live team config carries; `agent_id` is kept for a snake_case rename.
+MEMBER_ID_KEYS = ("agentId", "agent_id")
 
 
-def find_team_context():
-    """Discover active team context from ~/.claude/teams/ directory."""
-    home = os.path.expanduser("~")
-    teams_dir = os.path.join(home, ".claude", "teams")
-
-    if not os.path.isdir(teams_dir):
+def session_team(data):
+    """(team name, this member, all members) when agent_id belongs to this session's team, else None."""
+    session, agent_id = str(data.get("session_id") or ""), str(data.get("agent_id") or "")
+    team = f"session-{session[:8]}"
+    if not agent_id or not re.fullmatch(r"session-[A-Za-z0-9_-]{1,8}", team):
         return None
-
-    # Find the most recently modified team config
-    team_dirs = []
+    base = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
     try:
-        for entry in os.listdir(teams_dir):
-            config_path = os.path.join(teams_dir, entry, "config.json")
-            if os.path.isfile(config_path):
-                mtime = os.path.getmtime(config_path)
-                team_dirs.append((mtime, entry, config_path))
-    except OSError:
+        with open(os.path.join(base, "teams", team, "config.json"), encoding="utf-8") as handle:
+            members = json.load(handle).get("members", [])
+    except (OSError, ValueError, AttributeError):
         return None
+    members = [m for m in members if isinstance(m, dict)] if isinstance(members, list) else []
+    me = next((m for m in members if agent_id in (str(m.get(key) or "") for key in MEMBER_ID_KEYS)), None)
+    return (team, me, members) if me else None
 
-    if not team_dirs:
-        return None
 
-    # Use the most recently modified team
-    team_dirs.sort(reverse=True)
-    _, team_name, config_path = team_dirs[0]
-
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return None
-
-    members = config.get("members", [])
-    teammate_names = [m.get("name", "unknown") for m in members]
-
-    task_path = os.path.join(home, ".claude", "tasks", team_name)
-
-    return {
-        "team_name": team_name,
-        "config_path": config_path,
-        "task_path": task_path,
-        "teammates": ", ".join(teammate_names) if teammate_names else "none yet",
-    }
+def team_context(found):
+    team, me, members = found
+    peers = [str(m.get("name"))[:64] for m in members if m is not me and m.get("name")]
+    return (
+        f"This subagent is teammate {str(me.get('name') or 'unnamed')[:64]} on agent team {team}. "
+        f"Other members: {', '.join(peers) or 'none yet'}. Each teammate owns a distinct set of "
+        "files, and the shared task list records which teammate holds which task."
+    )
 
 
 def main():
-    # Consume stdin (hook protocol)
     try:
-        sys.stdin.read()
-    except Exception:
-        pass
-
-    output = CONTEXT
-
-    # Inject team context if an active team exists
-    team_ctx = find_team_context()
-    if team_ctx:
-        output += TEAM_CONTEXT_TEMPLATE.format(**team_ctx)
-
-    print(output)
+        data = json.load(sys.stdin)
+    except (ValueError, OSError):
+        data = {}
+    data = data if isinstance(data, dict) else {}
+    context = STACK_CONTEXT
+    found = session_team(data)
+    if found:
+        context += "\n\n" + team_context(found)
+    print(json.dumps({"hookSpecificOutput": {"hookEventName": "SubagentStart",
+                                             "additionalContext": context}}))
     sys.exit(0)
 
 

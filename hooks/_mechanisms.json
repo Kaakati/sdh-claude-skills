@@ -1,0 +1,249 @@
+{
+  "version": 1,
+  "about": "The orthogonality mechanism registry: which direct dependencies compete for one concern, per framework label. Only concerns where the house states a choice (CLAUDE.md Library Preferences, skills/sdh-engineering-standards/SKILL.md, round-3 chart decision). A competitor entry is a package name or a list of package names that together form one mechanism. Rows only record which names compete; every concern's convention stays with its owner_skill.",
+  "concerns": {
+    "http_client": {
+      "owner_skill": "std-code-standards",
+      "rows": [
+        {"ecosystem": "rubygems", "frameworks": ["rails"], "house": ["faraday"], "owner_skill": "std-rails-conventions",
+         "companions": ["faraday-retry", "faraday-multipart", "faraday-net_http_persistent", "faraday-follow_redirects"],
+         "competitors": ["httparty", "rest-client", "typhoeus", "excon", "http", "httpclient"]},
+        {"ecosystem": "npm", "frameworks": ["vite", "nextjs", "react-native"], "house": ["axios"], "owner_skill": "std-reactjs",
+         "companions": ["axios-retry", "axios-auth-refresh", "axios-cache-interceptor"],
+         "competitors": ["ky", "got", "superagent", "node-fetch", "cross-fetch", "ofetch", "redaxios", "wretch"]},
+        {"ecosystem": "pypi", "frameworks": ["fastapi", "django", null], "house": ["httpx"], "owner_skill": "std-python",
+         "companions": ["respx", "httpx-sse"],
+         "competitors": ["requests", "aiohttp", "pycurl"]}
+      ]
+    },
+    "authentication": {
+      "owner_skill": "std-security",
+      "rows": [
+        {"ecosystem": "rubygems", "frameworks": ["rails"], "house": ["devise", "devise-jwt"],
+         "companions": ["devise-i18n", "omniauth", "omniauth-rails_csrf_protection"],
+         "competitors": ["rodauth-rails", "sorcery", "clearance", "authlogic", "jwt_sessions", "knock"]},
+        {"ecosystem": "pypi", "frameworks": ["fastapi", null], "house": ["pyjwt", "argon2-cffi"],
+         "competitors": ["python-jose", "passlib", "bcrypt", "fastapi-users", "authx"]},
+        {"ecosystem": "pypi", "frameworks": ["django"], "house": ["djangorestframework-simplejwt"],
+         "companions": ["pyjwt", "argon2-cffi"],
+         "competitors": ["djangorestframework-jwt", "drf-jwt", "django-rest-knox"]}
+      ]
+    },
+    "authorization": {
+      "owner_skill": "access-control-designer",
+      "rows": [
+        {"ecosystem": "rubygems", "frameworks": ["rails"], "house": ["pundit"],
+         "competitors": ["cancancan", "action_policy", "access-granted"]},
+        {"ecosystem": "npm", "frameworks": ["vite", "nextjs", "react-native"], "house": ["@casl/ability", "@casl/react"],
+         "companions": ["@casl/prisma"],
+         "competitors": ["accesscontrol", "casbin"]}
+      ]
+    },
+    "pagination": {
+      "owner_skill": "std-rails-conventions",
+      "rows": [
+        {"ecosystem": "rubygems", "frameworks": ["rails"], "house": ["pagy"],
+         "competitors": ["kaminari", "will_paginate"]}
+      ]
+    },
+    "search": {
+      "owner_skill": "std-rails-conventions",
+      "rows": [
+        {"ecosystem": "rubygems", "frameworks": ["rails"], "house": ["pg_search"],
+         "competitors": ["textacular", "searchkick", "elasticsearch-model", "chewy"]}
+      ]
+    },
+    "json_serialization": {
+      "owner_skill": "std-rails-conventions",
+      "rows": [
+        {"ecosystem": "rubygems", "frameworks": ["rails"], "house": ["panko_serializer"],
+         "competitors": ["active_model_serializers", "jsonapi-serializer", "fast_jsonapi", "blueprinter", "alba", "jbuilder", "oj_serializers"]}
+      ]
+    },
+    "ruby_views": {
+      "owner_skill": "std-phlex-conventions",
+      "rows": [
+        {"ecosystem": "rubygems", "frameworks": ["rails"], "house": ["phlex-rails"],
+         "companions": ["phlex", "class_variants"],
+         "competitors": ["view_component", ["cells-rails", "cells"]]}
+      ]
+    },
+    "background_jobs": {
+      "owner_skill": "std-rails-conventions",
+      "rows": [
+        {"ecosystem": "rubygems", "frameworks": ["rails"], "house": ["sidekiq"],
+         "companions": ["sidekiq-cron", "sidekiq-scheduler", "sidekiq-unique-jobs"],
+         "competitors": ["solid_queue", "good_job", ["delayed_job", "delayed_job_active_record"], "resque", "que", "sucker_punch", "sneakers"],
+         "notes": {"solid_queue": "solid_queue is a Rails 8 new-app default; remove it from the Gemfile, or declare the migration with an until date"}},
+        {"ecosystem": "pypi", "frameworks": ["fastapi", "django", null], "house": ["celery"], "owner_skill": "std-python",
+         "companions": ["django-celery-beat", "django-celery-results", "flower"],
+         "competitors": ["rq", "dramatiq", "huey", "arq", ["django-q", "django-q2"], "taskiq", "django-rq"]}
+      ]
+    },
+    "client_state": {
+      "owner_skill": "std-reactjs",
+      "rows": [
+        {"ecosystem": "npm", "frameworks": ["vite"], "house": ["zustand"], "companions": ["immer"],
+         "competitors": [["@reduxjs/toolkit", "redux", "react-redux"], ["mobx", "mobx-react", "mobx-react-lite", "mobx-state-tree"], "recoil", "jotai", "valtio", "easy-peasy"]},
+        {"ecosystem": "npm", "frameworks": ["nextjs"], "house": ["zustand"], "companions": ["immer"], "owner_skill": "std-nextjs",
+         "competitors": [["@reduxjs/toolkit", "redux", "react-redux"], ["mobx", "mobx-react", "mobx-react-lite", "mobx-state-tree"], "recoil", "jotai", "valtio", "easy-peasy"]},
+        {"ecosystem": "npm", "frameworks": ["react-native"], "house": ["zustand"], "companions": ["immer"], "owner_skill": "std-react-native",
+         "competitors": [["@reduxjs/toolkit", "redux", "react-redux"], ["mobx", "mobx-react", "mobx-react-lite", "mobx-state-tree"], "recoil", "jotai", "valtio", "easy-peasy"]}
+      ]
+    },
+    "server_state": {
+      "owner_skill": "std-reactjs",
+      "rows": [
+        {"ecosystem": "npm", "frameworks": ["vite", "nextjs", "react-native"], "house": ["@tanstack/react-query"],
+         "companions": ["@tanstack/react-query-devtools", "@tanstack/react-query-persist-client", "@tanstack/query-sync-storage-persister"],
+         "competitors": ["swr", "react-query", "@apollo/client", "urql"]}
+      ]
+    },
+    "forms_validation": {
+      "owner_skill": "std-reactjs",
+      "rows": [
+        {"ecosystem": "npm", "frameworks": ["vite", "nextjs", "react-native"], "house": ["react-hook-form", "zod"],
+         "companions": ["@hookform/resolvers", "@hookform/devtools"],
+         "competitors": ["formik", ["react-final-form", "final-form"], "yup", "joi", "valibot", "superstruct", "@tanstack/react-form", "vest"]}
+      ]
+    },
+    "web_styling": {
+      "owner_skill": "std-design-system",
+      "rows": [
+        {"ecosystem": "npm", "frameworks": ["vite", "nextjs"], "house": ["tailwindcss"],
+         "companions": ["clsx", "tailwind-merge", "tw-animate-css", "class-variance-authority", "tailwindcss-animate", "prettier-plugin-tailwindcss"],
+         "companion_prefixes": ["@tailwindcss/"],
+         "competitors": ["styled-components", ["@emotion/react", "@emotion/styled"], "@stitches/react", "@vanilla-extract/css", "bootstrap", "linaria"]}
+      ]
+    },
+    "web_ui_kit": {
+      "owner_skill": "std-shadcn-ui",
+      "rows": [
+        {"ecosystem": "npm", "frameworks": ["vite", "nextjs"], "house": ["shadcn/ui"], "detect_files": ["components.json"],
+         "companions": ["shadcn", "cmdk", "vaul", "sonner", "lucide-react"],
+         "companion_prefixes": ["@radix-ui/", "@base-ui-components/", "@base-ui/"],
+         "competitors": ["@mui/material", "antd", "@chakra-ui/react", "@mantine/core", "react-bootstrap", "semantic-ui-react", "@headlessui/react", ["@nextui-org/react", "@heroui/react"], "primereact"]}
+      ]
+    },
+    "charts": {
+      "owner_skill": "std-reactjs",
+      "rows": [
+        {"ecosystem": "npm", "frameworks": ["nextjs"], "house": ["recharts"], "owner_skill": "std-shadcn-ui",
+         "competitors": [["chart.js", "react-chartjs-2"], ["apexcharts", "react-apexcharts"], "victory", "@nivo/core", ["highcharts", "highcharts-react-official"], ["echarts", "echarts-for-react"]]},
+        {"ecosystem": "npm", "frameworks": ["vite"], "house": ["chart.js", "react-chartjs-2"], "owner_skill": "std-reactjs",
+         "competitors": ["recharts", ["apexcharts", "react-apexcharts"], "victory", "@nivo/core", ["highcharts", "highcharts-react-official"], ["echarts", "echarts-for-react"]]},
+        {"ecosystem": "npm", "frameworks": ["rails"], "house": ["chart.js"], "owner_skill": "std-phlex-conventions",
+         "competitors": ["chartkick", "apexcharts", "highcharts", "echarts", "recharts"]},
+        {"ecosystem": "rubygems", "frameworks": ["rails"], "house": [], "js_house": ["chart.js"], "owner_skill": "std-phlex-conventions",
+         "competitors": ["chartkick"]}
+      ]
+    },
+    "rn_navigation": {
+      "owner_skill": "std-react-native",
+      "rows": [
+        {"ecosystem": "npm", "frameworks": ["react-native"], "house": ["@react-navigation/native"],
+         "companions": ["react-native-screens", "react-native-safe-area-context"],
+         "companion_prefixes": ["@react-navigation/"],
+         "competitors": ["react-native-navigation", "react-router-native"]}
+      ]
+    },
+    "web_routing": {
+      "owner_skill": "std-reactjs",
+      "rows": [
+        {"ecosystem": "npm", "frameworks": ["vite"], "house": ["react-router"],
+         "competitors": ["@tanstack/react-router", "wouter", "@reach/router"]}
+      ]
+    },
+    "rn_storage": {
+      "owner_skill": "std-react-native",
+      "rows": [
+        {"ecosystem": "npm", "frameworks": ["react-native"], "house": ["react-native-mmkv"],
+         "competitors": ["@react-native-async-storage/async-storage"]}
+      ]
+    },
+    "rn_images": {
+      "owner_skill": "std-react-native",
+      "rows": [
+        {"ecosystem": "npm", "frameworks": ["react-native"], "house": ["react-native-fast-image"],
+         "competitors": ["expo-image"]}
+      ]
+    },
+    "animation": {
+      "owner_skill": "std-design-system",
+      "rows": [
+        {"ecosystem": "npm", "frameworks": ["vite", "nextjs"], "house": ["framer-motion"],
+         "companions": ["tw-animate-css"],
+         "competitors": [["react-spring", "@react-spring/web"], "gsap", "animejs"]}
+      ]
+    },
+    "python_validation": {
+      "owner_skill": "std-python",
+      "rows": [
+        {"ecosystem": "pypi", "frameworks": ["fastapi", null], "house": ["pydantic"],
+         "companions": ["pydantic-settings", "email-validator"],
+         "competitors": ["marshmallow", "cerberus", "voluptuous", "schematics"]}
+      ]
+    },
+    "orm": {
+      "owner_skill": "std-python",
+      "rows": [
+        {"ecosystem": "pypi", "frameworks": ["fastapi"], "house": ["sqlalchemy", "alembic"], "owner_skill": "std-fastapi",
+         "companions": ["sqlalchemy-utils", "geoalchemy2", "pgvector", "alembic-postgresql-enum"],
+         "competitors": ["tortoise-orm", "peewee", "pony", "ormar", "piccolo"]},
+        {"ecosystem": "pypi", "frameworks": ["django"], "house": ["django"], "owner_skill": "std-django",
+         "competitors": ["sqlalchemy", "peewee", "tortoise-orm"]}
+      ]
+    },
+    "python_lint_format": {
+      "owner_skill": "std-python",
+      "tooling": true,
+      "rows": [
+        {"ecosystem": "pypi", "frameworks": ["fastapi", "django", null], "house": ["ruff"],
+         "competitors": ["black", "flake8", "isort", "pylint", "autopep8", "yapf", "pyflakes"]}
+      ]
+    },
+    "python_type_checker": {
+      "owner_skill": "std-python",
+      "tooling": true,
+      "rows": [
+        {"ecosystem": "pypi", "frameworks": ["fastapi", "django", null], "house": ["mypy"],
+         "companions": ["django-stubs", "djangorestframework-stubs"], "companion_prefixes": ["types-"],
+         "competitors": [["pyright", "basedpyright"], "pytype", "pyre-check"]}
+      ]
+    },
+    "python_test_runner": {
+      "owner_skill": "std-testing",
+      "tooling": true,
+      "rows": [
+        {"ecosystem": "pypi", "frameworks": ["fastapi", "django", null], "house": ["pytest"],
+         "companions": ["factory-boy", "polyfactory"], "companion_prefixes": ["pytest-"],
+         "competitors": [["nose", "nose2"], "ward"]}
+      ]
+    },
+    "web_test_runner": {
+      "owner_skill": "std-testing",
+      "tooling": true,
+      "rows": [
+        {"ecosystem": "npm", "frameworks": ["vite", "nextjs"], "house": ["vitest"],
+         "companions": ["jsdom", "happy-dom"], "companion_prefixes": ["@vitest/", "@testing-library/"],
+         "competitors": [["jest", "ts-jest", "babel-jest", "jest-environment-jsdom"], "mocha", "jasmine", "ava", "karma"]}
+      ]
+    },
+    "http_mocking": {
+      "owner_skill": "std-testing",
+      "tooling": true,
+      "rows": [
+        {"ecosystem": "npm", "frameworks": ["vite", "nextjs"], "house": ["msw"],
+         "competitors": ["nock", "fetch-mock", "axios-mock-adapter", "miragejs", "pretender", "jest-fetch-mock"]}
+      ]
+    },
+    "schema_consistency": {
+      "owner_skill": "std-database",
+      "tooling": true,
+      "rows": [
+        {"ecosystem": "rubygems", "frameworks": ["rails"], "house": ["database_consistency"],
+         "competitors": ["active_record_doctor"]}
+      ]
+    }
+  }
+}

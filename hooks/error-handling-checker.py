@@ -15,6 +15,15 @@ import _hooklib as hooklib
 
 SOURCE_EXTENSIONS = (".rb", ".py", ".ts", ".tsx", ".js", ".jsx")
 
+# JS/TS: catch(...) { } with nothing but comments inside. The binding is optional (ES2019
+# `catch {`, the common TS spelling when the error is unused) and the comment may be a block
+# comment — both forms of the same swallowed error used to pass unseen. `/\*(?:[^*]|\*(?!/))*\*/`
+# stops at the FIRST `*/`; a lazy `.*?` could be backtracked past it to every later `*/` in the
+# file, once per catch.
+JS_EMPTY_CATCH = re.compile(
+    r"\bcatch\s*(?:\([^)]*\))?\s*\{\s*(?:(?://[^\n]*|/\*(?:[^*]|\*(?!/))*\*/)\s*)*\}"
+)
+
 
 def check_empty_handlers(content, ext):
     warnings = []
@@ -37,11 +46,7 @@ def check_empty_handlers(content, ext):
                 "WARNING: Empty error handler found per the `std-error-handling` skill."
             )
     else:
-        # JS/TS: catch(...) { } with nothing meaningful inside
-        pattern = re.compile(
-            r"catch\s*\([^)]*\)\s*\{\s*(//[^\n]*)?\s*\}", re.MULTILINE
-        )
-        if pattern.search(content):
+        if JS_EMPTY_CATCH.search(content):
             warnings.append(
                 "WARNING: Empty error handler found per the `std-error-handling` skill."
             )

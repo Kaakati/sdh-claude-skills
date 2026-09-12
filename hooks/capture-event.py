@@ -30,6 +30,14 @@ This is also the single most useful diagnostic when a hook misbehaves (Ch. 25): 
 hook by hand separates "the hook has a bug" from "the hook isn't being invoked". If the
 hand-run produces the right decision, the bug is in registration or matching — not the script.
 
+## What a fixture holds
+
+The event byte for byte: stdin is read as bytes, so an event is not re-encoded through the
+console codepage on its way to disk. That includes whatever the tool was about to write, so a
+fixture can hold a real credential. `hooks/tests/fixtures/` is gitignored, the file is created
+owner-only on POSIX, and a fixture is never overwritten: parallel tool calls land in the same
+second, and the second capture used to replace the first silently.
+
 Always exits 0 and emits nothing, so it never disturbs the session it is observing.
 """
 
@@ -41,22 +49,37 @@ import time
 FIXTURE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tests", "fixtures")
 
 
-def main():
-    raw = sys.stdin.read()
-
-    # Name the fixture after what it actually is, so a directory of them is readable.
+def fixture_stem(raw):
+    """`<event>-<tool>-<epoch>`, so a directory of fixtures is readable."""
     event, tool = "event", ""
     try:
-        data = json.loads(raw)
+        data = json.loads(raw.decode("utf-8", "replace"))
         event = data.get("hook_event_name") or data.get("hookEventName") or "event"
         tool = data.get("tool_name", "")
     except Exception:
         pass  # a malformed event is still worth capturing — that's often the bug
+    safe = ["".join(c if c.isalnum() or c in "_-" else "_" for c in str(p)) for p in (event, tool)]
+    return "-".join(p for p in safe + [str(int(time.time()))] if p)
 
-    name = "-".join(p for p in (event, tool, str(int(time.time()))) if p) + ".json"
+
+def write_fixture(stem, raw):
+    """Create a new fixture file (never replacing one); return its path."""
     os.makedirs(FIXTURE_DIR, exist_ok=True)
-    with open(os.path.join(FIXTURE_DIR, name), "w", encoding="utf-8", newline="\n") as handle:
-        handle.write(raw)
+    for attempt in range(1000):
+        path = os.path.join(FIXTURE_DIR, f"{stem}-{attempt}.json" if attempt else f"{stem}.json")
+        try:
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0), 0o600)
+        except FileExistsError:
+            continue
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(raw)
+        return path
+    return None
+
+
+def main():
+    raw = sys.stdin.buffer.read()
+    write_fixture(fixture_stem(raw), raw)
 
 
 if __name__ == "__main__":
