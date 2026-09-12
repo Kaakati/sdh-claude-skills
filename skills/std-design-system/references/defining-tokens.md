@@ -6,12 +6,18 @@ in a component, you do not need this file.
 
 Load-bearing rules restated (they must hold even if nothing else here is read):
 
-1. Colors are declared as **space-separated HSL channels with no `hsl()` wrapper**, so Tailwind's
-   opacity modifier (`bg-primary/50`) works.
+1. Colors are declared as **complete `hsl()` values** (`--brand: hsl(270 60% 45%)`) and registered
+   with Tailwind v4 through **`@theme inline { --color-brand: var(--brand) }`**. Tailwind applies
+   opacity modifiers (`bg-brand/50`) to a complete color with `color-mix()`. Arbitrary CSS reads
+   `var(--brand)`, never `hsl(var(--brand))`.
 2. **Every background color token ships with a `-foreground` counterpart** that is contrast-verified
    against it. A token without a foreground pair is an incomplete token.
-3. Dark mode overrides use the **`.dark` class selector**, never `@media (prefers-color-scheme)`.
+3. Dark mode overrides use the **`.dark` class selector**, never `@media (prefers-color-scheme)`, and
+   the stylesheet declares `@custom-variant dark (&:is(.dark *));` so `dark:` utilities follow the
+   class.
 4. Normal text ≥ **4.5:1**; large text (18px+, or 14px+ bold) and UI component boundaries ≥ **3:1**.
+5. A shadcn/ui name for a house role is an **alias**: `var(--role)` declared on `:root, .dark`,
+   never a copied value.
 
 ---
 
@@ -19,60 +25,51 @@ Load-bearing rules restated (they must hold even if nothing else here is read):
 
 The mistake is adding a raw value in one place and letting components reach for it directly.
 
-### Bad — wrapped color, no foreground pair, no dark override
+### Bad — bare channels, hex, no `inline`, no foreground pair, no dark override
 
 ```css
-/* app/assets/stylesheets/globals.css */
+/* globals.css */
 :root {
-  --brand-purple: hsl(270, 60%, 45%);   /* wrapped → bg-brand-purple/50 silently breaks */
-  --warning: #f59e0b;                   /* hex → opacity modifier impossible */
+  --brand: 270 60% 45%;          /* bare channels: var(--brand) is not a color, utilities fall to unset */
+  --warning: #f59e0b;            /* hex: escapes the HSL contrast measurement this repo gates on */
 }
 /* no .dark block: the purple stays at 45% lightness on a near-black surface */
+
+@theme {
+  --color-brand: var(--brand);   /* no `inline`: resolved once on :root, so a nested .dark section never flips */
+}
 ```
 
 ```tsx
-// Consumer is forced to hardcode the readable text color by eye:
-<div className="bg-[hsl(var(--brand-purple))] text-white">Upgrade</div>
+// The consumer patches the broken token locally and picks the text color by eye. The day someone
+// fixes the token to a complete color, this becomes hsl(hsl(...)) and renders nothing.
+<div className="bg-[hsl(var(--brand))] text-white">Upgrade</div>
 ```
 
-### Good — channels only, paired foreground, dark override, Tailwind-registered
+### Good — complete values, paired foreground, dark override, registered `inline`
 
 ```css
-/* app/assets/stylesheets/globals.css */
+/* globals.css */
 :root {
-  --brand: 270 60% 45%;
-  --brand-foreground: 0 0% 100%;   /* 7.1:1 against --brand — verified */
-  --warning: 38 92% 50%;
-  --warning-foreground: 26 83% 14%; /* 8.4:1 — dark text on amber, not white */
+  --brand: hsl(270 60% 45%);
+  --brand-foreground: hsl(0 0% 100%);    /* 7.47:1 against --brand, measured */
+  --warning: hsl(38 92% 50%);
+  --warning-foreground: hsl(26 83% 14%); /* 6.87:1: dark text on amber, not white */
 }
 
 .dark {
-  --brand: 270 65% 68%;            /* lifted lightness for dark surfaces */
-  --brand-foreground: 270 40% 12%;
-  --warning: 38 88% 62%;
-  --warning-foreground: 26 83% 10%;
+  --brand: hsl(270 65% 68%);             /* lifted lightness for dark surfaces */
+  --brand-foreground: hsl(270 40% 12%);  /* 5.56:1 */
+  --warning: hsl(38 88% 62%);
+  --warning-foreground: hsl(26 83% 10%); /* 9.25:1 */
 }
-```
 
-```js
-// tailwind.config.js — register once, and the token becomes a first-class utility
-module.exports = {
-  darkMode: 'class',
-  theme: {
-    extend: {
-      colors: {
-        brand: {
-          DEFAULT: 'hsl(var(--brand) / <alpha-value>)',
-          foreground: 'hsl(var(--brand-foreground) / <alpha-value>)',
-        },
-        warning: {
-          DEFAULT: 'hsl(var(--warning) / <alpha-value>)',
-          foreground: 'hsl(var(--warning-foreground) / <alpha-value>)',
-        },
-      },
-    },
-  },
-};
+@theme inline {
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+}
 ```
 
 ```tsx
@@ -81,8 +78,15 @@ module.exports = {
 <div className="bg-brand/10 text-brand">Subtle variant</div>
 ```
 
-`<alpha-value>` is the placeholder Tailwind substitutes when you write `bg-brand/10`. Omit it and
-every opacity modifier in the codebase becomes a no-op.
+`inline` makes `bg-brand` emit `var(--brand)` itself, not a `--color-brand` that was resolved
+once on `:root`. The utility then resolves on the element it styles, so a nested `.dark` section
+flips and a per-component override lands. Tailwind's docs require `inline` whenever a theme
+variable references another variable.
+
+A Tailwind v3 package cannot apply an opacity modifier to a complete color; that is what
+`hsl(var(--x) / <alpha-value>)` channel wiring was for. It keeps that wiring until it migrates
+(`npx @tailwindcss/upgrade`), and it never mixes the two forms in one stylesheet. shadcn/ui and the
+`cn` package are v4-only, so a v3 package adopts neither.
 
 ---
 
@@ -98,9 +102,62 @@ values later — that is how token drift starts.
 | Semantic | `success`, `warning`, `error`, `info`              | Status communication                |
 | Surface  | `card`, `popover`                                  | Container backgrounds               |
 | Border   | `border`, `input`, `ring`                          | Boundaries and focus indicators     |
+| Chart    | `chart-1` … `chart-5`                              | Categorical data series, fixed order |
 
 Each of Core, Semantic, and Surface also requires its `-foreground` pair. `border` / `input` / `ring`
-do not — nothing sits on top of them.
+do not — nothing sits on top of them. Each is measured against the surfaces it sits on instead:
+≥3:1 against `background` and `card` in both modes (WCAG 1.4.11). A border lighter than that is a
+field with no visible edge. `chart-1`…`chart-5` take no pair either. A series is a non-text mark,
+measured against the surface it sits on (≥3:1, WCAG 1.4.11), and its labels and legend text wear
+`foreground`, never the series color.
+
+---
+
+## Decision: shadcn/ui source names a token the house calls something else
+
+shadcn/ui primitives and blocks use `destructive`, `sidebar-*` and `chart-*`. The house roles are
+`error`, `card`, `primary`, `accent`, `border` and `ring`. Minting a second value under the shadcn
+name gives one role two numbers. Renaming the classes after every `add` makes every upstream diff
+unmergeable. So the registry declares the shadcn names as **aliases**.
+
+### Bad — a copied value, or a reference declared on `:root` only
+
+```css
+:root {
+  --error: hsl(0 84.2% 47%);
+  --destructive: hsl(0 84.2% 47%);   /* one role, two numbers: edit --error and this one stays */
+  --sidebar: var(--card);            /* resolved once on :root: a nested .dark section keeps the light card */
+}
+```
+
+A custom property that holds `var()` is substituted on the element that declares it, and
+descendants inherit the *result*. Declared only on `:root`, the alias is frozen at the light value
+for every nested `.dark` scope.
+
+### Good — a `var()` reference, declared on both scopes, registered `inline`
+
+```css
+:root,
+.dark {
+  --destructive: var(--error);
+  --destructive-foreground: var(--error-foreground);
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--card-foreground);
+}
+
+@theme inline {
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+}
+```
+
+The full alias map, the pairs measured through it, and the `chart-1`…`chart-5` values are in
+`@skills/theming/references/design-tokens.md`. Aliasing does **not** fix raw palette classes in
+shadcn source (`text-white`, `bg-black/50`) or `dark:` opacity overrides on solids. Those are
+edits, and they are owned by the `std-shadcn-ui` skill
+(`@skills/std-shadcn-ui/references/components-and-blocks.md`).
 
 ---
 
@@ -110,7 +167,7 @@ do not — nothing sits on top of them.
 
 ```css
 @media (prefers-color-scheme: dark) {
-  :root { --background: 222 47% 11%; }
+  :root { --background: hsl(222 47% 11%); }
 }
 ```
 
@@ -120,28 +177,34 @@ render a dark-themed marketing section inside a light app.
 ### Good — class selector, with the OS as the initial default only
 
 ```css
+/* Tailwind v4's dark: follows the media query unless this line says otherwise */
+@custom-variant dark (&:is(.dark *));
+
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222 47% 11%;
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-  --border: 214 32% 91%;
-  --ring: 222 47% 11%;
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(222 47% 11%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(222 47% 11%);
+  --border: hsl(214 32% 59%);    /* 3.20:1 against --background and --card, measured */
+  --ring: hsl(222 47% 11%);
 }
 
 .dark {
-  --background: 222 47% 11%;
-  --foreground: 210 40% 98%;
-  --card: 222 47% 14%;      /* card lifts off background, not the reverse */
-  --card-foreground: 210 40% 98%;
-  --border: 217 33% 24%;
-  --ring: 213 27% 84%;
+  --background: hsl(222 47% 11%);
+  --foreground: hsl(210 40% 98%);
+  --card: hsl(222 47% 14%);      /* card lifts off background, not the reverse */
+  --card-foreground: hsl(210 40% 98%);
+  --border: hsl(217 33% 47%);    /* 3.28:1 against --card, 3.50:1 against --background */
+  --ring: hsl(213 27% 84%);
 }
 ```
 
+The provider below is the house provider for the **Vite SPA**. Next.js uses `next-themes` for the
+same `.dark` class, because it has to be SSR-safe. Both setups, plus the pre-paint script that
+stops a flash of the wrong theme, are in `@skills/theming/references/platform-integration.md`.
+
 ```tsx
-// app/providers/theme-provider.tsx — OS preference seeds the default; the user can override.
-'use client';
+// src/providers/theme-provider.tsx (Vite SPA) — OS preference seeds the default; the user can override.
 import { useEffect } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -186,7 +249,8 @@ where cards are white on a grey page.
 
 ## Decision: does this pair actually meet contrast?
 
-Do not eyeball it. Compute it. Both channels are already in HSL, so the check is mechanical.
+Do not eyeball it. Compute it. Every value is `hsl(H S% L%)`, so the check is mechanical: take the
+three numbers.
 
 ```ts
 // scripts/check-contrast.ts — run in CI alongside lint

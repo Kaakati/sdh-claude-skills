@@ -36,6 +36,9 @@ The translation workflow converts design intent into production code that is:
 - [ ] Note interactive behaviors (hover, focus, active, disabled)
 - [ ] Note responsive breakpoints
 - [ ] Note animations/transitions
+- [ ] Map the navigation: top-level areas per role, each screen's area and level, where search
+      lives — a designed global sidebar with nested sections is a finding to raise, not a layout
+      to copy (`../ui-ux-patterns/references/drill-down-navigation.md`)
 
 ---
 
@@ -97,12 +100,22 @@ Button                  →  Atom       →  components/atoms/
 Input                   →  Atom       →  components/atoms/
 Badge                   →  Atom       →  components/atoms/
 Search Form             →  Molecule   →  components/molecules/
-Nav Link Group          →  Molecule   →  components/molecules/
+Nav Link                →  Molecule   →  components/molecules/
+Breadcrumb              →  Molecule   →  components/molecules/
 Product Card            →  Organism   →  components/organisms/
 Header                  →  Organism   →  components/organisms/
+App Sidebar (areas)     →  Organism   →  components/organisms/
+Section Nav             →  Organism   →  components/organisms/
+Command Palette         →  Organism   →  components/organisms/
 Dashboard Layout        →  Template   →  components/templates/
+Area Layout             →  Template   →  components/templates/
 Product Listing Page    →  Page       →  views/ or pages/
 ```
+
+Navigation organisms follow the drill-down standard: `AppSidebar` lists areas only, `SectionNav`
+renders inside `AreaLayout`, breadcrumb items come from the API's `ancestors`, and the command
+palette is an accelerator, never the only route
+(`../ui-ux-patterns/references/drill-down-navigation.md`).
 
 ### Variant Extraction
 
@@ -219,7 +232,7 @@ Always mobile-first. Add complexity as viewport grows:
 | Semantic HTML | Use `<button>`, `<a>`, `<input>` — never `<div onClick>` |
 | Focus indicator | `focus-visible:ring-2 focus-visible:ring-ring` |
 | Color contrast | 4.5:1 for text, 3:1 for UI components |
-| Touch target | `min-h-[44px] min-w-[44px]` on mobile |
+| Touch target | `min-h-11 min-w-11` (44px) on touch; on web at least 24×24 CSS px (WCAG 2.5.8) and the house's 32×32 (`min-h-8 min-w-8`) — the 32 is a house choice, not a WCAG number |
 | Motion respect | `motion-safe:` prefix on all transitions |
 | Screen reader | `aria-label` on icon-only buttons, `aria-live` for dynamic content |
 
@@ -239,3 +252,5 @@ Before marking a design-to-code translation complete:
 - [ ] WCAG 2.2 AA contrast ratios verified
 - [ ] Touch targets meet minimum sizes
 - [ ] Animations respect prefers-reduced-motion
+- [ ] Navigation follows the drill-down standard (areas-only sidebar, section nav in the area
+      layout, breadcrumbs from level 3)

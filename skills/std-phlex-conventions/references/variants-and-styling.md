@@ -198,20 +198,20 @@ Good use of `tokens` — state-driven classes local to one element:
 
 ```ruby
 class Components::Molecules::NavLink < Components::Base
-  def initialize(label:, href:, active: false)
+  def initialize(label:, href:, current: nil)
     @label = label
     @href = href
-    @active = active
+    @current = current # "page" | "true" | nil — see references/navigation.md
   end
 
   def view_template
     a(
       href: @href,
-      aria_current: (@active ? "page" : nil),
+      aria_current: @current,
       class: tokens(
-        "block rounded-md px-3 py-2 text-sm font-medium transition-colors",
-        @active => "bg-accent text-accent-foreground",
-        !@active => "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+        "block rounded-md border-l-2 px-3 py-2 text-sm transition-colors",
+        !@current.nil? => "border-primary bg-accent font-semibold text-accent-foreground",
+        @current.nil? => "border-transparent text-muted-foreground hover:bg-accent/50 hover:text-foreground"
       )
     ) { @label }
   end

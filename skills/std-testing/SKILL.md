@@ -84,6 +84,28 @@ describe("UserService", () => {
 - Coverage is a floor, not a ceiling. Focus on **branch** coverage, not line coverage. High coverage
   with weak assertions is worse than moderate coverage with meaningful tests.
 
+## Where Test Files Live
+
+The `test-coverage-checker` hook warns when a source file has no test at any location below.
+
+- **Vendored shadcn/ui primitives carry no test-file expectation.** Files in the directory that
+  `components.json` names in `aliases.ui` are CLI-owned and ship without tests, and no hook asks
+  for one. Test the compositions built on them (the form, the gated menu, the organism), not
+  `ui/button.tsx`.
+- **Python follows pytest, anchored at the nearest `pyproject.toml`** (or `manage.py`, `setup.py`,
+  `setup.cfg`), for a module in a `src/<pkg>/` package or a FastAPI `app/` package. `src/<pkg>/services/billing.py` and
+  `app/services/billing.py` are each covered by any of:
+  - `tests/<mirror>/test_<name>.py`, where the mirror drops `src/<pkg>` or `app`:
+    `tests/services/test_billing.py`
+  - `tests/unit/<mirror>/test_<name>.py`: `tests/unit/services/test_billing.py`
+  - a flat `tests/test_<name>.py`: `tests/test_billing.py`
+  - a co-located test beside the module: `test_billing.py`, `billing_test.py`, or
+    `tests/test_billing.py` in the module's own directory
+
+  A `src/` mirror that keeps the package directory (`tests/<pkg>/services/test_billing.py`) also
+  counts. Without any of those markers, only a `src/` layout is recognised. `__init__.py`,
+  `conftest.py`, and modules under `tests/`, `test/`, `migrations/`, or `alembic/` need no test.
+
 ## Test Types
 
 - **Unit**: fast, isolated, no I/O. One module. The base of the pyramid — many of these.
@@ -108,6 +130,6 @@ unauthorized, timeout), and **concurrency** where applicable.
 ## Deep guides (read on demand, do not preload)
 
 - Unit vs integration, mock boundaries, test data builders, edge-case matrix, Sidekiq jobs → `references/test-strategy.md`
-- Vitest + RTL setup, query priority, userEvent, MSW, providers, Zustand, Framer Motion, ApexCharts → `references/react-components.md`
+- Vitest + RTL setup, query priority, userEvent, MSW, providers, Zustand, Framer Motion, charts (Chart.js via react-chartjs-2 — `vitest-canvas-mock` plus a `ResizeObserver` stub, assert the text alternative and the data mapping; Next.js `chart` on Recharts), navigation rendered per role → `references/react-components.md`
 - Next.js Server Components, server actions, `generateMetadata`, route handlers → `references/nextjs-server.md`
 - React Native: RNTL, navigation, Reanimated, MMKV, Centrifugo → `references/react-native.md`

@@ -42,7 +42,8 @@ build/buy decisions where nobody can cheaply check it.
 - Who are the stakeholders and their priorities?
 
 ### Phase 2: What — Feature Scope
-- User personas and their goals
+- User personas and their goals, through a role lens — which organization role each persona holds
+  and what that role must see, do, and approve
 - Core use cases (must-have) vs. enhancements (nice-to-have)
 - System boundaries — what is IN scope and OUT of scope
 
@@ -51,10 +52,20 @@ build/buy decisions where nobody can cheaply check it.
 - Accessibility and i18n considerations
 - Performance and scalability expectations
 - Security and compliance requirements
+- A draft role × permission matrix — hardened later by the `access-control-designer` skill
+- A navigation hierarchy — areas per role (within the house area budget), depth per area, what
+  each role lands on, search scope, and the existing navigation to migrate (in scope, not a
+  follow-up) → `@skills/ui-ux-patterns/references/drill-down-navigation.md`
+- The per-project drill-down API decisions — fixed or user-defined depth, badge freshness, totals
+  vs load more, restricted ancestors in breadcrumbs, not found vs request access, readable URLs,
+  live levels — asked here, recorded in an ADR by `architecture-advisor` →
+  `@skills/std-api-design/references/drill-down-resources.md`
 - Data migration or backward compatibility needs
 
 ### Phase 4: Assumptions
-- Technology constraints within the stack (Rails, React Native, Vite SPA, Next.js)
+- Technology constraints within the house stack for the layers touched: Rails, or Python (FastAPI
+  or Django + DRF) where the house places it, on the API; the Vite SPA, Next.js or React Native in
+  front; one chart library per stack
 - Third-party dependencies and API availability
 - Data availability and quality assumptions
 - Timeline and resource assumptions
@@ -79,6 +90,8 @@ build/buy decisions where nobody can cheaply check it.
 4. **Risk Register** — Risk, likelihood, impact, mitigation
 5. **Spike Stories** — Timeboxed research tasks for unknowns
 6. **Dependency Map** — Blocking and blocked-by relationships
+7. **Navigation Map** — Areas and landing per role, levels per area, each record's home area, and
+   the drill-down decisions (answered, or open with who decides)
 
 ## Quality Checklist
 
@@ -89,6 +102,7 @@ build/buy decisions where nobody can cheaply check it.
 - [ ] Non-functional requirements captured (performance, security, a11y, i18n)
 - [ ] Dependencies between stories mapped
 - [ ] MVP scope is clearly separated from enhancements
+- [ ] Navigation hierarchy captured per role, and every drill-down decision answered or listed as open
 
 ## Keywords
 

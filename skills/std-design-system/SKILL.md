@@ -22,9 +22,12 @@ derive from tokens — no hardcoded values.**
 2. **No arbitrary Tailwind values** — `p-[13px]`, `text-[17px]`, `bg-[#ff0000]` are all rejected.
    Snap to the nearest scale token. If no token fits, question the design first.
 3. **Every interactive element has a visible focus indicator** — 2px ring, ≥3:1 contrast, using the
-   `ring-ring` token and the `focus-visible:` prefix (never bare `focus:`).
+   `ring-ring` token and the `focus-visible:` prefix (never bare `focus:`). No opacity modifier on
+   the ring (`ring-ring/50`) unless the active preset measures ≥3:1 with it — it does not in every
+   preset.
 4. **Every animation has a reduced-motion path** — `motion-safe:` on the web, `useReducedMotion()`
-   in JS-driven animation.
+   in JS-driven animation, and the global `prefers-reduced-motion` backstop in every web token
+   stylesheet (the only path vendored shadcn/ui primitives have).
 
 ```tsx
 // The canonical component line: tokens, focus-visible, guarded motion.
@@ -43,16 +46,26 @@ All CSS custom properties follow `--{category}-{name}`:
 | Surface    | Surface role           | `--background`, `--card`, `--popover`, `--muted`    |
 | Border     | Border role            | `--border`, `--input`, `--ring`                     |
 
-Colors are declared as **space-separated HSL channels with no `hsl()` wrapper**, so Tailwind's
-opacity modifier works. Every background token has a contrast-verified `-foreground` pair.
+Colors are declared as **complete `hsl()` values** and registered with Tailwind v4 through
+**`@theme inline`**, so each utility reads the variable on the element it styles and a nested
+`.dark` section re-resolves. Opacity modifiers still work (`bg-primary/50` compiles to
+`color-mix()`). The numbers stay HSL because they are what the contrast table measures. Every
+background token has a contrast-verified `-foreground` pair.
 
 ```css
---primary: 222.2 47.4% 11.2%;              /* definition */
-background-color: hsl(var(--primary) / 0.5);  /* consumption — Tailwind: bg-primary/50 */
+:root { --primary: hsl(222.2 47.4% 11.2%); }        /* definition: a complete color */
+@theme inline { --color-primary: var(--primary); }  /* registration: bg-primary, bg-primary/50 */
+.divider { border-color: var(--primary); }          /* arbitrary CSS: var(), never hsl(var()) */
 ```
 
+`hsl(var(--primary))` now wraps a color in a color. That is invalid at computed-value time, and
+the property silently falls back to `unset`. Bare channels (`--primary: 222.2 47.4% 11.2%`) fail
+the same way from the other side.
+
 Tokens live in `:root`; dark mode overrides use the **`.dark` class**, not
-`@media (prefers-color-scheme)`.
+`@media (prefers-color-scheme)`. Tailwind v4's `dark:` variant follows the media query unless the
+stylesheet overrides it, so the stylesheet declares `@custom-variant dark (&:is(.dark *));`.
+Without that line every `dark:` utility ignores the toggle.
 
 ## Color
 
@@ -60,7 +73,16 @@ Tokens live in `:root`; dark mode overrides use the **`.dark` class**, not
 - **Never convey meaning through color alone** — semantic colors pair with an icon and a text label.
 - Required palettes: Core (`primary`/`secondary`/`accent`), Neutral (`neutral`/`muted`/`background`/
   `foreground`), Semantic (`success`/`warning`/`error`/`info`), Surface (`card`/`popover`), Border
-  (`border`/`input`/`ring`).
+  (`border`/`input`/`ring`, each ≥3:1 against `background` and `card` in both modes), Chart
+  (`chart-1`…`chart-5`: categorical series, non-text, no `-foreground`, used in fixed order).
+- **shadcn/ui aliases** are registered in shadcn packages (Next.js, Vite SPA). `destructive` and
+  `destructive-foreground` point to `error`. `sidebar` and `sidebar-foreground` point to `card`.
+  `sidebar-primary` points to `primary`, `sidebar-accent` to `accent` (each with its `-foreground`),
+  `sidebar-border` to `border`, and `sidebar-ring` to `ring`. They are `var()` references, never
+  copied values, so they cannot drift from the role. Code the house writes names the role
+  (`bg-error`). The aliases exist so vendored shadcn source compiles unmodified. For the wiring,
+  see `@skills/theming/references/platform-integration.md`; for measured pairs, see
+  `@skills/theming/references/design-tokens.md`.
 
 ## Typography
 
@@ -99,13 +121,30 @@ transitions, modals). **Ceiling is 500ms** — longer feels sluggish.
 Easing: `ease-out` for entering, `ease-in` for exiting, `ease-in-out` as default,
 `cubic-bezier(0.34, 1.56, 0.64, 1)` spring for tactile elements (toggles, modals).
 
+`framer-motion` drives house page and list transitions. `tw-animate-css` is allowed only as the
+CSS-only enter/exit animation dependency of shadcn/ui primitives. It ships no reduced-motion rule
+of its own, which is why the stylesheet backstop is mandatory.
+
 ## Component styling
 
 Multi-variant components use `class_variants` (Ruby/Phlex) or `cva` (TypeScript) — never hand-rolled
 conditional string concatenation. Five standard axes: `size` (`sm`/`md`/`lg`/`xl`), `variant`
 (`primary`/`secondary`/`outline`/`ghost`/`destructive`), `state` (`default`/`hover`/`active`/
 `disabled`/`loading`), `radius` (`none`/`sm`/`md`/`lg`/`full`), `density` (`compact`/`default`/
-`comfortable`).
+`comfortable`). Merge classes with `cn` imported from `@/lib/utils`.
+
+Vendored shadcn/ui primitives arrive with their own variant keys and base-specific APIs. Adopting,
+remapping, and keeping them mergeable is owned by the `std-shadcn-ui` skill
+(`@skills/std-shadcn-ui/references/components-and-blocks.md`). Do not restate it here.
+
+## Navigation chrome
+
+- **Salience ladder**: global nav > section nav > breadcrumb. Local navigation never outweighs the
+  global nav in size, weight or surface.
+- **Selected state takes two cues**: an indicator bar or border plus weight, never color alone.
+- **The desktop sidebar ships open.** Collapsing it is the person's choice, never the default.
+- What the global sidebar holds, where section nav lives, drill-down levels and breadcrumbs are
+  owned by `@skills/ui-ux-patterns/references/drill-down-navigation.md`. Do not restate them here.
 
 ## Cross-platform
 
@@ -115,12 +154,43 @@ conditional string concatenation. Five standard axes: `size` (`sm`/`md`/`lg`/`xl
 | React Native        | Theme context          | `useTheme()` hook + `StyleSheet`    |
 | Phlex (Rails)       | CSS custom properties  | Tailwind classes + `class_variants` |
 
-Token **names**, the 4px spacing base, and type scale ratios are identical on every platform. Touch
-targets: 44×44px minimum on mobile, 32×32px on web (WCAG 2.5.8).
+Token **names**, the 4px spacing base, and type scale ratios are identical on every platform. The
+exception is the shadcn/ui aliases: they are web wiring, and React Native reads the roles they
+point to. Touch targets: 44×44px minimum on mobile and 32×32px on web are **house minimums**, set
+above the 24×24 CSS px that WCAG 2.5.8 (AA) requires. Never cite them as WCAG numbers.
+
+## What the hook enforces
+
+`design-token-checker.py` warns, never blocks, after an edit to a component, style or token file.
+Besides hex colors and arbitrary values, three checks decide what it accepts:
+
+- **Unregistered tokens.** A color utility built on a role name (`primary`, `muted`, `error`,
+  `sidebar`, … and the usual strays `danger` and `neutral`) must name a registered token, or it
+  compiles to no CSS and warns: `bg-primary-600`, `bg-neutral`, `bg-danger`, `bg-sidebar-background`.
+  Accepted: a registered role, with or without an opacity modifier (`bg-primary/90`); the 15
+  shadcn/ui alias names (`destructive`, `destructive-foreground`, the `sidebar-*` set, …); and a
+  token the same file defines (`--success-subtle: …;` then `bg-success-subtle`). The aliases are
+  accepted in every package, so `bg-destructive` in a Phlex component, where no alias block exists,
+  is review's catch. Palette classes (`bg-red-500`) are outside this check, not allowed by it. It is
+  the only check that still runs on vendored primitives under `aliases.ui`.
+- **Reduced motion** (`.tsx`, `.jsx`, `.css`, `.scss`). Movement — `animate-*`, `@keyframes`, `animation:`, transitions of transform,
+  size or position, `transition` paired with a transform variant (`hover:scale-105`), smooth
+  scrolling, `<motion.*>`, React Native `Animated.timing`-style calls and `LayoutAnimation`,
+  Reanimated `withTiming` / `withSpring` — needs one of `motion-safe:`, `motion-reduce:`,
+  `prefers-reduced-motion`, `useReducedMotion`, `reducedMotion` (Framer Motion's `MotionConfig`),
+  `AccessibilityInfo.isReduceMotionEnabled` or `reduceMotionChanged`, or Reanimated's
+  `ReduceMotion`. One anywhere in the file satisfies it, so review still checks each animation.
+  `transition-colors` and opacity fades are not movement.
+- **Focus** (`.tsx`, `.jsx`). A styled host control — `<button>`, `<a>`, `<input>`, `<select>`, `<textarea>` or
+  `<Link>` whose class string is written at the call site — needs `focus-visible:`; bare `focus:`
+  does not satisfy it. A control with no class keeps the browser ring, a pass-through
+  `className={className}` is judged where the string is written, and `<Button>` or a class built
+  from `buttonVariants(…)`, `cva(…)` or `tv(…)` inherits the atom's ring. Tests, stories and React
+  Native are out.
 
 ## Deep guides (read on demand, do not preload)
 
-- Adding a color token, Tailwind wiring, dark mode, contrast verification → `references/defining-tokens.md`
-- `cva` / `class_variants` components, focus rings, arbitrary-value escape hatch → `references/component-variants.md`
-- Shared token package, React Native theme, touch targets, parity tests → `references/cross-platform-parity.md`
-- Framer Motion, Reanimated, `prefers-reduced-motion`, animation budgets → `references/motion.md`
+- Adding a color token or alias, Tailwind v4 wiring (`@theme inline`, `@custom-variant dark`), dark mode, contrast verification → `references/defining-tokens.md`
+- `cva` / `class_variants` components, `cn` from `@/lib/utils`, focus rings and ring opacity, arbitrary-value escape hatch → `references/component-variants.md`
+- Shared token package, React Native theme, web-only aliases, touch targets, parity tests → `references/cross-platform-parity.md`
+- Framer Motion, `tw-animate-css` in shadcn primitives, Reanimated, the mandatory `prefers-reduced-motion` backstop, animation budgets → `references/motion.md`

@@ -42,6 +42,7 @@ backend/app/components/
 │   ├── stat_card.rb                 # Components::Molecules::StatCard
 │   └── user_menu.rb                 # Components::Molecules::UserMenu
 ├── organisms/
+│   ├── app_sidebar.rb               # Components::Organisms::AppSidebar (areas only)
 │   ├── article_detail.rb            # Components::Organisms::ArticleDetail
 │   ├── article_list.rb              # Components::Organisms::ArticleList
 │   ├── comment_thread.rb            # Components::Organisms::CommentThread
@@ -50,7 +51,7 @@ backend/app/components/
 │   ├── header.rb                    # Components::Organisms::Header
 │   ├── metrics_grid.rb              # Components::Organisms::MetricsGrid
 │   ├── product_grid.rb              # Components::Organisms::ProductGrid
-│   └── sidebar.rb                   # Components::Organisms::Sidebar
+│   └── section_nav.rb               # Components::Organisms::SectionNav (an area's sections)
 └── templates/
     ├── auth_layout.rb               # Components::Templates::AuthLayout
     ├── dashboard_layout.rb          # Components::Templates::DashboardLayout
@@ -138,6 +139,9 @@ web/src/components/
 │   ├── ActivityFeed/
 │   │   ├── ActivityFeed.tsx
 │   │   └── index.ts
+│   ├── AppSidebar/                  # global navigation: areas only
+│   │   ├── AppSidebar.tsx
+│   │   └── index.ts
 │   ├── Header/
 │   │   ├── Header.tsx
 │   │   └── index.ts
@@ -147,8 +151,8 @@ web/src/components/
 │   ├── ProductGrid/
 │   │   ├── ProductGrid.tsx
 │   │   └── index.ts
-│   └── Sidebar/
-│       ├── Sidebar.tsx
+│   └── SectionNav/                  # an area's sections, rendered by the area layout
+│       ├── SectionNav.tsx
 │       └── index.ts
 └── templates/
     ├── AuthLayout/
@@ -227,14 +231,17 @@ next/src/components/
 │   ├── ActivityFeed/
 │   │   ├── ActivityFeed.tsx
 │   │   └── index.ts
+│   ├── AppSidebar/                  # global navigation: areas only
+│   │   ├── AppSidebar.tsx
+│   │   └── index.ts
 │   ├── Header/
 │   │   ├── Header.tsx
 │   │   └── index.ts
 │   ├── MetricsGrid/
 │   │   ├── MetricsGrid.tsx
 │   │   └── index.ts
-│   └── Sidebar/
-│       ├── Sidebar.tsx
+│   └── SectionNav/                  # an area's sections, rendered by the area layout
+│       ├── SectionNav.tsx
 │       └── index.ts
 └── templates/
     ├── AuthLayout/

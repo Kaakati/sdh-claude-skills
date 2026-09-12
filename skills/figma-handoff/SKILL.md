@@ -57,6 +57,8 @@ Map Figma frames to semantic HTML:
 | List frame | `<ul>` + `<li>` | Repeating items |
 | Image layer | `<img>` or `next/image` | Visual content |
 
+Navigation frames follow the house drill-down standard: a designed global sidebar lists areas only — a nested section tree in it is a **finding** to raise, not a spec to build — and breadcrumbs appear from level 3 → `@skills/ui-ux-patterns/references/drill-down-navigation.md`.
+
 ### Step 3: Component Extraction
 
 For each unique Figma component:
@@ -73,7 +75,7 @@ Extract design tokens from Figma styles:
 
 | Figma Style | Token Category | Example |
 |-------------|---------------|---------|
-| Color styles | `--primary`, `--secondary` | `Fill: #0F172A` → `--primary: 222.2 47.4% 11.2%` |
+| Color styles | `--primary`, `--secondary` | `Fill: #0F172A` → `--primary: hsl(222.2 47.4% 11.2%)` |
 | Text styles | Font family, size, weight | `Inter 16/24 Regular` → `text-base font-normal leading-normal` |
 | Effect styles | Shadows, blurs | `Shadow: 0 4px 6px rgba(0,0,0,0.1)` → `shadow-md` |
 | Grid styles | Columns, gutters, margins | `12col / 24px gutter / 80px margin` → grid config |
@@ -86,9 +88,12 @@ utility for a token registered in the config, so `bg-brand-green-500` is not a b
 catch it because the class name looks right.
 
 The registered names are in `@skills/theming/references/platform-integration.md` — that list, and
-nothing else, is what exists. Two that catch people out: **`destructive` and `neutral` are variant
-*keys*, not tokens** (the registered ones are `error` and `muted`), so a Figma layer called
-"Destructive" maps to `bg-error`, not `bg-destructive`.
+nothing else, is what exists. Two that catch people out: **`neutral` is a variant *key*, not a
+token** (the registered role is `muted`). **`destructive` is registered, but only as a shadcn/ui
+alias** of `error`, in the Next.js and Vite packages that carry the alias block; in Phlex and other
+packages without it, `bg-destructive` compiles to nothing. Either way a Figma layer called
+"Destructive" maps to the role, `bg-error` — the alias exists so vendored shadcn source compiles,
+not as a name for new code.
 
 If a Figma style has no registered counterpart, that is a **finding, not a naming exercise**:
 report it, and let `/theming` or `std-design-system` decide whether the design system gains a token.

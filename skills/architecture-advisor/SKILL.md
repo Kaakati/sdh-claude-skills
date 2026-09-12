@@ -18,6 +18,12 @@ This skill routes to the **architecture-advisor** agent — a principal software
 - Assessing technical debt and prioritizing remediation
 - Creating Architecture Decision Records (ADRs) for `docs/adr/`
 - Reviewing system design for quality attributes (scalability, maintainability, security)
+- Recording a product's drill-down decisions in an ADR — the hierarchy-storage choice
+  (`@skills/std-database/references/hierarchies.md`) and the per-project answers on depth, badge
+  freshness, totals, restricted ancestors, readable URLs and live levels
+  (`@skills/std-api-design/references/drill-down-resources.md`)
+- Planning the migration of an existing product's navigation to drill-down — in-scope work, not a
+  follow-up
 
 ## What the Agent Does
 

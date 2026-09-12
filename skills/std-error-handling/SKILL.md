@@ -16,13 +16,9 @@ paths:
 - Never rescue `Exception` — rescue `StandardError` or more specific errors
 - Use custom error classes inheriting from `StandardError` for domain errors
 - Service objects return Result objects, never raise for business logic failures
-- Controllers rescue specific errors and render consistent JSON:
-  ```ruby
-  rescue ActiveRecord::RecordNotFound
-    render json: { error: "Resource not found", code: 404 }, status: :not_found
-  rescue ActiveRecord::RecordInvalid => e
-    render json: { error: e.message, code: 422, details: e.record.errors }, status: :unprocessable_entity
-  ```
+- Controllers never hand-roll error JSON per action. One `ApiErrorHandling` concern `rescue_from`s
+  the specific errors centrally and renders the one house error envelope →
+  `../std-api-design/references/errors-rails.md`
 - Log all rescued exceptions with context (user_id, request_id, params)
 - Use Sentry/Rollbar for error tracking — tag with environment and user
 
@@ -36,12 +32,13 @@ paths:
 
 ## API Error Response Format
 
-Owned by `std-api-design` — see the "Related, owned elsewhere" pointer at the end of this file.
-This skill auto-loads on every `.rb`/`.ts`/`.tsx` file, so a second copy of the envelope here is
-a second source of truth on nearly every task. It had already drifted from the owner on every
-axis that matters — `code` as an integer rather than the string error code, the HTTP status in
-`code` rather than `status`, `details` as an object rather than an array, and `request_id` in an
-API whose keys are camelCase.
+Every API error uses the one house envelope, owned by `std-api-design`. Rails renders it from the
+`ApiErrorHandling` concern → `../std-api-design/references/errors-rails.md`. Next.js route handlers
+build it, and TypeScript clients branch on its string `code` →
+`../std-api-design/references/errors-typescript.md`. Do not copy its body here. This skill is
+scoped to every source file, so a copy would be a second source of truth on nearly every task, and
+the last one drifted on every axis a client parses: an integer `code` holding the HTTP status,
+`details` as an object, and a snake_case `request_id`.
 
 ## Background Jobs (Sidekiq)
 - **Sidekiq already retries: 25 times over ~20 days, by default.** Not configuring retries is not

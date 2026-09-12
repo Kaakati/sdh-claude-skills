@@ -64,7 +64,11 @@ stack.
   keyboard specs.
 - **`/accessibility-auditor`** — the audit protocol, including the check this skill cannot do from
   markup: **token contrast is arithmetic, not a DevTools pass**, and every theme is its own case.
-- **`std-design-system`** — scoped to `**/globals.css`, `**/styles/**`, `**/tailwind.config.*`.
+- **`@skills/ui-ux-patterns/references/drill-down-navigation.md`** — the house navigation standard
+  (areas only in the global sidebar, levels, location cues, Back and list state, search as the second
+  way). Navigation findings defer to it wherever an upstream rule disagrees.
+- **`std-design-system`** — scoped to `**/styles/**`, `**/components/ui/**`, `**/src/theme/**`,
+  `**/app/components/**/*.rb`, `**/tailwind.config.*` and `**/globals.css`.
   A class naming an unregistered token compiles to **no CSS at all**, silently — no upstream rule
   set knows this repo's registry.
 

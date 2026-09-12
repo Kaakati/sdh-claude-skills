@@ -49,6 +49,10 @@ alembic/            # Migrations — safety rules owned by std-database
 - **`app/models/` is a package with one module per aggregate — never a single `models.py`.**
   A lone `models.py` is the Django idiom and that filename is claimed by the `std-django`
   skill's paths; the package layout keeps the two skills off each other's files.
+- **Relationships are `relationship(back_populates=...)` on both sides with `lazy="raise"`** — an
+  async session cannot lazy-load, so an unloaded relation must fail loudly instead of attempting
+  implicit I/O. **Every `ForeignKey` column sets `index=True`** — PostgreSQL does not index
+  foreign keys for you. Design and equivalents → `../std-database/references/relationships.md`
 - Wire startup/shutdown in `lifespan`, not deprecated `@app.on_event` handlers.
 
 ## Routers
@@ -63,6 +67,13 @@ alembic/            # Migrations — safety rules owned by std-database
   serialize. Same rule as thin Rails controllers; logic in a route cannot be reused by
   Celery tasks or scripts.
 - Auth and the DB session arrive via `Depends` — never construct a session inside a route.
+- **Drill-down levels get one router each.**
+  - A nested collection router (`prefix="/sites/{site_id}/assets"`) resolves its parent through a
+    scope-checked dependency. Including a router joins paths and dependencies; it authorizes nothing.
+  - Member routers stay flat (`prefix="/assets"`).
+  - Each level has its own `response_model`: a lean list item, and a detail with `parentId` and
+    `ancestors`.
+  - Full contract → `@skills/std-api-design/references/drill-down-resources.md`
 
 ```python
 @router.post("", response_model=OrderRead, status_code=201)
@@ -92,6 +103,10 @@ async def create_order(
 
 - `Depends` wires the session (`get_session` yields from `async_sessionmaker`, one session
   per request), the current user (bearer token → `get_current_user`), and services.
+- **Authorization is a `require_permission("orders.update")` dependency factory wired through
+  `Depends`** (per route, or router-level `dependencies=[...]`) — permission keys come from the
+  matrix, never role-name checks inside a route →
+  `@skills/access-control-designer/references/permission-matrix.md`
 - **No import-time singletons except settings** — a module-level engine or HTTP client
   binds config and event loop at import, breaking test overrides and worker forks. Build
   them in `lifespan` and reach them through dependencies.

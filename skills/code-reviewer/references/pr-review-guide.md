@@ -20,7 +20,8 @@ class OrdersController < ApplicationController
     if result.success?
       render json: { data: OrderDetailSerializer.new.serialize(result.value) }, status: :created
     else
-      render json: { error: result.error, code: 422 }, status: :unprocessable_entity
+      # the one error envelope, rendered by its one helper (../std-api-design/references/errors-rails.md)
+      render_api_error(message: result.error, code: "VALIDATION_ERROR", status: :unprocessable_entity)
     end
   end
 end
@@ -295,6 +296,32 @@ A Sidekiq job runs in another process with no request, so `request_id` is `nil` 
 you need it — the async work is what failed. Check that client/server middleware propagates it.
 → `../std-monitoring/references/request-tracing.md`
 
+### The count that leaked
+
+```ruby
+# RED FLAG: an org-wide cached counter on a scoped overview
+def show
+  region = policy_scope(Region).find(params[:region_id])
+  authorize region, :show?
+  render json: { data: { regionId: region.id, assetsCount: region.assets_count } } # counter_cache: every asset in the org
+end
+```
+
+```ruby
+# GREEN: counted inside the caller's scope, one grouped query
+def show
+  region = policy_scope(Region).find(params[:region_id])
+  authorize region, :show?
+  counts = policy_scope(Asset).joins(:site).where(sites: { region_id: region.id }).group(:status).count
+  render json: { data: { regionId: region.id, assetsByStatus: counts, asOf: Time.current.iso8601 } }
+end
+```
+
+The region lookup is scoped and authorized, so the diff looks careful — yet a `team`-scoped user
+reads "Assets 1,204" above a list of 12. The badge is data the policy never filtered, the same
+disclosure a 403 would be; a cached counter is a valid badge only for `org`-scoped callers.
+→ `../std-api-design/references/drill-down-resources.md`
+
 ## Common PR Review Comments
 
 ### Must Fix (Block Merge)
@@ -311,6 +338,8 @@ you need it — the async work is what failed. Check that client/server middlewa
 - **A money/irreversible job with no explicit `sidekiq_options retry:`** (the default is 25
   retries over ~20 days) or with `retry_on` used as the policy (it stacks, it does not cap)
 - Server data stored in Zustand instead of TanStack Query
+- **A badge count computed outside the caller's scope** (an org-wide `counter_cache` shown to an
+  `own` or `team` scope), or a flat member route whose lookup skips the policy scope
 
 ### Should Fix (Strong Suggestion)
 - Missing test coverage for changed code
@@ -318,6 +347,10 @@ you need it — the async work is what failed. Check that client/server middlewa
 - Missing Panko serializer (raw model rendered)
 - Missing index on foreign key
 - Inline styles instead of StyleSheet.create
+- Sections in the global sidebar, `startsWith` active matching, a hardcoded `navItems` array, or
+  breadcrumbs built from history (`../ui-ux-patterns/references/drill-down-navigation.md`)
+- URL nesting deeper than one level, or `ancestors` loaded one parent at a time
+- A chart library outside the per-stack split (shadcn chart on Next.js, Chart.js elsewhere)
 
 ### Nit (Optional)
 - Naming could be more descriptive

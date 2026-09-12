@@ -341,5 +341,8 @@ export function TeamRoster({ teamId }: TeamRosterProps) {
 - Callback props: `onClick`, `onSubmit`, `onChange` (without business logic)
 - Children for composition
 
+**Permission-filtered navigation is data awareness:**
+Deciding which nav items, menu entries, or row actions a user may see belongs in an organism (e.g. `AppSidebar`, `SectionNav`) or the page. It reads the ability (or, in Phlex, the controller-computed permission props) and passes down only the permitted items. Molecules such as `NavLink` stay presentational: they receive `href`, `label`, and `active`, never a permission key or an ability object. Gate mechanics → `@skills/access-control-designer/references/ui-gates.md`.
+
 **Alternative pattern -- prop-drilling data through organisms:**
 An organism can also accept data via props instead of fetching it. This is useful when the parent page has already fetched the data. The key rule is that atoms and molecules must never be the ones fetching data.

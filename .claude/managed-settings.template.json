@@ -1,5 +1,5 @@
 {
-  "_README": "TEMPLATE for IT/platform teams. Deploy to /etc/claude-code/managed-settings.json (Linux/macOS) or C:\\ProgramData\\ClaudeCode\\managed-settings.json (Windows). This file CANNOT be overridden by any user or project configuration. Read docs/org-policy.md BEFORE deploying — layer 5 is the layer teams reach for last and misuse first, and the misuse is worse than the gap.",
+  "_README": "TEMPLATE for IT/platform teams. Deploy to /Library/Application Support/ClaudeCode/managed-settings.json (macOS), /etc/claude-code/managed-settings.json (Linux and WSL), or C:\\Program Files\\ClaudeCode\\managed-settings.json (Windows). Claude Code does not read the legacy Windows path C:\\ProgramData\\ClaudeCode\\managed-settings.json, so a file left there enforces nothing. This file CANNOT be overridden by any user or project configuration. Read docs/org-policy.md BEFORE deploying — layer 5 is the layer teams reach for last and misuse first, and the misuse is worse than the gap.",
 
   "_PRINCIPLE": "Enforce the intolerable, permit the rest. These controls protect against the ENGINEER's mistake, not the agent's — they are the rules that must hold regardless of what any individual configures. Everything merely serious belongs in the project's own .claude/settings.json where teams can adapt it. An org policy that treats every engineer as an adversary loses them to shadow tooling, which has NO layers at all.",
 
@@ -14,7 +14,8 @@
 
   "autoUpdatesChannel": "stable",
 
-  "_3_THE_NON_OVERRIDABLE_SECURITY_FLOOR": "This is the org-scale answer to the plugin trap. A plugin CANNOT ship `permissions`, so every consuming project must copy the deny floor by hand — and the SessionStart sentinel exists only to catch the ones that didn't. Deployed here, the floor simply EXISTS everywhere and no local override can weaken it: no copying, no drift, no sentinel needed. Keep this list to the CATASTROPHIC tier only — secrets, privilege escalation, remote code execution, irreversible infrastructure. The plugin's fuller floor (build-artifact Read denies etc.) is a context-economy concern, NOT a security one, and belongs in project settings rather than non-overridable org policy.",
+  "_3_THE_NON_OVERRIDABLE_SECURITY_FLOOR": "This is the org-scale answer to the plugin trap. A plugin CANNOT ship `permissions`, so every consuming project must copy the deny floor by hand — and the SessionStart sentinel exists only to catch the ones that didn't. Deployed here, the floor simply EXISTS everywhere and no local override can weaken it: no copying, no drift, and the sentinel reports it complete. Keep this list to the CATASTROPHIC tier only — secrets, privilege escalation, remote code execution, irreversible infrastructure. The plugin's fuller floor (build-artifact Read denies etc.) is a context-economy concern, NOT a security one, and belongs in project settings rather than non-overridable org policy; so does Read(**/*secret*), a broad name glob that the sentinel does not require from a managed floor carrying this list.",
+  "_3a_POWERSHELL_MIRRORS": "Every shell deny has a PowerShell(...) mirror. The PowerShell tool is on by default on Windows (with or without Git Bash, for claude.ai and Console accounts), and a Bash(...) rule never matches it. Claude Code checks each stage of a PowerShell pipeline on its own, so `irm <url> | iex` is denied at Invoke-Expression itself (aliases such as iex match the cmdlet rule). Drive roots are written as / and C:/ because a backslash in a rule can be read as an escape character; the sdh dangerous-command-blocker hook covers the C: backslash form.",
   "permissions": {
     "deny": [
       "Read(**/.env)",
@@ -27,22 +28,42 @@
       "Read(**/*.key)",
 
       "Bash(sudo:*)",
-      "Bash(rm -rf /)*",
+      "Bash(rm -rf /)",
       "Bash(rm -rf /*)",
       "Bash(chmod 777:*)",
+      "PowerShell(sudo:*)",
+      "PowerShell(chmod 777:*)",
+      "PowerShell(Remove-Item / *)",
+      "PowerShell(Remove-Item * /)",
+      "PowerShell(Remove-Item * / *)",
+      "PowerShell(Remove-Item *:/)",
+      "PowerShell(Remove-Item *:/ *)",
 
       "Bash(curl * | bash)",
       "Bash(wget * | bash)",
+      "PowerShell(Invoke-Expression:*)",
       "Bash(nc:*)",
       "Bash(ncat:*)",
+      "PowerShell(nc:*)",
+      "PowerShell(ncat:*)",
       "WebFetch(domain:*internal*)",
 
       "Bash(terraform destroy:*)",
       "Bash(tofu destroy:*)",
+      "Bash(terraform apply -destroy:*)",
+      "Bash(tofu apply -destroy:*)",
       "Bash(terraform state rm:*)",
       "Bash(terraform state mv:*)",
       "Bash(terraform state push:*)",
-      "Bash(terraform force-unlock:*)"
+      "Bash(terraform force-unlock:*)",
+      "PowerShell(terraform destroy:*)",
+      "PowerShell(tofu destroy:*)",
+      "PowerShell(terraform apply -destroy:*)",
+      "PowerShell(tofu apply -destroy:*)",
+      "PowerShell(terraform state rm:*)",
+      "PowerShell(terraform state mv:*)",
+      "PowerShell(terraform state push:*)",
+      "PowerShell(terraform force-unlock:*)"
     ]
   },
 
@@ -63,7 +84,7 @@
   "companyAnnouncements": [
     "Security standards: the `std-security` skill loads automatically on any source file you edit.",
     "Vague requirement? Run /sdh:requirements-consultant before writing code.",
-    "A `GOVERNANCE GAP` message at session start means this project's permission floor was never copied — fix it before doing sensitive work."
+    "A `GOVERNANCE GAP` message at session start means the permission deny floor is missing, or incomplete, across every settings source the plugin can read (project, local, user, and a file-based managed settings file) — fix it before doing sensitive work."
   ],
 
   "env": {

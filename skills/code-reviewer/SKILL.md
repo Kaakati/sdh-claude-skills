@@ -84,9 +84,15 @@ See the `std-accessibility` skill for the full WCAG 2.2 AA standard.
 
 **ReactJS (Vite SPA)**: Routes lazy-loaded? TanStack Query for server data? Tailwind CSS (no inline styles)? Forms use react-hook-form + zod? Bundle size checked?
 
-**Next.js (App Router)**: Server Components by default? Server actions validate with zod? `next/image` and `next/link`? Metadata exported? `loading.tsx`/`error.tsx` boundaries? `revalidatePath`/`revalidateTag` after mutations?
+**Next.js (App Router)**: Server Components by default? Server actions validate with zod? `next/image` and `next/link`? Metadata exported? `loading.tsx`/`error.tsx` boundaries? `revalidatePath`/`revalidateTag` after mutations (`updateTag` in server actions on Next.js 16)?
 
 **Migrations**: Reversible? Foreign keys indexed? PostGIS columns have GiST index? No data + schema changes mixed?
+
+**Navigation (web and mobile)**: Global sidebar holds areas only — no `SidebarMenuSub` or section tree? Active state via `areaState`, not a bare `startsWith`? Nav items from `visibleNav`, not a hardcoded `navItems`? A feature gate renders the no-access page, not `notFound()`? Breadcrumbs from `ancestors`, not history? → `@skills/ui-ux-patterns/references/drill-down-navigation.md`
+
+**Drill-down APIs**: Collection routes nested one level, members flat? Parent scoped on a nested `index`? Counts computed within the caller's scope? `ancestors` in one query, not one per parent? → `@skills/std-api-design/references/drill-down-resources.md`
+
+**Charts**: Next.js → shadcn chart (Recharts); Vite SPA → Chart.js (`react-chartjs-2`, explicit registration, never `chart.js/auto`); Rails views → Chart.js via the house Stimulus controller. Any other chart library — ApexCharts included — is a finding.
 
 ## Output Format
 
@@ -109,5 +115,5 @@ End each review with:
 
 ## Deep guides (read on demand, do not preload)
 
-- Rails red flags, N+1 detection, migration-safety checks, PostGIS spatial checks, React Native red flags, Sidekiq job checks → `references/pr-review-guide.md`
-- The dimension-by-dimension pass: correctness, security, performance, maintainability, testing, documentation → `references/review-checklist.md`
+- Rails red flags, N+1 detection, migration-safety checks, PostGIS spatial checks, React Native red flags, Sidekiq job checks, and the count that leaked (an org-wide badge shown to a scoped caller) → `references/pr-review-guide.md`
+- The dimension-by-dimension pass: correctness, security, performance, navigation, drill-down APIs, maintainability, testing, documentation → `references/review-checklist.md`

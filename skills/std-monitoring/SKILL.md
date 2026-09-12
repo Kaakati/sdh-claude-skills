@@ -8,6 +8,15 @@ paths:
   - "**/*.tf"
   - "**/docker-compose*.yml"
   - "**/.github/workflows/**"
+  - "**/app/routers/**/*.py"
+  - "**/app/api/**/*.py"
+  - "**/services/**/*.py"
+  - "**/tasks/**/*.py"
+  - "**/views/**/*.py"
+  - "**/views.py"
+  - "**/viewsets.py"
+  - "**/services.py"
+  - "**/tasks.py"
 ---
 
 # Monitoring & Observability Standards

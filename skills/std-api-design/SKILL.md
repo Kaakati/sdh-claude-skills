@@ -1,6 +1,6 @@
 ---
 name: std-api-design
-description: REST API design conventions — URL nouns, response envelope, error format, pagination, versioning, status codes. Use when designing or reviewing API endpoints.
+description: REST API design conventions — URL nouns, shallow nesting, response envelope, error format, pagination, drill-down-ready resources (ancestors, scoped counts, per-level ETags), versioning, status codes. Use when designing or reviewing API endpoints.
 paths:
   - "**/app/controllers/**/*.rb"
   - "**/src/api/**"
@@ -8,6 +8,10 @@ paths:
   - "**/routes/**"
   - "**/controllers/**"
   - "**/endpoints/**"
+  - "**/app/**/route.ts"
+  - "**/app/**/route.js"
+  - "**/app/routers/**/*.py"
+  - "**/app/api/**/*.py"
 ---
 
 # API Design Standards
@@ -21,13 +25,18 @@ Rules for designing and implementing RESTful APIs.
 - Use **plural nouns** for resource collections. No verbs in URLs.
 - Use path hierarchy to express relationships.
 - Use kebab-case for multi-word resources: `/v1/order-items`, not `/v1/orderItems`.
-- Keep URLs shallow — maximum 3 levels of nesting. Use query parameters or separate endpoints beyond that.
+- **Nest only collection routes, one level deep, under the resource's one canonical parent; member
+  routes are flat by ID.** `GET /v1/users/123/orders` lists; `GET /v1/orders/456` reads. "The general
+  rule of thumb is to only nest resources 1 level deep" (Ruby on Rails Guides — Rails Routing from
+  the Outside In), and `shallow: true` generates exactly this split. Any other association is a query
+  filter or a link, never a second nested path.
 
 ```
 # Good                          # Bad
 GET    /v1/users                GET    /v1/getUser/123
 GET    /v1/users/123            POST   /v1/createUser
 GET    /v1/users/123/orders     GET    /v1/user/123/getOrders
+GET    /v1/orders/456           GET    /v1/users/123/orders/456
 POST   /v1/users                POST   /v1/deleteUser/123
 PATCH  /v1/users/123
 ```
@@ -43,6 +52,8 @@ PATCH  /v1/users/123
 | `DELETE` | Remove resource          | Yes        | No           | 204          |
 
 - Return `404` when a resource does not exist (GET, PUT, PATCH, DELETE).
+- Return `404`, not `403`, for a record outside the caller's scope, because a `403` confirms it exists.
+  Keep `403` for a record the caller can see but may not change.
 - Return `409 Conflict` for duplicate creation attempts.
 - Return `202 Accepted` for async operations that will complete later.
 
@@ -112,9 +123,21 @@ Every error — from every endpoint — uses this envelope. Never a bare string,
 ## Deep guides (read on demand, do not preload)
 
 - Rails error concern, 500 handler, request-spec contract → `references/errors-rails.md`
-- Zod boundaries, server-action results, typed axios client → `references/errors-typescript.md`
+- Zod boundaries and route-handler error bodies, server actions (they return `std-nextjs`'s
+  `ActionResult`, not this envelope), typed axios client, `VALIDATION_ERROR` onto form fields
+  → `references/errors-typescript.md`
 - Keyset cursors, pagy, PostGIS proximity → `references/pagination-rails.md`
 - `useInfiniteQuery`, FlatList wiring → `references/pagination-clients.md`
 - Is-it-breaking table, v1/v2 side by side, sunset sequence → `references/versioning-and-deprecation.md`
 - rack-attack tiers, 429 envelope, client backoff → `references/rate-limiting.md`
 - Liveness vs deep health, dependency timeouts, ALB target group → `references/health-checks.md`
+- Drill-down-ready resources: the endpoint behind each level, shallow routes and flat member IDs,
+  the permission-filtered `ancestors` payload, scoped counts and summary endpoints, the list
+  contract, `?include=`, per-level ETags, realtime invalidation, search as the second way, and the
+  per-project questions → `references/drill-down-resources.md`
+
+Related, owned elsewhere — do not duplicate: the `/me` permissions payload contract (the caller's
+CASL rules for the current organization) → `@skills/access-control-designer/references/ui-gates.md`;
+storing a same-type tree and the read models behind overview counts →
+`@skills/std-database/references/hierarchies.md`; the UI half of drill-down navigation (nav chrome,
+breadcrumbs, Back, restored list state) → `@skills/ui-ux-patterns/references/drill-down-navigation.md`.

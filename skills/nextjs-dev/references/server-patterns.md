@@ -66,52 +66,48 @@ export default async function OrderPage({ params }: OrderPageProps) {
 
 ## Server Action with Validation and Revalidation
 
+The schema is not defined here. It lives in `src/schemas/order.ts`, which the client form's
+`zodResolver` imports too (`@skills/nextjs-dev/references/client-patterns.md`), so the action
+re-checks exactly what the form checked — the client check is UX, and a server action is a public
+endpoint. Its messages are translation keys, which is why `fieldErrors` can go straight back into
+the form's `FieldError`.
+
 ```tsx
 // next/src/actions/orders.ts
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { z } from 'zod';
 import { railsApi } from '@/api/client';
-
-const CreateOrderSchema = z.object({
-  customerName: z.string().min(1, 'Customer name is required'),
-  email: z.string().email('Invalid email'),
-  items: z.string().transform((val) => {
-    const parsed = JSON.parse(val);
-    return z.array(z.object({
-      productId: z.string(),
-      quantity: z.number().positive(),
-    })).parse(parsed);
-  }),
-});
-
-export type CreateOrderState = {
-  errors?: Record<string, string[]>;
-  message?: string;
-} | null;
+import type { ActionResult } from '@/actions/result';
+import { requireSession } from '@/lib/auth';
+import { CreateOrderSchema } from '@/schemas/order'; // the form's zodResolver imports the same schema
 
 export async function createOrder(
-  prevState: CreateOrderState,
+  _prev: ActionResult<null> | null,
   formData: FormData,
-): Promise<CreateOrderState> {
-  const parsed = CreateOrderSchema.safeParse(Object.fromEntries(formData));
+): Promise<ActionResult<null>> {
+  await requireSession(); // identity comes from the session, never from the form
 
+  const parsed = CreateOrderSchema.safeParse(Object.fromEntries(formData)); // re-check: the client can be bypassed
   if (!parsed.success) {
-    return { errors: parsed.error.flatten().fieldErrors };
+    const { formErrors, fieldErrors } = parsed.error.flatten();
+    return { ok: false, formErrors, fieldErrors }; // translation keys, rendered by FieldError
   }
 
   try {
     await railsApi.post('/api/v1/orders', parsed.data);
   } catch {
-    return { message: 'Failed to create order. Please try again.' };
+    return { ok: false, formErrors: ['orders.errors.createFailed'] }; // a key, never the raw error
   }
 
   revalidatePath('/orders');
   redirect('/orders');
 }
 ```
+
+`ActionResult` is the one result shape every action returns →
+`@skills/std-nextjs/references/server-actions.md`.
 
 ## Route Handler (BFF Pattern)
 

@@ -1,4 +1,4 @@
-# State Placement (Zustand vs. TanStack Query vs. local)
+# State Placement (Zustand vs. TanStack Query vs. the URL vs. local)
 
 Load-bearing rules restated (hold even if you read nothing else):
 
@@ -7,6 +7,8 @@ Load-bearing rules restated (hold even if you read nothing else):
 2. **No `useEffect` for data fetching.** `useQuery` / `useMutation` only.
 3. **One Zustand store per concern**, subscribed to with selectors — never a god store, never a
    whole-store subscription.
+4. **A list's filters, sort and query live in the URL.** People open a record and come back, reload,
+   and share the link — the state is part of the location.
 
 ---
 
@@ -16,13 +18,16 @@ Load-bearing rules restated (hold even if you read nothing else):
 |---|---|---|
 | Came from the Rails API | TanStack Query | It has an owner (server); cache it, don't copy it |
 | Is a UI preference (theme, sidebar, density) | Zustand | Never leaves the browser |
-| Is a table filter / sort / page cursor | Zustand (or URL search params) | Client intent; it's the *input* to a query |
+| Is a list's filter / sort / search query | URL search params | Client intent that is also a location: Back, the list's breadcrumb and a shared link restore it |
+| Is a filter on a panel nobody links to (a dashboard widget's range) | Zustand | Client intent that is not a place |
+| Is a page cursor | TanStack Query (`useInfiniteQuery`'s page param) | Only valid with the parameters that produced it — never the URL, never a store |
 | Is a draft form value | `react-hook-form` state | Lives and dies with the form |
 | Is derived from server data | Nowhere — compute it | Derived state is a bug factory |
 | Is transient UI (modal open, hovered row) | `useState` | Local by default |
 
-**Rule of thumb:** filters go in Zustand or the URL; results come back from TanStack Query keyed
-*by* those filters. The filter is the input, the data is the output. They never share a home.
+**Rule of thumb:** filters go in the URL (a list) or Zustand (a panel); results come back from
+TanStack Query keyed *by* those filters. The filter is the input, the data is the output. They
+never share a home.
 
 ### Bad — server data copied into Zustand
 
@@ -62,7 +67,7 @@ export default function Orders() {
 Failure modes this ships: two mounted components double-fetch, nothing refetches on focus, a
 mutation elsewhere leaves the list stale, and errors have no home.
 
-### Good — Zustand holds the filter, Query holds the data
+### Good — Zustand holds a panel's filter, Query holds the data
 
 ```ts
 // src/stores/order-filter-store.ts  ✅  client-only intent
@@ -87,7 +92,7 @@ export const useOrderFilterStore = create<OrderFilterStore>((set) => ({
 ```
 
 ```ts
-// src/api/orders.ts  ✅  server state — the Zustand filter is the query key INPUT
+// src/api/orders.ts  ✅  server state — the filter is the query key INPUT
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import type { Order } from '@/domain/order';
@@ -97,9 +102,8 @@ import type { OrderFilters } from '@/stores/order-filter-store';
 import { orderKeys } from '@/api/orders';
 
 export function useOrders(filters: OrderFilters) {
-  // The filter object from Zustand goes straight into the key: change the filter, the key
-  // changes, Query refetches. That is the whole mechanism — no effect, no copy of the
-  // results into a store.
+  // The filter object goes straight into the key: change the filter, the key changes, Query
+  // refetches. That is the whole mechanism — no effect, no copy of the results into a store.
   return useQuery({
     queryKey: orderKeys.list(filters),
     queryFn: async ({ signal }) => {
@@ -115,9 +119,11 @@ export function useOrders(filters: OrderFilters) {
 ```
 
 ```tsx
-// src/pages/Orders.tsx  ✅
-export default function Orders() {
-  const filters = useOrderFilterStore((s) => ({ status: s.status, search: s.search }));
+// src/components/organisms/RecentOrdersPanel/RecentOrdersPanel.tsx  ✅ a dashboard panel: its filter is not a place
+import { useShallow } from 'zustand/react/shallow';
+
+export function RecentOrdersPanel() {
+  const filters = useOrderFilterStore(useShallow((s) => ({ status: s.status, search: s.search })));
   const { data: orders, isPending, isError } = useOrders(filters);
 
   if (isPending) return <Spinner />;
@@ -125,6 +131,10 @@ export default function Orders() {
   return <OrderTable orders={orders} />;
 }
 ```
+
+**The orders *list page* keeps the same filters in the URL instead.** Same mechanism — the state
+feeds the key — with `useSearchParams` as the home, validated by the route's loader →
+`references/routing-and-code-split.md`.
 
 For the query hook's full shape — key factories, `staleTime` choice, mutations, and the axios
 client behind `api` — see `references/data-fetching.md`.

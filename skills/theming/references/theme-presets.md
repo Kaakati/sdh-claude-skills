@@ -1,8 +1,14 @@
 # Theme Presets
 
-Three ready-to-use theme presets with complete CSS custom property definitions. Copy the relevant `:root` and `.dark` blocks into your project's token stylesheet.
+Three ready-to-use theme presets. Each block lists token **values as HSL triples**, the numbers
+the contrast gate measures (a CI test parses these blocks and fails any pair below AA). Applying a
+preset writes each triple into the stylesheet as a complete `hsl()` color; see
+[Applying a Preset](#applying-a-preset).
 
-Each preset includes all variables from the design token specification, ensuring full compatibility with the Tailwind configuration and component library.
+Each preset sets every value in the token specification: the roles and `chart-1`…`chart-5`. The
+shadcn/ui aliases (`destructive`, `sidebar-*`) are not values. They are the `var()` block in the
+stylesheet, so they follow whichever preset is applied. The pairs they render are
+[measured per preset](#shadcnui-alias-pairs-and-chart-series-per-preset).
 
 ---
 
@@ -62,9 +68,16 @@ Professional and trustworthy. Deep blue primary, slate neutrals, system font sta
   --info-foreground: 200 100% 10%;
 
   /* Borders & Ring */
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
+  --border: 214.3 31.8% 59%;
+  --input: 214.3 31.8% 59%;
   --ring: 222.2 84% 4.9%;
+
+  /* Chart series (fixed order) */
+  --chart-1: 217.2 91.2% 50%;
+  --chart-2: 316 75% 42%;
+  --chart-3: 21 90% 42%;
+  --chart-4: 262.1 83.3% 57.8%;
+  --chart-5: 167 80% 28%;
 
   /* Border Radius */
   --radius: 0.375rem;
@@ -127,9 +140,16 @@ Professional and trustworthy. Deep blue primary, slate neutrals, system font sta
   --info-foreground: 200 100% 95%;
 
   /* Borders & Ring */
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
+  --border: 217.2 32.6% 42%;
+  --input: 217.2 32.6% 42%;
   --ring: 212.7 26.8% 83.9%;
+
+  /* Chart series (fixed order) */
+  --chart-1: 213 94% 62%;
+  --chart-2: 322 81% 58%;
+  --chart-3: 20.5 90.2% 48.2%;
+  --chart-4: 258.3 89.5% 66.3%;
+  --chart-5: 180 80% 36%;
 }
 ```
 
@@ -201,9 +221,16 @@ Vibrant and energetic. Purple/violet primary, zinc neutrals, Inter font, generou
   --info-foreground: 0 0% 100%;
 
   /* Borders & Ring */
-  --border: 240 5.9% 90%;
-  --input: 240 5.9% 90%;
+  --border: 240 5.9% 58%;
+  --input: 240 5.9% 58%;
   --ring: 262.1 83.3% 57.8%;
+
+  /* Chart series (fixed order) */
+  --chart-1: 217.2 91.2% 50%;
+  --chart-2: 316 75% 42%;
+  --chart-3: 21 90% 42%;
+  --chart-4: 262.1 83.3% 57.8%;
+  --chart-5: 167 80% 28%;
 
   /* Border Radius */
   --radius: 0.75rem;
@@ -266,9 +293,16 @@ Vibrant and energetic. Purple/violet primary, zinc neutrals, Inter font, generou
   --info-foreground: 0 0% 100%;
 
   /* Borders & Ring */
-  --border: 240 3.7% 15.9%;
-  --input: 240 3.7% 15.9%;
-  --ring: 263.4 70% 50.4%;
+  --border: 240 3.7% 39%;
+  --input: 240 3.7% 39%;
+  --ring: 263.4 70% 56%;
+
+  /* Chart series (fixed order) */
+  --chart-1: 213 94% 62%;
+  --chart-2: 322 81% 58%;
+  --chart-3: 20.5 90.2% 48.2%;
+  --chart-4: 258.3 89.5% 66.3%;
+  --chart-5: 180 80% 36%;
 }
 ```
 
@@ -280,7 +314,7 @@ Vibrant and energetic. Purple/violet primary, zinc neutrals, Inter font, generou
 | Border radius | `0.75rem` (12px) | Generously rounded, friendly feel |
 | Font stack | Inter as primary | Modern geometric sans-serif |
 | Shadows | Medium (emphasized elevation) | Clear depth hierarchy |
-| Ring color | Matches primary | Focus states use brand color |
+| Ring color | Primary in light; lifted to 56% lightness in dark | Focus states use the brand color. At the dark primary's 50.4% the ring measured 2.80:1 against the background, under the 3:1 focus rule; 56% measures 3.47:1 |
 | Neutrals | Zinc scale (cool gray) | Complements purple hues |
 
 ---
@@ -341,9 +375,16 @@ Clean and restrained. Near-black primary, pure monochrome palette, system font s
   --info-foreground: 0 0% 9%;
 
   /* Borders & Ring */
-  --border: 0 0% 89.8%;
-  --input: 0 0% 89.8%;
+  --border: 0 0% 56%;
+  --input: 0 0% 56%;
   --ring: 0 0% 3.9%;
+
+  /* Chart series (fixed order) */
+  --chart-1: 217.2 91.2% 50%;
+  --chart-2: 316 75% 42%;
+  --chart-3: 21 90% 42%;
+  --chart-4: 262.1 83.3% 57.8%;
+  --chart-5: 167 80% 28%;
 
   /* Border Radius */
   --radius: 0.25rem;
@@ -406,9 +447,16 @@ Clean and restrained. Near-black primary, pure monochrome palette, system font s
   --info-foreground: 0 0% 98%;
 
   /* Borders & Ring */
-  --border: 0 0% 14.9%;
-  --input: 0 0% 14.9%;
+  --border: 0 0% 38%;
+  --input: 0 0% 38%;
   --ring: 0 0% 83.1%;
+
+  /* Chart series (fixed order) */
+  --chart-1: 213 94% 62%;
+  --chart-2: 322 81% 58%;
+  --chart-3: 20.5 90.2% 48.2%;
+  --chart-4: 258.3 89.5% 66.3%;
+  --chart-5: 180 80% 36%;
 }
 ```
 
@@ -422,6 +470,40 @@ Clean and restrained. Near-black primary, pure monochrome palette, system font s
 | Shadows | Minimal (mostly flat design) | Clean, no visual clutter |
 | Neutrals | Pure gray (0 saturation) | True monochrome, no color bias |
 | Spacing | Tight | Dense, information-rich layouts |
+
+---
+
+## shadcn/ui Alias Pairs and Chart Series per Preset
+
+Measured from the blocks above with the contrast gate's own formula. An alias renders its role's
+pair, so these are the numbers a shadcn/ui primitive shows under each preset.
+
+| Pair (alias → role) | Corporate light / dark | Modern light / dark | Minimal light / dark |
+|---|---|---|---|
+| `destructive-foreground` on `destructive` (→ `error`) | 4.82 / 9.16 | 4.83 / 9.16 | 4.56 / 9.16 |
+| `sidebar-foreground` on `sidebar` (→ `card`) | 20.01 / 19.12 | 19.90 / 19.06 | 19.80 / 18.97 |
+| `sidebar-primary-foreground` on `sidebar-primary` (→ `primary`) | 17.06 / 17.06 | 5.70 / 7.10 | 17.18 / 17.18 |
+| `sidebar-accent-foreground` on `sidebar-accent` (→ `accent`) | 16.30 / 13.98 | 16.12 / 14.27 | 16.44 / 14.50 |
+| `sidebar-ring` on `background` (→ `ring`; needs 3:1) | 20.01 / 13.47 | 5.70 / 3.47 | 19.80 / 13.36 |
+| `ring-ring/50` on `background` (shadcn's default ring; needs 3:1) | 3.76 / 3.89 | **2.26 / 1.66** | 3.74 / 3.94 |
+| `border`, `input` and `sidebar-border` on `background` = `card` (needs 3:1) | 3.20 / 3.29 | 3.24 / 3.19 | 3.23 / 3.20 |
+
+Every text pair clears 4.5:1, and every ring and boundary clears 3:1, except shadcn's half-opacity
+ring in Modern. That is why the house ring carries no `/50`. The boundaries were 1.23-1.37:1 in all
+six blocks until `--border` and `--input` were darkened (hue and saturation kept, lightness moved).
+
+Chart series on `--background`, which equals `--card` in every preset (needs 3:1):
+
+| Surface | `chart-1` | `chart-2` | `chart-3` | `chart-4` | `chart-5` |
+|---|---|---|---|---|---|
+| Light (all three presets) | 5.07 | 5.71 | 4.53 | 5.70 | 4.82 |
+| Corporate dark | 6.58 | 5.51 | 5.62 | 4.72 | 6.62 |
+| Modern dark | 6.54 | 5.48 | 5.59 | 4.70 | 6.59 |
+| Minimal dark | 6.51 | 5.46 | 5.56 | 4.68 | 6.55 |
+
+The chart palette is the same in all three presets on purpose. A client switching presets must not
+see its series change color. How the set was chosen, and its separation numbers, are in
+`design-tokens.md`.
 
 ---
 
@@ -439,7 +521,21 @@ Clean and restrained. Near-black primary, pure monochrome palette, system font s
 
 ## Applying a Preset
 
-1. Copy the desired `:root` and `.dark` CSS blocks into your token stylesheet.
-2. The Tailwind configuration (`@theme` or `tailwind.config.ts`) remains unchanged -- it references the CSS variables, not the values.
-3. All components automatically adopt the new theme without modification.
-4. Customize individual tokens as needed after applying a preset. Always update foreground pairs when changing base colors and re-validate WCAG AA contrast ratios.
+1. Replace the `:root` and `.dark` value blocks in the token stylesheet with the preset's, writing
+   every triple as a complete color: `--primary: 262.1 83.3% 57.8%;` becomes
+   `--primary: hsl(262.1 83.3% 57.8%);`. A bare triple in a Tailwind v4 stylesheet is not a color,
+   and every utility that reads it silently resolves to `unset`. The wrap is mechanical, so do it
+   mechanically. This touches only triple lines; `--radius` and font stacks pass through:
+
+   ```bash
+   sed -E 's/^([[:space:]]*--[a-z0-9-]+:[[:space:]]*)([0-9.]+ [0-9.]+% [0-9.]+%);/\1hsl(\2);/' preset.css
+   ```
+
+2. Leave the `@theme inline` registry, `@custom-variant dark`, the shadcn/ui alias block and the
+   reduced-motion backstop untouched. They reference variables, not values
+   (`@skills/theming/references/platform-integration.md`).
+3. All components adopt the new theme without modification.
+4. Customize individual tokens after applying. Update foreground pairs with their bases and
+   re-measure, including the ring and the boundaries: Modern's primary-colored dark ring measured
+   2.80:1 until it was lifted, and `--border`/`--input` measured 1.23-1.37:1 in every block until
+   they were darkened to clear 3:1 against `--background` and `--card`.

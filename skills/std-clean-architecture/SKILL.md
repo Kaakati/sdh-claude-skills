@@ -29,6 +29,10 @@ point inward. Outer layers depend on inner layers, never the reverse.
 └──────────────────────────────────────┘
 ```
 
+These layers live *inside* one bounded context. The boundaries between bounded contexts are the
+top-level axis (martinfowler.com — PresentationDomainDataLayering): cross-context imports and
+writes, dependency cycles, and code in the wrong context → the `orthogonality` skill.
+
 ## The Dependency Rule
 
 - **Entities** know nothing about use cases, controllers, or frameworks.

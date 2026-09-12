@@ -41,6 +41,7 @@ PostgreSQL/PostGIS and Redis infrastructure as the Rails apps.
 | Cache | django-redis |
 | Jobs | Celery + Redis broker |
 | Filtering | django-filter |
+| Nested routes | drf-nested-routers (its README calls it a work in progress; Django 4.2–5.2, DRF 3.14–3.16), or a flat ViewSet + a django-filter parent filter |
 | Geospatial | GeoDjango (`django.contrib.gis`) on the house PostGIS database |
 | Testing | pytest-django + factory_boy |
 
@@ -63,6 +64,9 @@ manage.py
 
 ## Models
 
+- **Design relationships before fields** — `ForeignKey` with a deliberate `on_delete`,
+  `OneToOneField`, `ManyToManyField(through=)` when the join carries data → the Rails-vocabulary
+  design and its Django equivalents live in `../std-database/references/relationships.md`
 - **Database constraints in `Meta.constraints` (`UniqueConstraint`, `CheckConstraint`)
   alongside model validators** — validators run only where `full_clean` is called (forms, DRF
   serializers); constraints guard every write path, including `bulk_create`, `.update()`, and
@@ -80,6 +84,9 @@ manage.py
   receivers is untraceable. Business logic lives in services that are called explicitly
 - Use `TextChoices` / `IntegerChoices` for enumerations; give every model a `__str__` (the
   admin renders it)
+- Same-type trees (folders, categories) start as `ForeignKey("self")` plus a guarded recursive
+  CTE. Use treebeard `MP_Node` when reads dominate. Never adopt django-mptt, which is unmaintained
+  → `../std-database/references/hierarchies.md`
 
 ## Views & DRF
 
@@ -91,7 +98,18 @@ manage.py
 - **`DEFAULT_PERMISSION_CLASSES = ["rest_framework.permissions.IsAuthenticated"]` in settings —
   never a global `AllowAny`** — a policy nobody enforces returns `200 OK` with someone else's
   data. Per-view `AllowAny` is an explicit, visible opt-out on deliberately public endpoints
+- **Authorization is a DRF `BasePermission` with `has_object_permission` plus `get_queryset`
+  scoping** — `has_object_permission` runs only through `get_object()`, never on `list`, so a
+  list endpoint without a scoped `get_queryset` returns rows the user may not see. Permission
+  keys come from the matrix → `@skills/access-control-designer/references/permission-matrix.md`
 - Filter with django-filter `FilterSet` classes, never hand-parsed query params
+- **Drill-down: a nested collection ViewSet authorizes its parent.**
+  - Run `get_object_or_404` over the parent's *scoped* queryset before filtering children by the URL
+    kwarg. Members stay on a flat ViewSet.
+  - Per level: `only()` for list rows, `select_related` for the ancestor chain, and
+    `prefetch_related(Prefetch(...))` for an allowed include.
+  - `CursorPagination` ordering ends in `-id`.
+  - Full pattern → `@skills/std-api-design/references/drill-down-resources.md`
 - Configure a global DRF paginator; the pagination response format is owned by `std-api-design`
 - Map DRF exceptions into the house error envelope with a custom `EXCEPTION_HANDLER` — the
   envelope itself is owned by `std-api-design`

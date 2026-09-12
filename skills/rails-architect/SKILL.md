@@ -16,12 +16,14 @@ Design and implement backend features following Rails conventions with our speci
 - Start with the PostgreSQL schema — tables, columns, types, constraints
 - Use PostGIS types (`st_point`, `geography`) for any location data
 - Design indexes upfront: foreign keys, unique constraints, partial indexes, GiST for spatial
-- Plan JSONB columns for flexible/polymorphic data
+- JSONB only for schemaless attributes; design polymorphic associations per
+  `../std-database/references/relationships.md`
 - Write reversible migrations with `change` method
 
 ### 2. Model Layer
 - Define associations, validations, scopes
-- Use `has_many through:` for join tables
+- Associations — `has_many :through`, polymorphic, self-referential →
+  `../std-database/references/relationships.md`
 - Extract complex queries to scopes or query objects
 - Use `ActiveRecord::Enum` for status fields
 - Add database-level constraints alongside model validations
@@ -31,7 +33,12 @@ Design and implement backend features following Rails conventions with our speci
 - Panko serializers for every response — never render raw models
 - Separate list and detail serializers for performance
 - Use `pagy` for pagination with cursor support
-- Consistent error responses: `{ error: String, code: Integer, details: Object? }`
+- Errors: the one house envelope, rendered by the shared concern. Never invent a shape per
+  controller (owner below).
+- Drill-down-ready: collections nest one level (`shallow: true`) and members stay flat; a detail
+  carries its policy-filtered `ancestors`; an overview gets a summary endpoint with scoped counts →
+  `@skills/std-api-design/references/drill-down-resources.md`. Storage for a same-type tree →
+  `@skills/std-database/references/hierarchies.md`
 
 ### 4. Service Layer
 - Extract business logic to `app/services/` (any wrapper directory — the tree below illustrates
@@ -55,15 +62,19 @@ Design and implement backend features following Rails conventions with our speci
 
 ### 6. Caching Strategy
 - Redis-backed `Rails.cache.fetch` with explicit TTLs
-- Cache Panko-serialized responses at controller level
+- Cache Panko-serialized responses at controller level. A permission-scoped response's key includes
+  the viewer's scope and `permissions_version`, and such a response is never `public`.
 - Fragment caching for repeated computations
-- Cache invalidation on model callbacks
+- Invalidate with `touch: true` and `after_commit`. Per-level validators (`stale?`) include
+  `permissions_version`.
 
 ### 7. Real-time (Centrifugo)
 - Design channel topology: `chat:room_123`, `user:456`, `location:fleet`
 - Publish from Rails via Centrifugo HTTP API
 - Use Redis pub/sub for internal event distribution
 - JWT-based channel authorization
+- Drill-down invalidation: publish IDs plus `parentId` and `ancestorIds` after commit, never names.
+  Clients invalidate; they never patch from the event.
 
 ## Reference Architecture
 
@@ -125,6 +136,9 @@ bad/good pairs:
 - **Authorization** — a policy that is never called is not authorization; `index` needs
   `policy_scope`, not `authorize`; `devise-jwt` does not revoke by default →
   `@skills/std-rails-conventions/references/authorization.md`
+- **Roles and permissions** — policies check permission keys, never role names; roles live on the
+  membership; role grants are guarded and audited →
+  `@skills/std-rails-conventions/references/roles-and-permissions.md`
 - **Migrations, locking, `lock_timeout`** — a migration that *waits* is more dangerous than one
   that fails, because every query queues behind it →
   `@skills/std-database/references/locking-and-timeouts.md`

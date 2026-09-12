@@ -7,11 +7,16 @@ does not need this file.
 Load-bearing rules restated (assume nothing else here has been read):
 
 1. **Token names are identical across platforms.** `primary` on web is `primary` in React Native.
-   A renamed token is a broken token.
+   A renamed token is a broken token. The one exception is web wiring. The shadcn/ui aliases
+   (`destructive`, `sidebar-*`) are `var()` references that exist only in shadcn stylesheets;
+   shadcn/ui is web-only. React Native reads the roles they point to (`error`, `card`) and never
+   grows a `destructive` key. `chart-1`…`chart-5` are values, not aliases: an RN package that draws
+   charts mirrors them as `chart1`…`chart5`.
 2. **Same 4px spacing base and same type scale ratios everywhere.**
 3. React Native has no CSS custom properties and no `.dark` class — it consumes tokens through a
    **theme context**, not a stylesheet.
-4. Touch targets: **44×44px minimum on mobile**, 32×32px on web (WCAG 2.5.8).
+4. Touch targets: **44×44px minimum on mobile**, 32×32px on web. Both are **house minimums**, set
+   above the 24×24 CSS px that WCAG 2.5.8 (AA) requires. Never cite them as WCAG numbers.
 
 | Platform            | Token source           | Consumption method                    |
 |---------------------|------------------------|---------------------------------------|
@@ -47,31 +52,32 @@ off-grid, and there is no dark mode path at all.
 ### Good — one source of truth, exported to both platforms
 
 ```ts
-// packages/tokens/src/tokens.ts — shared package consumed by web and mobile
+// packages/tokens/src/tokens.ts — shared package consumed by web and mobile.
+// Triples copied from the measured spec (theming design-tokens.md), never re-derived by eye.
 export const palette = {
   light: {
     background: '0 0% 100%',
-    foreground: '222 47% 11%',
-    primary: '222 47% 11%',
+    foreground: '222.2 84% 4.9%',
+    primary: '222.2 47.4% 11.2%',
     primaryForeground: '210 40% 98%',
-    muted: '210 40% 96%',
-    mutedForeground: '215 16% 47%',
-    error: '0 84% 60%',
-    errorForeground: '0 0% 100%',
-    border: '214 32% 91%',
-    ring: '222 47% 11%',
+    muted: '210 40% 96.1%',
+    mutedForeground: '215.4 16.3% 44%',
+    error: '0 84.2% 47%',
+    errorForeground: '0 0% 98%',
+    border: '214.3 31.8% 59%',
+    ring: '222.2 84% 4.9%',
   },
   dark: {
-    background: '222 47% 11%',
+    background: '222.2 84% 4.9%',
     foreground: '210 40% 98%',
     primary: '210 40% 98%',
-    primaryForeground: '222 47% 11%',
-    muted: '217 33% 17%',
-    mutedForeground: '215 20% 65%',
-    error: '0 63% 51%',
-    errorForeground: '0 0% 100%',
-    border: '217 33% 24%',
-    ring: '213 27% 84%',
+    primaryForeground: '222.2 47.4% 11.2%',
+    muted: '217.2 32.6% 17.5%',
+    mutedForeground: '215 20.2% 65.1%',
+    error: '0 62.8% 30.6%',
+    errorForeground: '0 85.7% 97.3%',
+    border: '217.2 32.6% 42%',
+    ring: '212.7 26.8% 83.9%',
   },
 } as const;
 
@@ -83,7 +89,7 @@ export const radius = { none: 0, sm: 2, md: 6, lg: 8, full: 9999 } as const;
 
 export const duration = { instant: 75, fast: 150, normal: 200, slow: 300, slower: 500 } as const;
 
-/** RN needs literal color strings; web needs bare channels for `hsl(var(--x) / <alpha>)`. */
+/** RN needs a literal color string per value; the web stylesheet gets the same triple as `hsl(h s% l%)`. */
 export function hsl(channels: string, alpha = 1): string {
   const [h, s, l] = channels.split(' ');
   return alpha === 1 ? `hsl(${h}, ${s}, ${l})` : `hsla(${h}, ${s}, ${l}, ${alpha})`;
@@ -91,22 +97,27 @@ export function hsl(channels: string, alpha = 1): string {
 ```
 
 ```ts
-// apps/web/tailwind.config.js — web reads the same file
-const { spacing, fontSize } = require('@acme/tokens');
-module.exports = {
-  darkMode: 'class',
-  theme: {
-    extend: {
-      colors: {
-        primary: {
-          DEFAULT: 'hsl(var(--primary) / <alpha-value>)',
-          foreground: 'hsl(var(--primary-foreground) / <alpha-value>)',
-        },
-      },
-    },
-  },
-};
+// packages/tokens/scripts/emit-css.ts — web reads the same file, as a generated stylesheet
+import { writeFileSync } from 'node:fs';
+import { palette } from '../src/tokens';
+
+const kebab = (key: string) => key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+const values = (mode: keyof typeof palette) =>
+  Object.entries(palette[mode]).map(([key, triple]) => `  --${kebab(key)}: hsl(${triple});`).join('\n');
+const registry = Object.keys(palette.light)
+  .map((key) => `  --color-${kebab(key)}: var(--${kebab(key)});`).join('\n');
+
+writeFileSync('dist/tokens.css', [
+  '@custom-variant dark (&:is(.dark *));',
+  `:root {\n${values('light')}\n}`,
+  `.dark {\n${values('dark')}\n}`,
+  `@theme inline {\n${registry}\n}`,
+].join('\n\n'));
 ```
+
+The web app imports `@acme/tokens/tokens.css` into its entry stylesheet. A shadcn/ui app adds the
+alias block after it (see `@skills/theming/references/platform-integration.md`). Aliases stay out of
+the shared package, because React Native must never see them.
 
 ```tsx
 // apps/mobile/src/theme/ThemeProvider.tsx — mobile reads the same file
@@ -264,7 +275,8 @@ differ. Fingers are not cursors. Do not "fix" this by making mobile match web.
 </Pressable>
 ```
 
-Web equivalent — pad the target rather than growing the glyph:
+Web equivalent — pad the target to the house's 32px web minimum rather than growing the glyph
+(WCAG 2.5.8 itself asks 24×24 CSS px):
 
 ```tsx
 <button

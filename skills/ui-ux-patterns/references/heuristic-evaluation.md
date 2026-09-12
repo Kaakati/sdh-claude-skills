@@ -7,7 +7,7 @@ Complete scoring rubric for evaluating interfaces against Jakob Nielsen's 10 Usa
 ## Evaluation Process
 
 1. **Define scope**: Which screens, flows, or components to evaluate
-2. **Walk through tasks**: Complete 3-5 key user tasks
+2. **Walk through tasks**: Complete 3-5 key user tasks — in a multi-role product, once per role, scored per role and never averaged across roles (`role-based-ux.md`)
 3. **Score each heuristic**: 0-4 severity for each issue found
 4. **Document findings**: File:line, severity, description, recommendation
 5. **Prioritize**: Sort by severity, then by frequency of user encounter
@@ -22,7 +22,7 @@ Complete scoring rubric for evaluating interfaces against Jakob Nielsen's 10 Usa
 - [ ] Loading states shown for async operations
 - [ ] Progress indicators for multi-step processes
 - [ ] Success/failure feedback for user actions (toasts, inline messages)
-- [ ] Current state visible (selected item, active tab, current page)
+- [ ] Current location visible at every level: active area and section, `h1`, document title, a breadcrumb from level 3 (`@skills/ui-ux-patterns/references/drill-down-navigation.md`)
 - [ ] Real-time data has visible refresh indicators
 - [ ] Form submission shows processing state
 
@@ -66,7 +66,7 @@ Complete scoring rubric for evaluating interfaces against Jakob Nielsen's 10 Usa
 ### What to Check
 - [ ] Undo available for destructive actions
 - [ ] Cancel button on all forms and dialogs
-- [ ] Back navigation works as expected
+- [ ] Back returns to the view people last saw; every level, filter and overlay has a URL; Up is a real link, never an in-page Back that calls `history.back()`
 - [ ] Modal/dialog has clear close mechanism (X button, Escape key, backdrop click)
 - [ ] Multi-step processes allow going back to previous steps
 - [ ] Confirmation before irreversible actions
@@ -93,6 +93,7 @@ Complete scoring rubric for evaluating interfaces against Jakob Nielsen's 10 Usa
 - [ ] Terminology consistent throughout the app
 - [ ] Platform conventions followed (iOS back gesture, Android Material patterns)
 - [ ] Same component used for same purpose across screens
+- [ ] Navigation keeps one relative order on every page and breakpoint (WCAG 3.2.3)
 
 ### Severity Examples
 | Score | Example |
@@ -112,7 +113,7 @@ Complete scoring rubric for evaluating interfaces against Jakob Nielsen's 10 Usa
 ### What to Check
 - [ ] Confirmation dialogs for destructive actions
 - [ ] Input constraints prevent invalid data (date picker vs. free text)
-- [ ] Disabled state for unavailable actions (with tooltip explaining why)
+- [ ] Unavailable actions follow the three-state rule: not permitted → not rendered; permitted but blocked by record state → disabled with a visible reason (never tooltip-only); available on another plan → visible and locked, only for roles that could act on it (`@skills/ui-ux-patterns/references/role-based-ux.md`). Every other state a role meets — read-only, no access vs not found, the kinds of empty, masked fields, loading — and a disabled reason that reaches keyboard and screen-reader users → `@skills/ui-ux-patterns/references/role-based-ux-states.md`
 - [ ] Sensible defaults reduce required input
 - [ ] Inline validation catches errors before submission
 - [ ] Autocomplete/suggestions reduce typing errors
@@ -124,7 +125,7 @@ Complete scoring rubric for evaluating interfaces against Jakob Nielsen's 10 Usa
 | 1 | Free text input for dates, but with format hint |
 | 2 | No character limit on a field that truncates on save |
 | 3 | Delete button with no confirmation, adjacent to Edit button |
-| 4 | Admin can accidentally remove their own admin access with no warning |
+| 4 | Admin can remove their own admin access, or demote the last Owner, with no guard (`@skills/ui-ux-patterns/references/role-management-ux.md`) |
 
 ---
 
@@ -135,7 +136,7 @@ Complete scoring rubric for evaluating interfaces against Jakob Nielsen's 10 Usa
 ### What to Check
 - [ ] Options visible (dropdowns show all choices)
 - [ ] Recently used items accessible
-- [ ] Breadcrumbs show current location
+- [ ] Breadcrumbs from level 3 show the hierarchy, built from the API's `ancestors` — never history; a product only one or two levels deep needs none
 - [ ] Related information visible in context (not requiring navigation)
 - [ ] Search suggestions and autocomplete
 - [ ] Preview before committing (e.g., file upload preview)
@@ -151,7 +152,7 @@ Complete scoring rubric for evaluating interfaces against Jakob Nielsen's 10 Usa
 - [ ] Bulk actions for list operations
 - [ ] Customizable views (column order, density)
 - [ ] Recently used / favorites for quick access
-- [ ] Command palette (Cmd+K) for power users
+- [ ] A command palette (Cmd/Ctrl+K) mirrors the permission-filtered nav and search — opened by a visible button too, and never the only route
 - [ ] Drag-and-drop for reordering
 
 ---
@@ -167,6 +168,17 @@ Complete scoring rubric for evaluating interfaces against Jakob Nielsen's 10 Usa
 - [ ] Content hierarchy clear (most important information most prominent)
 - [ ] No decorative elements that don't serve a purpose
 - [ ] Information density appropriate for the context
+- [ ] The global nav holds only areas — no nested sections or collapsible groups in the sidebar; depth lives in pages
+
+### Navigation Severity Examples
+| Score | Example |
+|-------|---------|
+| 2 | A long breadcrumb trail that wraps instead of overflowing its middle; an overview page with one card |
+| 3 | A nested section tree in the global sidebar; desktop navigation hidden by default; breadcrumbs built from history; an in-page Back that leaves the app from a deep link; a dead-end detail page |
+| 4 | No second way to reach a page set — no search (WCAG 2.4.5) |
+
+Legacy screens score at full severity: the drill-down standard applies to existing products now
+(`@skills/ui-ux-patterns/references/drill-down-navigation.md`).
 
 ---
 
@@ -181,6 +193,7 @@ Complete scoring rubric for evaluating interfaces against Jakob Nielsen's 10 Usa
 - [ ] Inline errors positioned next to the relevant field
 - [ ] Error state visually distinct (red border, error icon)
 - [ ] Retry option for network/server errors
+- [ ] Denied, not found, and empty are distinct states with distinct copy; every denial names a person or a path (`@skills/ui-ux-patterns/references/role-based-ux-states.md`)
 
 ---
 

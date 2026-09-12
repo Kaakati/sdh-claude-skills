@@ -1,6 +1,6 @@
 ---
 name: std-react-native
-description: React Native conventions — Zustand, TanStack Query, Centrifugo, MMKV, navigation. Use when building React Native mobile screens, hooks, or stores.
+description: React Native conventions — Zustand, TanStack Query, Centrifugo, MMKV, navigation (area tabs, a stack per tab, deep links). Use when building React Native mobile screens, navigators, hooks, or stores.
 paths:
   - "**/metro.config.*"
   - "**/app.json"
@@ -77,8 +77,22 @@ paths:
 ## Navigation
 - Use React Navigation (or Expo Router if using Expo)
 - Type-safe navigation with typed param lists
-- Deep linking configuration for push notifications
-- Keep navigation structure flat — max 3 levels of nesting
+- **Three navigators, never more:** a root stack → bottom tabs, one per area → one native stack per
+  tab. That limit is on *navigator nesting*. *Screen depth* inside a tab follows the drill-down
+  levels — overview → list → detail → sub-detail — and nothing deeper is a screen
+- **Tabs are areas, 3–5 including Account**, composed from `visibleNav` once `['me']` has data.
+  Never a drawer, never a "Menu" button (that is the phone-width web pattern)
+- **Every screen has a linking path** that mirrors the nesting and matches the web URL. Details are
+  flat by ID; a detail's `ancestors` rebuild its title and its up link. Push notifications open
+  these same paths
+- **List state lives in route params:** a filter is `setParams`, never a push. The stack keeps the
+  list mounted beneath the detail, and each tab keeps its stack
+- Screens and tabs are registered conditionally from the CASL ability (built from the `['me']`
+  query, checked by permission key, never role name) — a screen the user may not open is not in
+  the navigator → `@skills/access-control-designer/references/ui-gates.md`
+- The shell, the deep-link guard, Back and Up, focus, per-role tests → `references/navigation.md`.
+  The rules → `@skills/ui-ux-patterns/references/drill-down-navigation.md`; endpoints and query
+  keys per level → `@skills/std-api-design/references/drill-down-resources.md`
 
 ## Styling
 - Use StyleSheet.create for all styles — no inline style objects
@@ -125,6 +139,7 @@ paths:
 - Strict mode enabled — no `any` types
 - Define interfaces for all API responses, props, and store state
 - Use discriminated unions for state machines (loading | success | error)
+- Export types alongside components
 
 ## Deep guides (read on demand, do not preload)
 
@@ -134,8 +149,11 @@ paths:
 - One Centrifuge client, the `getSubscription ?? newSubscription` rule, handler cleanup,
   `setQueryData` vs `invalidateQueries`, reconnect backfill, presence
   → `references/realtime-centrifugo.md`
+- Area tabs with a native stack per tab (three navigators at most), a linking path per level that
+  matches the web, the deep-link permission guard, Back and Up after a deep link, section
+  switching, screen-reader focus, per-role navigation tests → `references/navigation.md`
 
 Related, owned elsewhere — do not duplicate: list/render/animation performance rules live in the
 `react-native-best-practices` skill (38 rule files); axios token-refresh interceptors live in
-`../react-native-dev/references/react-native-patterns.md`.
-- Export types alongside components
+`../react-native-dev/references/react-native-patterns.md`; the drill-down navigation rules every
+platform shares live in `@skills/ui-ux-patterns/references/drill-down-navigation.md`.

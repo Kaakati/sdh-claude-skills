@@ -1,9 +1,12 @@
 ---
 name: std-phlex-conventions
-description: Phlex view component conventions — Atomic Design structure, class_variants, Stimulus, Turbo. Use when building Phlex (Ruby) view components.
+description: Phlex view component conventions — Atomic Design structure, class_variants, Stimulus, Turbo, drill-down navigation, Chart.js charts. Use when building Phlex (Ruby) view components.
 paths:
   - "**/app/views/**/*.rb"
   - "**/app/components/**/*.rb"
+  - "**/app/javascript/controllers/chart_controller.js"
+  - "**/app/javascript/controllers/disclosure_controller.js"
+  - "**/app/javascript/charts/**"
 ---
 
 # Phlex Component Conventions
@@ -89,6 +92,14 @@ end
 
 View components never query or mutate. Controllers and services fetch; components receive props.
 
+Permissions arrive the same way: the controller (or a headless policy object) computes them and
+passes booleans such as `can_edit:` as props. Components never call `policy(...)` or Pundit →
+`@skills/std-rails-conventions/references/roles-and-permissions.md`.
+
+Location arrives the same way: the controller builds the visible areas from `policy(:navigation)`
+and breadcrumb items from the record's permission-filtered `ancestors`; a page never derives them
+from `request.path` or history → `references/navigation.md`.
+
 ## Interactivity
 
 - Bind `data-controller` on the outermost element the controller owns
@@ -98,6 +109,17 @@ View components never query or mutate. Controllers and services fetch; component
 - Never use inline `onclick`/`onchange` attributes
 - Prefer Turbo Frames over full-page Turbo Drive for component-level updates; Turbo Streams for
   server-pushed DOM updates (append, prepend, replace, remove)
+- A drill level loaded into a frame carries `data-turbo-action: "advance"`, so it has a URL and a
+  history entry; detail pages render the `Breadcrumb` molecule from controller-built `ancestors` →
+  `references/turbo-frames-and-streams.md`
+- The global sidebar lists areas only; an area's sections render in its area layout; filters sit
+  beside the list → `references/navigation.md`, rules in
+  `@skills/ui-ux-patterns/references/drill-down-navigation.md`
+- Charts: Chart.js 4.5.1 through the house `chart` Stimulus controller — never Chartkick, an inline
+  `<script>`, or a `style=` attribute → `references/charts.md`
+- This skill also loads for the house `chart_controller.js` and `disclosure_controller.js` and for
+  `app/javascript/charts/`: their lifecycle, CSP, token and disclosure rules are
+  `references/charts.md` and `references/navigation.md`
 
 ## Testing
 
@@ -117,5 +139,7 @@ View components never query or mutate. Controllers and services fetch; component
 - Building an organism / template / page, slot blocks, private-method extraction, composites violation checklist → `references/component-levels-composites.md`
 - `class_variants` multi-axis variants, caller class merging, `tokens` vs `class_variants`, token reference table → `references/variants-and-styling.md`
 - Stimulus controller scoping, values API, passing `data-action` into nested components → `references/stimulus-wiring.md`
-- Turbo Frame vs Stream decision, lazy frames, stream broadcasts, frame form submission → `references/turbo-frames-and-streams.md`
+- Turbo Frame vs Stream decision, lazy frames, stream broadcasts, frame form submission, list-detail → `references/turbo-frames-and-streams.md`
+- Drill-down navigation: shallow routes, areas-only sidebar, area layout with section nav, breadcrumbs from `ancestors`, per-role nav spec, command palette → `references/navigation.md`
+- Charts: Chart.js install (jsbundling, importmap), the figure/summary/table organism, the Stimulus controller lifecycle under Turbo, tokens, CSP, tests → `references/charts.md`
 - Component/page spec patterns, table-driven variant tests, block and `data-*` assertions, what not to test → `references/testing.md`

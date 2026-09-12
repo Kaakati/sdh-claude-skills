@@ -22,6 +22,7 @@ paths:
 - **Never concatenate** translated strings. Use interpolation: `t('greeting', name: user.name)`.
 - **Fallback locale**: English (`en`) is the default fallback for all missing translations.
 - **Locale detection**: Server reads `Accept-Language` header. Mobile reads device locale via `react-native-localize`.
+- **Vendored shadcn/ui primitives** (under `components.json` `aliases.ui`) are skipped by the i18n hook; their hardcoded names become label props filled from `t()` → @skills/std-shadcn-ui/references/accessibility-and-i18n.md
 
 ## Rails i18n
 
@@ -73,15 +74,20 @@ paths:
 
 ### Locale Detection
 ```typescript
+// src/i18n/index.ts — imported as '@/i18n' by the app entry and by tests/setup.ts
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
+import ar from './locales/ar.json';
+import en from './locales/en.json';
 
 i18n.use(LanguageDetector).use(initReactI18next).init({
   resources: { en: { translation: en }, ar: { translation: ar } },
   fallbackLng: 'en',
   detection: { order: ['navigator', 'htmlTag'] },
 });
+
+export default i18n;
 ```
 
 ### Web RTL Support

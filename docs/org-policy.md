@@ -6,8 +6,10 @@ that governs *the humans configuring the agents*, not the agents' actions — th
 engineer's mistake**, not the agent's.
 
 Template: [`.claude/managed-settings.template.json`](../.claude/managed-settings.template.json)
-Deploy to `/etc/claude-code/managed-settings.json` (Linux/macOS) or
-`C:\ProgramData\ClaudeCode\managed-settings.json` (Windows).
+Deploy to `/Library/Application Support/ClaudeCode/managed-settings.json` (macOS),
+`/etc/claude-code/managed-settings.json` (Linux and WSL), or
+`C:\Program Files\ClaudeCode\managed-settings.json` (Windows). Claude Code does not read the legacy
+Windows path `C:\ProgramData\ClaudeCode\managed-settings.json`, so a file left there enforces nothing.
 
 ---
 

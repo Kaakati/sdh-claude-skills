@@ -69,7 +69,7 @@ class Components::Organisms::Dropdown < Components::Base
 
   def menu_classes
     tokens(
-      "absolute z-50 mt-2 min-w-[12rem] rounded-md border border-border bg-popover " \
+      "absolute z-50 mt-2 min-w-48 rounded-md border border-border bg-popover " \
       "p-1 text-popover-foreground shadow-md",
       (@align == :start) => "left-0",
       (@align == :end) => "right-0"

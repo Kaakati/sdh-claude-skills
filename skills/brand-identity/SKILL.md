@@ -65,17 +65,27 @@ Based on archetype and tone descriptors, create a color palette:
 1. **Primary color**: The hero color representing the brand essence
 2. **Secondary color**: Complementary, supporting the primary
 3. **Accent color**: For highlights, CTAs, and energy
-4. **Neutral palette**: Grays for text, backgrounds, borders
+4. **Neutral palette**: Grays for text, backgrounds, borders. `border` and `input` must clear 3:1
+   against `--background` and `--card` in both modes (WCAG 1.4.11), measured like every pair below
 5. **Semantic colors**: Success (green), warning (amber), error (red), info (blue)
+6. **Chart series** (`chart-1`…`chart-5`): five categorical hues in a fixed order, none taken from
+   the reserved status families above. Each must clear ≥3:1 against `--card` and `--background` in
+   both modes. Neighbours must stay distinguishable under simulated protanopia and deuteranopia.
+   Start from the measured house set in `@skills/theming/references/design-tokens.md` and re-measure
+   any slot the brand replaces.
+
+The shadcn/ui aliases (`destructive`, `sidebar-*`) need no brand decision. They are `var()`
+references to the roles above, so they follow whatever the brand picks.
 
 **Color method**: Choose from complementary, analogous, triadic, or split-complementary based on brand energy level. Reference `references/color-theory.md` for palette methods.
 
-Output all colors in HSL format with foreground pairs meeting WCAG AA (4.5:1 contrast):
+Output all colors in HSL, written as complete `hsl()` values (the form the Tailwind v4 stylesheet
+takes), with foreground pairs meeting WCAG AA (4.5:1 contrast):
 
 ```css
 :root {
-  --primary: H S% L%;          /* measured: X.XX:1 against --primary-foreground */
-  --primary-foreground: H S% L%;
+  --primary: hsl(H S% L%);          /* measured: X.XX:1 against --primary-foreground */
+  --primary-foreground: hsl(H S% L%);
   /* ... */
 }
 ```

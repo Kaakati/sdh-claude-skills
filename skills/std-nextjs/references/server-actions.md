@@ -5,11 +5,13 @@ Load-bearing rules restated (this file is read standalone):
 - **A server action is a public HTTP endpoint.** The `'use server'` directive creates a callable
   POST route. Anyone can invoke it with any payload. Validate and authorize *inside* the action.
 - **Always validate input with zod.**
-- **Always `revalidatePath` / `revalidateTag` after a successful mutation**, or the UI shows stale
-  cached data.
+- **Always invalidate after a successful mutation** — `revalidatePath`, or the tag: `updateTag` on
+  Next.js 16, `revalidateTag` on 15 (the `std-nextjs` version table) — or the UI shows stale cached
+  data.
 - **Return serializable data only** — plain objects, arrays, primitives. No class instances,
   no `Error` objects, no functions, no `Date`-bearing domain models with methods.
-- **Never return a raw error.** Catch, log server-side, return a user-safe message.
+- **Never return a raw error.** Catch, log server-side, return a user-safe translation key — the
+  form renders it with `t()`.
 
 Server actions live in `src/actions/` and are the use-case layer: they validate, authorize, call
 the Rails API client, revalidate, and return a result shape. They contain no business rules of
@@ -27,6 +29,9 @@ export type ActionResult<T> =
   | { ok: true; data: T }
   | { ok: false; formErrors?: string[]; fieldErrors?: Record<string, string[]> };
 ```
+
+Every string in `formErrors` and `fieldErrors` is a translation key, never a sentence: the schema's
+messages are keys, a caught failure returns a key, and the form renders each one through `t()`.
 
 ---
 
@@ -68,9 +73,13 @@ import type { ActionResult } from './result';
 import type { Order } from '@/types/order';
 
 const CreateOrderSchema = z.object({
-  productId: z.string().uuid(),
-  quantity: z.coerce.number().int().positive().max(100),
-  paymentMethod: z.enum(['card', 'invoice']),
+  productId: z.string({ message: 'orders.errors.productInvalid' }).uuid('orders.errors.productInvalid'),
+  quantity: z.coerce
+    .number({ message: 'orders.errors.quantityInvalid' })
+    .int('orders.errors.quantityInvalid')
+    .positive('orders.errors.quantityInvalid')
+    .max(100, 'orders.errors.quantityTooLarge'),
+  paymentMethod: z.enum(['card', 'invoice'], { message: 'orders.errors.paymentMethodInvalid' }),
 });
 
 export async function createOrder(
@@ -90,17 +99,18 @@ export async function createOrder(
       headers: { Authorization: `Bearer ${session.token}` }, // identity from the session, not the form
     });
 
-    revalidateTag('orders');
+    revalidateTag('orders'); // Next.js 16: updateTag('orders'), imported from next/cache instead
     return { ok: true, data: response.data.data };
   } catch (error) {
     console.error('createOrder failed', { userId: session.userId, error });
-    return { ok: false, formErrors: ['Could not create the order. Please try again.'] };
+    return { ok: false, formErrors: ['orders.errors.createFailed'] }; // a key, never the raw error
   }
 }
 ```
 
 `z.coerce.number()` matters: every `FormData` value is a string, so a plain `z.number()` rejects
-valid input.
+valid input. Every message is a translation key — the type errors too, through `{ message }` — so
+zod's English defaults never reach the form.
 
 ---
 
@@ -137,39 +147,42 @@ export function NewOrderForm() {
 
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
+import { useTranslations } from 'next-intl';
 import { createOrder } from '@/actions/orders';
 
 function SubmitButton() {
+  const t = useTranslations();
   const { pending } = useFormStatus(); // must be a child of <form>
   return (
     <button type="submit" disabled={pending} className="rounded bg-primary px-4 py-2">
-      {pending ? 'Creating…' : 'Create order'}
+      {pending ? t('orders.creating') : t('orders.create')}
     </button>
   );
 }
 
 export function NewOrderForm({ productId }: { productId: string }) {
+  const t = useTranslations();
   const [state, formAction] = useActionState(createOrder, null);
 
   return (
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="productId" value={productId} />
 
-      <label htmlFor="quantity">Quantity</label>
+      <label htmlFor="quantity">{t('orders.fields.quantity')}</label>
       <input id="quantity" name="quantity" type="number" defaultValue={1} required />
       {state?.ok === false && state.fieldErrors?.quantity && (
         <p role="alert" className="text-sm text-error">
-          {state.fieldErrors.quantity[0]}
+          {t(state.fieldErrors.quantity[0])}
         </p>
       )}
 
-      <select name="paymentMethod" defaultValue="card" aria-label="Payment method">
-        <option value="card">Card</option>
-        <option value="invoice">Invoice</option>
+      <select name="paymentMethod" defaultValue="card" aria-label={t('orders.fields.paymentMethod')}>
+        <option value="card">{t('orders.paymentMethods.card')}</option>
+        <option value="invoice">{t('orders.paymentMethods.invoice')}</option>
       </select>
 
       {state?.ok === false && state.formErrors?.length ? (
-        <p role="alert" className="text-sm text-error">{state.formErrors[0]}</p>
+        <p role="alert" className="text-sm text-error">{t(state.formErrors[0])}</p>
       ) : null}
 
       <SubmitButton />
@@ -194,9 +207,13 @@ component — calling it inside `NewOrderForm` itself always returns `pending: f
 import { z } from 'zod';
 
 export const CreateOrderSchema = z.object({
-  productId: z.string().uuid(),
-  quantity: z.coerce.number().int().positive().max(100),
-  paymentMethod: z.enum(['card', 'invoice']),
+  productId: z.string({ message: 'orders.errors.productInvalid' }).uuid('orders.errors.productInvalid'),
+  quantity: z.coerce
+    .number({ message: 'orders.errors.quantityInvalid' })
+    .int('orders.errors.quantityInvalid')
+    .positive('orders.errors.quantityInvalid')
+    .max(100, 'orders.errors.quantityTooLarge'),
+  paymentMethod: z.enum(['card', 'invoice'], { message: 'orders.errors.paymentMethodInvalid' }),
 });
 
 export type CreateOrderInput = z.infer<typeof CreateOrderSchema>;
@@ -235,8 +252,8 @@ export function FavoriteButton({ order }: { order: Order }) {
 ```
 
 `useOptimistic` reverts when the surrounding transition settles with fresh server state, so the
-action **must** `revalidateTag`/`revalidatePath` — otherwise the optimistic value snaps back to
-the stale cached value.
+action **must** invalidate — `revalidatePath`, or `updateTag` on Next.js 16 / `revalidateTag` on
+15 — otherwise the optimistic value snaps back to the stale cached value.
 
 ---
 
@@ -252,7 +269,7 @@ try {
   const order = await railsServer.post('/api/v1/orders', parsed.data);
   redirect(`/orders/${order.data.data.id}`); // throws NEXT_REDIRECT…
 } catch (error) {
-  return { ok: false, formErrors: ['Could not create the order.'] }; // …caught here
+  return { ok: false, formErrors: ['orders.errors.createFailed'] }; // …caught here
 }
 ```
 
@@ -265,10 +282,10 @@ try {
   orderId = response.data.data.id;
 } catch (error) {
   console.error('createOrder failed', error);
-  return { ok: false, formErrors: ['Could not create the order. Please try again.'] };
+  return { ok: false, formErrors: ['orders.errors.createFailed'] };
 }
 
-revalidateTag('orders');
+revalidateTag('orders'); // Next.js 16: updateTag('orders')
 redirect(`/orders/${orderId}`); // outside the try — nothing catches it
 ```
 
@@ -320,7 +337,7 @@ describe('createOrder', () => {
       paymentMethod: 'card',
     }));
 
-    expect(result.ok).toBe(false);
+    expect(result).toMatchObject({ ok: false, fieldErrors: { quantity: ['orders.errors.quantityInvalid'] } });
     expect(railsServer.post).not.toHaveBeenCalled();
   });
 
@@ -338,3 +355,6 @@ describe('createOrder', () => {
   });
 });
 ```
+
+On Next.js 16 the action calls `updateTag`, so the mock and the assertion name `updateTag` instead:
+`vi.mock('next/cache', () => ({ updateTag: vi.fn() }))`.

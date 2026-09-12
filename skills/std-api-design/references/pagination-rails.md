@@ -8,6 +8,10 @@ Load-bearing rules restated (these hold even if you read nothing else):
 - **Always** return pagination metadata — never a bare array.
 - Collections are wrapped in `data`: `{ "data": [...], "pagination": {...} }`.
 
+A drill-down list is scoped to its parent (`GET /v1/sites/{siteId}/assets`). Load the parent through
+its policy scope before paginating the children. A cursor is valid only with the filters and sort
+that produced it → `@skills/std-api-design/references/drill-down-resources.md`.
+
 Cursor response shape:
 
 ```json
@@ -101,12 +105,14 @@ module CursorPaginable
     [[params.fetch(:limit, DEFAULT_LIMIT).to_i, 1].max, MAX_LIMIT].min
   end
 
-  # scope must already be ordered created_at DESC, id DESC.
+  # scope must already be ordered created_at DESC, id DESC. Any model: the table name comes from the
+  # scope's own class, never from client input.
   def paginate_by_cursor(scope)
     cursor = Cursor.decode(params[:cursor])
     if cursor
+      table = scope.klass.quoted_table_name
       scope = scope.where(
-        "(orders.created_at, orders.id) < (?, ?)", cursor[:time], cursor[:id]
+        "(#{table}.created_at, #{table}.id) < (?, ?)", cursor[:time], cursor[:id]
       )
     end
 
@@ -132,7 +138,7 @@ class Api::V1::OrdersController < ApplicationController
     orders, pagination = paginate_by_cursor(scope)
 
     render json: {
-      data: OrderSerializer.new(orders, each_serializer: true).to_a,
+      data: Panko::ArraySerializer.new(orders, each_serializer: OrderSerializer).to_a,
       pagination: pagination
     }
   end
@@ -196,7 +202,7 @@ class Api::V1::ProductCategoriesController < ApplicationController
     )
 
     render json: {
-      data: ProductCategorySerializer.new(categories, each_serializer: true).to_a,
+      data: Panko::ArraySerializer.new(categories, each_serializer: ProductCategorySerializer).to_a,
       pagination: {
         page: pagy.page,
         pageSize: pagy.limit,
@@ -245,7 +251,7 @@ class Api::V1::VenuesController < ApplicationController
 
     venues, pagination = paginate_by_distance_cursor(scope)
     render json: {
-      data: VenueSerializer.new(venues, each_serializer: true).to_a,
+      data: Panko::ArraySerializer.new(venues, each_serializer: VenueSerializer).to_a,
       pagination: pagination
     }
   end

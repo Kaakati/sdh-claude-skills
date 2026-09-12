@@ -14,12 +14,16 @@ Build mobile features using our React Native stack: Zustand for state, TanStack 
 
 ### 1. Understand the Feature
 - Which screens are involved?
+- Which area (tab) owns them, and at which level — list, detail, sub-detail? What is each screen's
+  linking path (the web URL)?
 - What data comes from the API vs local state?
 - Is real-time needed? (Centrifugo subscription)
 - Does it need offline support? (Zustand persist + TanStack cache)
 
 ### 2. API Layer (TanStack Query)
 - Define query keys: `['orders', orderId]`, `['orders', { status, page }]`
+- One key per drill level: a detail by ID alone, a sub-collection under its parent, the screen's
+  route params inside the list key → `@skills/std-api-design/references/drill-down-resources.md`
 - Create custom hooks in `mobile/src/hooks/queries/`:
   ```typescript
   export const useOrders = (filter: OrderFilter) =>
@@ -69,7 +73,7 @@ mobile/src/
 │   └── realtime/      # Centrifugo subscription hooks
 ├── stores/            # Zustand stores
 ├── services/          # API client, Centrifugo client
-├── navigation/        # React Navigation config
+├── navigation/        # root stack, area tabs, a stack per tab, linking
 ├── theme/             # Colors, spacing, typography
 └── utils/             # Helpers, formatters
 ```
@@ -136,7 +140,7 @@ See references/react-native-patterns.md for component and hook patterns.
 
 ## Deep guides (read on demand, do not preload)
 
-- Worked screens, hooks, stores, and navigation for this stack → `references/react-native-patterns.md`
+- Worked screens, hooks and stores for this stack → `references/react-native-patterns.md`
 
 ### Owned by `std-react-native` (scoped to React Native work)
 
@@ -146,10 +150,19 @@ Decision-shaped, with the bad/good pairs. The file above shows *a* pattern; thes
   `@skills/std-react-native/references/realtime-centrifugo.md`
 - **Offline & mutations — the queue that survives a cold start** →
   `@skills/std-react-native/references/offline-and-mutations.md`
+- **Navigation — area tabs, a native stack per tab, a linking path per level, per-role tests** →
+  `@skills/std-react-native/references/navigation.md`
 
-Two facts from those that decide what you write, rather than how:
+Facts from those that decide what you write, rather than how:
 
+- **Three navigators at most** — a root stack → one bottom tab per area → a native stack per tab.
+  Screen depth inside a tab is the drill-down levels, never a fourth navigator
+  (`@skills/ui-ux-patterns/references/drill-down-navigation.md`).
 - **`staleTime` is per query, not one default.** `users` at 5 minutes and `orders` at 1 minute is
   correct — the table in `@skills/std-reactjs/references/data-fetching.md` is the reasoning.
 - **Testing React Native is Jest, not Vitest.** There is no DOM, and Metro's transform pipeline is
   Jest-based → `@skills/std-testing/references/react-native.md`.
+
+Owned by `access-control-designer`: **permission-gated screens, tabs, and actions** — registered
+conditionally from a CASL ability built off the `['me']` query →
+`@skills/access-control-designer/references/ui-gates.md`.

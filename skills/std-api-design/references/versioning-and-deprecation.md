@@ -93,7 +93,7 @@ module Api
           policy_scope(Order).order(created_at: :desc, id: :desc)
         )
         render json: {
-          data: serializer_class.new(orders, each_serializer: true).to_a,
+          data: Panko::ArraySerializer.new(orders, each_serializer: serializer_class).to_a,
           pagination: pagination
         }
       end
@@ -101,7 +101,7 @@ module Api
       def show
         order = policy_scope(Order).find(params[:id])
         authorize order
-        render json: { data: serializer_class.new(order).to_h }
+        render json: { data: serializer_class.new.serialize(order) }
       end
 
       private

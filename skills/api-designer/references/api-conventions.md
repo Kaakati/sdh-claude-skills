@@ -15,7 +15,9 @@ https://api.{domain}.com/v{version}/{resource}
 - Lowercase only with hyphens for word separation: `/order-items`
 - Plural nouns for collections: `/users`, `/invoices`
 - Singular resource via ID: `/users/{userId}`
-- Sub-resources nested one level: `/users/{userId}/orders`
+- Collection routes nested one level: `/users/{userId}/orders`. Member routes flat:
+  `/orders/{orderId}`, never `/users/{userId}/orders/{orderId}` (drill-down levels →
+  `@skills/std-api-design/references/drill-down-resources.md`)
 - Actions as POST to a sub-path: `/orders/{orderId}/cancel`
 - No trailing slashes: `/users` not `/users/`
 - No file extensions: `/users` not `/users.json`
@@ -28,6 +30,7 @@ GET    /api/v1/users/{userId}           # Get user
 PUT    /api/v1/users/{userId}           # Update user
 DELETE /api/v1/users/{userId}           # Delete user
 GET    /api/v1/users/{userId}/orders    # List user's orders
+GET    /api/v1/orders/{orderId}         # Get order (flat, whatever its parent)
 POST   /api/v1/orders/{orderId}/cancel  # Cancel order (action)
 ```
 
@@ -73,8 +76,8 @@ POST   /api/v1/orders/{orderId}/cancel  # Cancel order (action)
 
 ### Standard Error Response
 
-The envelope is owned by `std-api-design` → `references/errors-rails.md` /
-`references/errors-typescript.md`, which are scoped to controller and route work. Match them
+The envelope is owned by `std-api-design` → `@skills/std-api-design/references/errors-rails.md` /
+`@skills/std-api-design/references/errors-typescript.md`, which are scoped to controller and route work. Match them
 exactly — a client cannot parse two shapes:
 
 ```json
@@ -170,9 +173,9 @@ Include links for discoverability in resource responses:
   },
   "links": {
     "self": "/api/v1/orders/order-123",
+    "parent": "/api/v1/customers/cust-456",
     "cancel": "/api/v1/orders/order-123/cancel",
-    "items": "/api/v1/orders/order-123/items",
-    "customer": "/api/v1/customers/cust-456"
+    "items": "/api/v1/orders/order-123/items"
   }
 }
 ```
@@ -181,6 +184,10 @@ Include links when:
 - Related resources exist.
 - Actions are available based on current state.
 - Navigation between collection pages.
+
+`links` sits beside `data`, never inside it. `parent` names the record's one canonical parent. The
+full location, the permission-filtered `ancestors` chain a breadcrumb renders, travels inside `data`
+→ `@skills/std-api-design/references/drill-down-resources.md`.
 
 ---
 
@@ -202,16 +209,18 @@ Retry-After: 30                  # Seconds to wait (only on 429 responses)
 | API Key (service) | 5000 requests | per hour |
 
 ### Rate Limit Response
-```json
+The same flat envelope as every other error. The wait travels in `Retry-After`; the responder →
+`@skills/std-api-design/references/rate-limiting.md`.
+
+```http
 HTTP/1.1 429 Too Many Requests
 Retry-After: 30
 
 {
-  "error": {
-    "code": "RATE_LIMIT_EXCEEDED",
-    "message": "Rate limit exceeded. Try again in 30 seconds.",
-    "retryAfter": 30
-  }
+  "error": "Rate limit exceeded. Try again in 30 seconds.",
+  "code": "RATE_LIMIT_EXCEEDED",
+  "status": 429,
+  "requestId": "req-550e8400-e29b"
 }
 ```
 
@@ -244,17 +253,16 @@ paths:
       operationId: listResources
       tags: [Resources]
       parameters:
-        - name: page
+        - name: cursor
           in: query
           schema:
-            type: integer
-            default: 1
-        - name: pageSize
+            type: string
+        - name: limit
           in: query
+          description: Clamped server-side; the default and maximum are owned by std-api-design (pagination-rails)
           schema:
             type: integer
-            default: 20
-            maximum: 100
+            minimum: 1
       responses:
         '200':
           description: Successful response
@@ -309,28 +317,27 @@ components:
           type: string
           format: date-time
     ErrorResponse:
+      # The one flat envelope, owned by std-api-design (errors-rails)
       type: object
+      required: [error, code, status, requestId]
       properties:
         error:
-          type: object
-          properties:
-            code:
-              type: string
-            message:
-              type: string
-            details:
-              type: array
-              items:
-                type: object
-                properties:
-                  field:
-                    type: string
-                  code:
-                    type: string
-                  message:
-                    type: string
-            requestId:
-              type: string
+          type: string
+        code:
+          type: string
+        status:
+          type: integer
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+        requestId:
+          type: string
   securitySchemes:
     bearerAuth:
       type: http

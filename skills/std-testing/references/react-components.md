@@ -182,10 +182,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { render, type RenderOptions } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
+import { AbilityProvider } from "@/components/providers/AbilityProvider";
+import type { AppRule } from "@/lib/ability";
 
 export function renderWithProviders(
   ui: ReactElement,
-  { route = "/", ...options }: RenderOptions & { route?: string } = {},
+  { route = "/", rules, ...options }: RenderOptions & { route?: string; rules?: AppRule[] } = {},
 ) {
   // retry:false is essential — the default 3 retries make error-path tests time out.
   const queryClient = new QueryClient({
@@ -193,9 +195,11 @@ export function renderWithProviders(
   });
 
   function Wrapper({ children }: { children: ReactNode }) {
+    // @casl/react 7: a gated leaf (useAppAbility, Can) throws outside an AbilityProvider.
+    const gated = rules ? <AbilityProvider rules={rules}>{children}</AbilityProvider> : children;
     return (
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
+        <MemoryRouter initialEntries={[route]}>{gated}</MemoryRouter>
       </QueryClientProvider>
     );
   }
@@ -205,7 +209,14 @@ export function renderWithProviders(
 ```
 
 A **fresh QueryClient per render** is mandatory — a module-level client leaks cached data between
-tests and breaks independence.
+tests and breaks independence. Layouts rendered through the app's route tree use the routed harness
+in *Navigation rendered per role* below instead.
+
+**Pass `rules` for a gated leaf.** Under @casl/react 7, a component that calls `useAppAbility()` or
+renders `<Can>` throws outside an `AbilityProvider` ("AbilityContext is not provided"), so its test
+passes the role's rules — `renderWithProviders(<CancelOrderButton order={order} />, { rules })` —
+rather than building a provider tree in the test file. A layout that renders the provider itself
+(`AppLayout`) needs none (`@skills/access-control-designer/references/ui-gates.md`).
 
 ---
 
@@ -255,24 +266,207 @@ MotionGlobalConfig.skipAnimations = true;
 
 ---
 
-## Charts (ApexCharts)
+## Charts (Chart.js via react-chartjs-2)
 
-ApexCharts renders SVG through a non-jsdom-friendly path. Do not assert on rendered bars. Test the
-**data transform** as a pure unit, and assert only that the chart region is present with an
-accessible name.
+A Vite SPA chart draws on a `<canvas>`, and jsdom gives a canvas neither a 2D context nor a
+`ResizeObserver` to size it by. Both gaps fail quietly, or loudly with the wrong message (house
+lab — Chart.js 4.5.1, jsdom 30.0.1):
+
+- **No canvas mock** → `getContext()` returns nothing, Chart.js logs "Failed to create chart: can't
+  acquire context from the given item" without throwing, and a test that never checks the chart
+  exists passes.
+- **No `ResizeObserver`** → a responsive chart throws `ReferenceError: ResizeObserver is not
+  defined`. Under `StrictMode` RTL reports an `AggregateError` that also contains "Canvas is
+  already in use", because the first instance was never destroyed — a message that points at the
+  wrong bug.
 
 ```typescript
-// GOOD — the logic worth testing is the transform, and it needs no DOM at all.
-it("should aggregate revenue by month when given daily rows", () => {
-  const rows = [
-    { date: "2024-01-05", cents: 1_000 },
-    { date: "2024-01-20", cents: 2_500 },
-    { date: "2024-02-01", cents: 500 },
+// src/test/setup.ts (addition)
+import "vitest-canvas-mock";
+import { vi } from "vitest";
+
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+```
+
+`vitest-canvas-mock` (MIT, peers Vitest 3 to 5) works by being imported from a setup file. Why this
+mock, and its alternatives → `@skills/std-reactjs/references/charts.md`. Three things are yours to
+assert:
+
+1. **The data mapping** — a pure function from API data to the chart's points. It needs no DOM.
+2. **The wiring** — that the chart exists and holds those values: `Chart.getChart(canvas)`.
+3. **The text alternative** every house chart ships with — the summary sentence and the visually
+   hidden data table. If a test can read the numbers there, so can a screen reader.
+
+```tsx
+// BAD — snapshots the mock's recorded draw calls. It pins Chart.js's drawing internals, breaks on a
+// patch release that changes nothing a user sees, and says nothing about the numbers anyone reads.
+it("renders the revenue chart", () => {
+  const { container } = renderWithProviders(<RevenueChart points={points} currency="USD" />);
+  const ctx = container.querySelector("canvas")!.getContext("2d");
+  expect(ctx.__getDrawCalls()).toMatchSnapshot();
+});
+```
+
+```typescript
+// GOOD — the mapping is logic; test it without a DOM.
+it("should convert cents to whole units in date order when days arrive unsorted", () => {
+  const days = [
+    { date: "2026-01-06", totalCents: 500 },
+    { date: "2026-01-05", totalCents: 3_500 },
   ];
 
-  expect(toMonthlySeries(rows)).toEqual([
-    { x: "2024-01", y: 35 },
-    { x: "2024-02", y: 5 },
+  expect(toRevenuePoints(days)).toEqual([
+    { day: "2026-01-05", revenue: 35 },
+    { day: "2026-01-06", revenue: 5 },
   ]);
 });
 ```
+
+```tsx
+// GOOD — the chart exists and holds the mapped values. Without the canvas mock getChart returns
+// undefined, so this fails loudly instead of passing having checked nothing.
+import { Chart } from "chart.js";
+
+it("should plot one revenue value per day when given points", () => {
+  // Arrange
+  const points = [
+    { day: "2026-01-05", revenue: 35 },
+    { day: "2026-01-06", revenue: 5 },
+  ];
+
+  // Act
+  const { container } = renderWithProviders(<RevenueChart points={points} currency="USD" />);
+
+  // Assert
+  const chart = Chart.getChart(container.querySelector("canvas")!);
+  expect(chart?.data.datasets[0].data).toEqual([35, 5]);
+});
+```
+
+```tsx
+// GOOD — the text alternative is the contract a screen reader relies on; assert that.
+import { within } from "@testing-library/react";
+
+it("should expose one table row per day when given revenue points", () => {
+  // Arrange
+  const points = [
+    { day: "2026-01-05", revenue: 35 },
+    { day: "2026-01-06", revenue: 5 },
+  ];
+
+  // Act
+  renderWithProviders(
+    <RevenueFigure points={points} currency="USD">
+      <RevenueChart points={points} currency="USD" />
+    </RevenueFigure>,
+  );
+
+  // Assert
+  const rows = within(screen.getByRole("table")).getAllByRole("row");
+  expect(rows).toHaveLength(3); // header + one per day
+  expect(rows[1]).toHaveTextContent(/2026-01-05.*35/);
+});
+```
+
+No waiting on animation: the table never animates, and `Chart.getChart` holds the data from the
+first render. Assert the numbers with a pattern rather than exact currency formatting unless the
+test pins the locale — `Intl.NumberFormat` output follows it.
+
+### Next.js Client Components (shadcn `chart`, Recharts)
+
+Same contract, different renderer. Recharts draws SVG, so there is no canvas to mock: assert the
+mapping and the text alternative, and never SVG paths or a `recharts-*` class name — jsdom does no
+layout, so the geometry is not what a browser draws. Keep the `ResizeObserver` stub. The chart
+itself → `@skills/std-shadcn-ui/references/charts.md`.
+
+---
+
+## Navigation rendered per role (Vite SPA)
+
+The per-role table — exactly the permitted areas in order, nothing nested under the main nav, the
+recorded area budget, the one-area and feature-gate cases — and its fixtures are
+`@skills/access-control-designer/references/ui-gates.md`'s; the rules they pin are
+`@skills/ui-ux-patterns/references/drill-down-navigation.md`'s. A navigation test has to render
+what a role actually gets, because the config lists every area and a role sees its subset only at
+runtime. This section adds the Vite harness that rendering needs.
+
+`renderWithProviders` wraps a `MemoryRouter`, a declarative router. Loaders, and
+`ScrollRestoration` — a framework- and data-mode API (React Router docs — ScrollRestoration) — need
+a data router, which cannot render inside another router. So in a Vite app the per-role table, and
+any test of `AppLayout` or an `AreaLayout`, renders the exported `routes` in a memory router. The
+loaders warm the app's own `queryClient`, so the harness renders with that instance and setup
+clears it after every test — the isolation of a fresh client, kept by clearing instead of
+replacing.
+
+```tsx
+// src/test/render-route.tsx
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createMemoryRouter } from "react-router";
+import { RouterProvider } from "react-router/dom";
+import { render } from "@testing-library/react";
+import { queryClient } from "@/api/query-client";   // the client the loaders warm
+import { routes } from "@/router";
+
+queryClient.setDefaultOptions({ queries: { retry: false } });
+
+export function renderRoute(path: string) {
+  const router = createMemoryRouter(routes, { initialEntries: [path] });
+  return {
+    router,
+    ...render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    ),
+  };
+}
+
+// src/test/setup.ts (addition): afterEach(() => queryClient.clear()) — or one role's /me answers the next test
+```
+
+What only a routed render can show — the section nav living in the area's layout, not the sidebar:
+
+```tsx
+// src/components/templates/AreaLayout/AreaLayout.test.tsx
+import { http, HttpResponse } from "msw";
+import { screen, within } from "@testing-library/react";
+import { server } from "@/test/msw-server";
+import { renderRoute } from "@/test/render-route";
+import { useAuthStore } from "@/stores/auth-store";
+import meByRole from "@/test/fixtures/me-by-role.json"; // exported by the Rails /me request spec
+
+it("should render Organization's sections in the page, not the sidebar, when an owner opens Members", async () => {
+  // Arrange
+  useAuthStore.setState({ accessToken: "test-token" });
+  server.use(http.get("*/api/v1/me", () => HttpResponse.json({ data: meByRole.owner })));
+
+  // Act
+  renderRoute("/members");
+
+  // Assert
+  const sections = await screen.findByRole("navigation", { name: /organization sections/i });
+  expect(screen.getByRole("navigation", { name: /main/i })).not.toContainElement(sections);
+  expect(within(sections).getByRole("link", { name: /members/i })).toHaveAttribute("aria-current", "page");
+});
+```
+
+- **The per-role table swaps its render, not its assertions:** `renderRoute("/")` in place of
+  `renderWithProviders(<AppLayout />)`, so the landing loader and the layout's gates run.
+- **Names come from translations** — load the English resources in setup, as the form tests do, or
+  every `name:` matcher reads a key.
+- **Back, once the structure passes:** `await router.navigate(-1)` after a drill-in returns to the
+  list with its search params; where focus lands is `drill-down-navigation.md`'s.
+
+---
+
+## Sources
+
+- React Router docs — ScrollRestoration — https://reactrouter.com/api/components/ScrollRestoration
+- npm — vitest-canvas-mock — https://registry.npmjs.org/vitest-canvas-mock
+- house lab — the round-3 Chart.js research run (2026-09-11): Chart.js 4.5.1 under React 19.3.0,
+  jsdom 30.0.1 and Vitest 5.0.0

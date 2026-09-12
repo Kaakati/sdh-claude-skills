@@ -268,25 +268,28 @@ end
 ### Nesting Components Inside Blocks
 
 ```ruby
-class Components::Organisms::Sidebar < Components::Base
-  def initialize(links:)
-    @links = links
+class Components::Organisms::AppSidebar < Components::Base
+  def initialize(areas:)
+    @areas = areas # areas only, built by the controller; an area's sections render in its area layout
   end
 
   def view_template
-    nav(class: "flex flex-col gap-1 p-4") do
-      @links.each do |link|
+    nav(class: "flex flex-col gap-1 p-4", aria: { label: I18n.t("nav.main") }) do
+      @areas.each do |area|
         render Components::Molecules::NavLink.new(
-          label: link[:label],
-          href: link[:href],
-          icon: link[:icon],
-          active: link[:active]
+          label: area[:label],
+          href: area[:href],
+          current: area[:current]
         )
       end
     end
   end
 end
 ```
+
+The full version — the narrow-screen Menu button, whole-segment current state, the plan-locked
+entry, the one-area case —
+is in `@skills/std-phlex-conventions/references/navigation.md`.
 
 ### Rendering Collections
 
@@ -339,28 +342,19 @@ end
 
 ```ruby
 class Components::Templates::DashboardLayout < Components::Base
-  def initialize(title: "Dashboard")
+  def initialize(title:, areas:)
     @title = title
+    @areas = areas # from the controller: Navigation#areas over policy(:navigation), never a hardcoded list
   end
 
   def view_template(&block)
     div(class: "min-h-screen flex flex-col") do
       render Components::Organisms::Header.new
       div(class: "flex flex-1") do
-        render Components::Organisms::Sidebar.new(links: sidebar_links)
+        render Components::Organisms::AppSidebar.new(areas: @areas)
         main(class: "flex-1 p-6 bg-muted/30", &block)
       end
     end
-  end
-
-  private
-
-  def sidebar_links
-    [
-      { label: "Dashboard", href: "/dashboard", icon: "home", active: true },
-      { label: "Projects", href: "/projects", icon: "folder" },
-      { label: "Settings", href: "/settings", icon: "cog" }
-    ]
   end
 end
 ```
@@ -369,13 +363,14 @@ end
 
 ```ruby
 class Views::Dashboard::Index < Views::Base
-  def initialize(stats:, recent_activity:)
+  def initialize(stats:, recent_activity:, areas:)
     @stats = stats
     @recent_activity = recent_activity
+    @areas = areas
   end
 
   def view_template
-    render Components::Templates::DashboardLayout.new(title: "Dashboard") do
+    render Components::Templates::DashboardLayout.new(title: "Dashboard", areas: @areas) do
       render Components::Atoms::Heading.new(text: "Dashboard", level: 1)
       render_stats_grid
       render_recent_activity
@@ -444,15 +439,16 @@ end
 
 ```ruby
 class Components::Molecules::NavLink < Components::Base
-  def initialize(label:, href:, active: false)
+  def initialize(label:, href:, current: nil)
     @label = label
     @href = href
-    @active = active
+    @current = current # "page" | "true" | nil, computed by the controller
   end
 
   def view_template
     a(
       href: @href,
+      aria: { current: @current },
       class: link_classes
     ) { @label }
   end
@@ -460,9 +456,9 @@ class Components::Molecules::NavLink < Components::Base
   private
 
   def link_classes
-    base = "px-3 py-2 rounded-md text-sm font-medium transition-colors"
-    if @active
-      "#{base} bg-primary/10 text-primary"
+    base = "rounded-md border-l-2 px-3 py-2 text-sm transition-colors"
+    if @current
+      "#{base} border-primary bg-primary/10 font-semibold text-primary"
     else
       "#{base} text-muted-foreground hover:text-foreground hover:bg-muted"
     end

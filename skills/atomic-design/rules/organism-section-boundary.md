@@ -275,11 +275,19 @@ export function Header({
 | Organism | Composed Of | Purpose |
 |----------|------------|---------|
 | `Header` | Logo (atom) + NavLinks (molecule) + SearchForm (molecule) + UserMenu (molecule) | Site-wide navigation |
-| `Sidebar` | NavLinks (molecule) + FilterGroups (molecule) | Secondary navigation or filtering |
+| `AppSidebar` | NavLink per area (molecule), under optional static group labels | Global navigation — areas only; no sections, no nesting, no filters |
+| `SectionNav` | NavLink per section (molecule) | An area's local navigation, rendered by that area's layout |
+| `FilterPanel` | FormFields (molecule) + Button (atom) | A list page's filters — never inside the global sidebar |
 | `ProductGrid` | Heading (atom) + SortSelector (molecule) + ProductCards (molecule) | Product listing section |
 | `CommentThread` | UserAvatar (molecule) + CommentBody (molecule) + ReplyForm (molecule) | Discussion section |
 | `Footer` | Logo (atom) + NavLinks (molecule) + SocialLinks (molecule) | Site footer |
 | `HeroSection` | Heading (atom) + Text (atom) + Button (atom) + Image (atom) | Landing page hero |
+
+**Navigation organisms** follow `@skills/ui-ux-patterns/references/drill-down-navigation.md`: the
+global `AppSidebar` lists areas only, each area's layout owns its `SectionNav`, and filters are a
+list-page organism. The literal `NavLink`s in the `Header` sketches above keep the examples short —
+a real global nav renders `visibleNav` output
+(`@skills/access-control-designer/references/ui-gates.md`).
 
 **Organism vs. page:**
 - An organism is a reusable section. A page is a unique composition of organisms.

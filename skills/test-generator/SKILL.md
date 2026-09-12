@@ -189,7 +189,9 @@ are scoped to `**/*.test.*` / `**/*.spec.*` — and they are decision-shaped, wi
 pairs. Read the one matching what you are testing rather than reconstructing it:
 
 - **Vitest + RTL setup, which query to reach for, MSW, providers, Zustand, Framer Motion,
-  ApexCharts** → `@skills/std-testing/references/react-components.md`
+  charts (Chart.js via react-chartjs-2: `vitest-canvas-mock` plus a `ResizeObserver` stub, then
+  assert the text alternative and the data mapping — never pixels or draw calls), navigation
+  rendered per role** → `@skills/std-testing/references/react-components.md`
 - **Next.js Server Components, server actions, `generateMetadata`, route handlers** →
   `@skills/std-testing/references/nextjs-server.md`
 - **React Native: RNTL, navigation, Reanimated, MMKV, Centrifugo** →
