@@ -2,13 +2,19 @@
 
 Load-bearing rules restated (hold even if you read nothing else):
 
-1. **Framer Motion is the animation library.** No CSS keyframe libraries, no GSAP, no
-   react-spring.
-2. **Every animation must respect `prefers-reduced-motion`.** This is a WCAG obligation, not a
-   nicety. Use `useReducedMotion()`.
-3. **Animate `transform` and `opacity` only** — they run on the compositor and never trigger
+1. **Framer Motion owns house motion** — page transitions, list enter/exit, micro-interactions.
+   No GSAP, no react-spring.
+2. **`tw-animate-css` is allowed for one job: shadcn/ui primitives' own enter/exit animation.**
+   Their `animate-in` / `fade-in-0` / `zoom-in-95` classes come from it. House components never
+   use those classes — a house animation is Framer Motion or a `motion-safe:` Tailwind transition.
+3. **Every animation must respect `prefers-reduced-motion`.** This is a WCAG obligation, not a
+   nicety. Framer Motion: `useReducedMotion()`. shadcn primitives: the global CSS backstop, which
+   is **mandatory** in any package that imports `tw-animate-css`. Chart.js:
+   `animation: false` (`references/charts.md`).
+4. **Animate `transform` and `opacity` only** — they run on the compositor and never trigger
    layout.
-4. **It is ~35KB gzip.** Don't pull it into a route that only needs a hover colour change.
+5. **Framer Motion is ~35KB gzip.** Don't pull it into a route that only needs a hover colour
+   change.
 
 ---
 
@@ -34,7 +40,7 @@ Load-bearing rules restated (hold even if you read nothing else):
 ### Good
 
 ```tsx
-// src/components/motion/FadeIn.tsx  ✅
+// src/components/molecules/FadeIn/FadeIn.tsx  ✅
 import { motion, useReducedMotion } from 'framer-motion';
 import type { ReactNode } from 'react';
 
@@ -55,6 +61,51 @@ export function FadeIn({ children }: { children: ReactNode }) {
 
 Reduced motion means *reduced*, not *removed*: keep the opacity cross-fade so state changes
 remain perceivable; drop the translation, scale, and parallax.
+
+---
+
+## Decision: shadcn/ui primitives' own animation
+
+Dialogs, sheets, dropdowns and tooltips animate with enter/exit classes from `tw-animate-css`.
+Measured against the published sources: `tw-animate-css@1.4.0` contains no
+`prefers-reduced-motion` rule, and none of shadcn's animated primitives use `motion-safe:` or
+`motion-reduce:`. Left alone, every overlay zooms in for a user who asked the OS for no motion.
+
+### Bad — hand-guarding the vendored primitives
+
+```tsx
+// src/components/ui/dialog.tsx  ❌ an edited copy of CLI output
+className={cn('motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 …', className)}
+```
+
+Every primitive and every class by hand, each edit a conflict the next time `add --diff` shows an
+upstream change — and one missed class removes the guarantee without a signal.
+
+### Good — one backstop in the Tailwind entry, primitives untouched
+
+```css
+/* src/styles/index.css — the file components.json names in `tailwind.css` */
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Mandatory once tw-animate-css is imported. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+```
+
+The block is owned by `@skills/std-design-system/references/motion.md` — change it there first.
+It collapses CSS keyframes and transitions to an instant. It cannot reach JavaScript-driven
+motion, so Framer Motion still needs `useReducedMotion()` and Chart.js still needs
+`animation: false` — canvas animation is JavaScript. The rest of the CSS entry — tokens,
+`@theme inline`, the dark variant — → `@skills/theming/references/platform-integration.md`.
 
 ---
 
@@ -94,9 +145,9 @@ Requires `AnimatePresence` + a `key` that changes per route, and `mode="wait"` s
 page finishes before the incoming one mounts.
 
 ```tsx
-// src/components/layouts/AppLayout.tsx
+// src/components/templates/AppLayout/AppLayout.tsx
 import { Suspense } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 
 export function AppLayout() {
@@ -129,8 +180,13 @@ export function AppLayout() {
 Without `key={location.pathname}` React reuses the same element and `AnimatePresence` never sees
 an exit. Without `mode="wait"` both pages overlap mid-transition.
 
-This is the one layout-level `<Suspense>` that every lazy page route falls back to — see
-`references/routing-and-code-split.md`.
+This is the app-level `<Suspense>` that every lazy page route falls back to; area layouts add
+their own around their `<Outlet />` — see `references/routing-and-code-split.md`.
+
+**With area layouts, key the transition inside the area (house choice).** A motion element keyed
+by pathname around the *app* `<Outlet />` unmounts the whole area layout on every drill, so the
+section nav exits and re-enters between a list and its detail — the one piece of chrome that is
+meant to stay put. Wrap the area layout's `<Outlet />` instead, and only the page moves.
 
 ---
 
@@ -152,7 +208,7 @@ This is the one layout-level `<Suspense>` that every lazy page route falls back 
       animate={{ opacity: 1, height: 'auto' }}
       exit={{ opacity: 0, height: 0 }}
       transition={{ duration: 0.18 }}
-      className="overflow-hidden border-b border-slate-200 dark:border-slate-800"
+      className="overflow-hidden border-b border-border"
     >
       <OrderRow order={order} />
     </motion.li>
@@ -169,5 +225,5 @@ it is the only way to collapse a row cleanly. Keep it to list rows and accordion
 
 `framer-motion` is ~35KB gzip. For simple hover/press feedback, prefer a Tailwind
 `transition-colors` utility over pulling `framer-motion` into a route that has no other
-animation. When a route does need it, it can share a `manualChunks` vendor entry — see
+animation. When a route does need it, it can share the `vendor-motion` code-splitting group — see
 `references/routing-and-code-split.md`.

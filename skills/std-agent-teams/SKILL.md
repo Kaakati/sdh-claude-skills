@@ -97,15 +97,33 @@ Suggest creating a team when:
 
 ## Quality Gates
 
-Two hooks enforce team quality automatically:
+Three command hooks gate team work. A gate rejects by exiting 2, and its reason goes back to the
+agent on **stderr** (stdout on exit 2 goes nowhere). Every gate:
+
+- fails open: a crash exits 1, which shows a hook error but never blocks;
+- **gives up after 3 identical rejections** in a session, handing the gap to the developer as a
+  `systemMessage` instead of looping.
 
 ### TeammateIdle (`teammate-idle-checker.py`)
-- Checks that modified source files exist when the task implies code changes
-- Verifies test files accompany modified source files
-- Exit code 2 sends feedback to keep the teammate working
+- Keeps a teammate working only when source changed in **its own linked worktree** with no pairing
+  test change. A shared checkout is never judged: its changes cannot be attributed to one teammate.
+- **Read-only agents are exempt.** A role whose `agents/<role>.md` `tools:` line holds no edit tool
+  (Write, Edit, MultiEdit, NotebookEdit) cannot add tests, so the gate skips it, as it skips the
+  built-in Explore and Plan agents.
+- Changes with nothing to unit-test (migrations, config, scripts, framework boilerplate, type stubs,
+  stories) and vendored shadcn/ui primitives need no test.
+
+### TaskCreated (`task-completed-checker.py`)
+- Snapshots the task's baseline and always exits 0. In a checkout no other agent is writing to, the
+  TaskCompleted gates then judge only changes made after the task started, even outside a linked
+  worktree.
 
 ### TaskCompleted (`task-completed-checker.py`, `team-task-validator.py`)
-- Validates uncommitted source files are committed
-- Checks for basic linting issues (trailing whitespace)
-- Verifies test deliverables if the task mentions testing
-- Exit code 2 rejects the completion with feedback
+- `task-completed-checker.py` rejects when a teammate's own worktree still has **uncommitted**
+  source changes (commit them with a conventional commit so the lead can merge), or when a task
+  that promises tests left **no test-file change**. Commits made for the work count, and when the
+  task's changes cannot be attributed, a test change anywhere in the working tree does.
+- `team-task-validator.py` rejects over **debug statements** (matched as statements, not in
+  comments, strings, tests, or scripts), **trailing whitespace**, a **missing final newline**, or
+  **mixed indentation**, in files the task touched. It stays quiet when no change can be attributed
+  to the task.

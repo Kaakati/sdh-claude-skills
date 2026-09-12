@@ -33,8 +33,9 @@ Surface/Background   →  --background          →  bg-background
 Surface/Card         →  --card                →  bg-card
 ```
 
-3. Convert hex to HSL (space-separated, no `hsl()` wrapper):
-   - `#0F172A` → `222.2 47.4% 11.2%`
+3. Convert hex to a complete `hsl(H S% L%)` value. The variable holds the whole color, so a
+   utility or arbitrary CSS reads it as `var(--primary)`, never `hsl(var(--primary))`:
+   - `#0F172A` → `--primary: hsl(222.2 47.4% 11.2%)`
    - Use an HSL converter or calculate: H = hue°, S = saturation%, L = lightness%
 
 ### Typography Token Extraction

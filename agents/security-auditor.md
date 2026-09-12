@@ -103,6 +103,26 @@ tied to a library it is pinned to. They are cheap to check and expensive to miss
   `Devise::JWT::RevocationStrategies::JTIMatcher`), "sign out" only deletes the client's copy —
   the token keeps authenticating anyone who kept one until it expires. Check the `User` model for
   `jwt_revocation_strategy:`. Same reference.
+- **A role check is not a permission check.** `user.admin?` or `role == "manager"` in a policy,
+  and `role === 'admin'` in a TSX file, hardcode today's role list — the next role a customer
+  needs silently gets nothing, or everything. Grep policies for `admin?` / `role ==` and frontend
+  code for `role ===`: a policy asks for a permission key (`orders.cancel`), and a UI asks the
+  CASL ability built from `/me`. A **client-only gate** — a control hidden in React with no
+  policy behind the endpoint it calls — is **HIGH**. CASL is UX; the Rails policy is the
+  authority, and `curl` does not render your sidebar.
+- **Role grants are escalation's front door.** `permit(:role)`, `permit(:role_id)` or
+  `permit(:admin)` on any user or membership params is **CRITICAL**: any member promotes
+  themselves with one PATCH. Role changes belong to a dedicated grant action, and there verify
+  four things — the granted role's permissions are a subset of the granter's own (nobody grants
+  what they do not hold), no self-grant, a last-owner guard (the final owner cannot be demoted or
+  removed), and an audit event for every grant and revoke.
+- **`/me` returns the caller's rules for the current organization — nothing more.** Roles live
+  on the membership (user × organization), so a `/me` that returns every membership's rules,
+  another user's, or the whole role→permission table hands the client a map of what to try.
+  Check it is scoped to `current_user` in the current organization. Matrix shape, scopes and
+  deny-by-default → `access-control-designer/references/permission-matrix.md`; permission keys in
+  Pundit, the grant action and the last-owner guard →
+  `std-rails-conventions/references/roles-and-permissions.md`.
 - **`Sidekiq::Web` mounted without a constraint.** `mount Sidekiq::Web => '/sidekiq'` in
   `config/routes.rb` with no auth wrapper exposes every job's **arguments** — which routinely
   carry user IDs, emails and tokens — and lets anyone retry or kill jobs. Check it is wrapped,

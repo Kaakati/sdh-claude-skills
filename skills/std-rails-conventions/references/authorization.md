@@ -12,6 +12,8 @@ Load-bearing rules restated (hold even if you read nothing else):
 Rendering the 403 is **not** this file's job — `rescue_from Pundit::NotAuthorizedError` and the
 error envelope are owned by `../../std-api-design/references/errors-rails.md`.
 
+Designing roles and the permission matrix (keys, scope levels, the grant path) → `roles-and-permissions.md`.
+
 ---
 
 ## Why this outranks writing good policies
@@ -35,7 +37,12 @@ Pundit ships the fix. It is one line, and it is off by default.
 | `show`, `update`, `destroy` — one record | `authorize @record` | Asks the policy about *that* record |
 | `index` — a collection | `policy_scope(Model)` | **Filters**; `authorize` would only ask "may you list?" |
 | `create` | `authorize Model` (the class) | No instance yet |
+| Nested `index` (`/sites/:site_id/assets`) | `policy_scope(Site).find(params[:site_id])`, then `policy_scope(Asset).where(site:)` | The parent ID is client input too. Filtering by an unscoped parent answers `200` for a site the caller cannot see, and leaks its rows wherever the child scope is wider than the parent's |
+| Flat member of a shallow route (`/assets/:id`) | `policy_scope(Asset).find(params[:id])`, then `authorize` | No parent in the URL to lean on. The child's own scope is the only check left |
 | Genuinely public (health check, sign-up) | `skip_authorization` | Deliberate and greppable — not silence |
+
+Every level of a drill-down, including each include and each `ancestors` entry, authorizes the same
+way → `@skills/std-api-design/references/drill-down-resources.md`.
 
 ## Bad — the policy exists, and nothing calls it
 

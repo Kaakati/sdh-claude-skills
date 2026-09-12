@@ -75,8 +75,8 @@ class Components::Atoms::Button < Components::Base
   def button_classes
     base = "inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2"
     variant = case @variant
-              when :primary then "bg-primary text-white hover:bg-primary-dark focus:ring-primary"
-              when :secondary then "bg-secondary text-gray-900 hover:bg-secondary-dark focus:ring-secondary"
+              when :primary then "bg-primary text-primary-foreground hover:bg-primary/90 focus:ring-primary"
+              when :secondary then "bg-secondary text-secondary-foreground hover:bg-secondary/80 focus:ring-secondary"
               when :ghost then "bg-transparent text-gray-700 hover:bg-gray-100 focus:ring-gray-300"
               end
     size = case @size
@@ -133,8 +133,8 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: "bg-primary text-white hover:bg-primary-dark focus:ring-primary",
-  secondary: "bg-secondary text-gray-900 hover:bg-secondary-dark focus:ring-secondary",
+  primary: "bg-primary text-primary-foreground hover:bg-primary/90 focus:ring-primary",
+  secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 focus:ring-secondary",
   ghost: "bg-transparent text-gray-700 hover:bg-gray-100 focus:ring-gray-300",
 };
 
@@ -187,8 +187,8 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: "bg-primary text-white hover:bg-primary-dark focus:ring-primary",
-  secondary: "bg-secondary text-gray-900 hover:bg-secondary-dark focus:ring-secondary",
+  primary: "bg-primary text-primary-foreground hover:bg-primary/90 focus:ring-primary",
+  secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 focus:ring-secondary",
   ghost: "bg-transparent text-gray-700 hover:bg-gray-100 focus:ring-gray-300",
 };
 
@@ -239,8 +239,8 @@ interface ButtonProps extends Omit<PressableProps, "children"> {
 }
 
 const variantStyles = {
-  primary: { container: "bg-primary", text: "text-white" },
-  secondary: { container: "bg-secondary", text: "text-gray-900" },
+  primary: { container: "bg-primary", text: "text-primary-foreground" },
+  secondary: { container: "bg-secondary", text: "text-secondary-foreground" },
   ghost: { container: "bg-transparent", text: "text-gray-700" },
 } as const;
 

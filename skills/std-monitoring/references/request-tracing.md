@@ -181,15 +181,13 @@ inherits job N's id and your trace confidently points at the wrong request.
 
 ## Step 4 — the id leaves the building
 
-```ruby
-# The API response already carries it — ActionDispatch::RequestId "sends the same id to the
-# client via the X-Request-Id header". So a mobile bug report that includes the header is
-# directly greppable in CloudWatch. Put it in your error envelope too:
-render json: { error: { code: "FORBIDDEN", request_id: Current.request_id } }, status: :forbidden
-```
-
-The envelope's shape is owned by `../std-api-design/references/errors-rails.md` — the point here
-is only that the id belongs in it, so a user screenshot becomes a log query.
+The API response already carries it: `ActionDispatch::RequestId` *"sends the same id to the client
+via the `X-Request-Id` header"*, so a mobile bug report that includes the header is directly
+greppable in CloudWatch. The error body carries it too, as the envelope's camelCase `requestId`
+key, and you do not add it per action: the `ApiErrorHandling` concern's `render_api_error` fills it
+from `request.request_id` on every error. The envelope's shape and that concern are owned by
+`../std-api-design/references/errors-rails.md` — the point here is only that the id belongs in it,
+so a user screenshot becomes a log query.
 
 ```ruby
 # Centrifugo: SKILL.md requires the id on real-time messages, for the same reason —

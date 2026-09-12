@@ -197,6 +197,9 @@ conventions are owned by **`std-react-native`**, which is scoped to React Native
   `@skills/std-react-native/references/offline-and-mutations.md`
 - **Testing is Jest, not Vitest** — there is no DOM, and Metro's transform pipeline is Jest-based:
   `@skills/std-testing/references/react-native.md`
+- **Navigation structure** — `navigation-native-navigators` picks native over JS navigators; how
+  many navigators, nested how, and with which linking paths is
+  `@skills/std-react-native/references/navigation.md`
 
 **This repo pins no React Native or React version for mobile.** Several rules here assume a
 Compiler-era, Expo-era RN (`react-compiler-*`, `expo-image`). Read the project's `package.json`

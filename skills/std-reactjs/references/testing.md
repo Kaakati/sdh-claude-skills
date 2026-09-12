@@ -19,7 +19,7 @@ Anything using Query, Router, or i18n needs providers. Build one wrapper, use it
 // tests/utils.tsx  ✅
 import { render, type RenderOptions } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import type { ReactElement, ReactNode } from 'react';
 
 function createTestQueryClient() {
@@ -95,7 +95,17 @@ export const handlers = [
   http.post(`${API}/orders`, async ({ request }) => {
     const body = (await request.json()) as { reference: string };
     if (!body.reference) {
-      return HttpResponse.json({ errors: { reference: ['is required'] } }, { status: 422 });
+      // The std-api-design envelope — the same one the ApiError interceptor parses.
+      return HttpResponse.json(
+        {
+          error: 'Validation failed',
+          code: 'VALIDATION_ERROR',
+          status: 422,
+          details: [{ field: 'reference', message: 'is required' }],
+          requestId: 'req-test-1',
+        },
+        { status: 422 },
+      );
     }
     return HttpResponse.json({ data: { id: '3', ...body, status: 'pending' } }, { status: 201 });
   }),
@@ -192,21 +202,47 @@ describe('Orders page', () => {
 });
 ```
 
+Primitives portal their popups — dialogs, menus, selects, popovers — to `document.body`. `screen`
+queries find them; `within(container)` never does.
+
 ---
 
 ## Decision: testing a form
 
-Forms are `react-hook-form` + `zod` submitting through a `useMutation` (see
-`references/forms.md`). Two things are worth testing and nothing else: that zod's client-side
-validation blocks submission, and that the API's `422` field errors surface on the right field.
+Forms are `react-hook-form` + `zod` rendered with shadcn's `Field`, submitting through a
+`useMutation` (see `references/forms.md`). Two things are worth testing and nothing else: that
+zod's client-side validation blocks submission, and that the API's `VALIDATION_ERROR` details
+surface on the right field.
+
+Both assert on copy, so the harness has to render copy. Schema messages are translation keys:
+load the app's i18n instance in setup with the English resources bundled (not fetched over HTTP),
+or every assertion below reads a key.
+
+```ts
+// tests/setup.ts — append
+import i18n from '@/i18n';
+
+beforeAll(async () => {
+  await i18n.changeLanguage('en');
+});
+```
 
 ```tsx
-// src/components/forms/CreateOrderForm.test.tsx  ✅
+// src/components/organisms/CreateOrderForm/CreateOrderForm.test.tsx  ✅
 it('should surface the API field error when the server rejects the reference', async () => {
-  // Arrange
+  // Arrange — the std-api-design envelope, as the ApiError interceptor expects it
   server.use(
     http.post('*/orders', () =>
-      HttpResponse.json({ errors: { reference: ['has already been taken'] } }, { status: 422 }),
+      HttpResponse.json(
+        {
+          error: 'Validation failed',
+          code: 'VALIDATION_ERROR',
+          status: 422,
+          details: [{ field: 'reference', message: 'has already been taken' }],
+          requestId: 'req-test-2',
+        },
+        { status: 422 },
+      ),
     ),
   );
   const user = userEvent.setup();
@@ -218,6 +254,7 @@ it('should surface the API field error when the server rejects the reference', a
 
   // Assert
   expect(await screen.findByRole('alert')).toHaveTextContent(/already been taken/i);
+  expect(screen.getByLabelText(/reference/i)).toHaveAccessibleDescription(/already been taken/i);
 });
 
 it('should block submission when the reference is empty', async () => {
@@ -235,8 +272,32 @@ it('should block submission when the reference is empty', async () => {
 Note `userEvent.setup()` before render, and `await` on every interaction — `userEvent` v14 is
 async and unawaited clicks are the #1 source of flaky RTL suites.
 
-`getByLabelText(/reference/i)` only works because the form pairs `htmlFor`/`id`. When this query
-fails, the bug is in the component's accessibility, not in the test.
+`getByLabelText(/reference/i)` only works because `FieldLabel` and `Input` pair `htmlFor`/`id`,
+and `toHaveAccessibleDescription` only passes because the input's `aria-describedby` points at
+the `FieldError`. When either fails, the bug is in the component's accessibility, not in the test.
+
+---
+
+## Decision: testing a chart
+
+A chart is asserted through its text alternative and its data mapping — never its pixels. jsdom
+gives a canvas no 2D context and no `ResizeObserver`, so `tests/setup.ts` imports
+`vitest-canvas-mock` and stubs the observer. Skip the mock and Chart.js only logs "Failed to
+create chart" — the test passes having asserted nothing. The text alternative is specified in
+`references/charts.md`; the setup and the bad/good pairs are in
+`@skills/std-testing/references/react-components.md`.
+
+---
+
+## Decision: testing navigation
+
+A permission-filtered nav cannot be tested by reading `nav.ts`: the config lists every area, and a
+role sees its subset only at runtime. Render the real `routes` in a memory router for each role's
+`/me` fixture and assert the structure — areas only in the main nav, within the budget; the section
+nav inside its area; `aria-current` on the current link. `renderWithProviders` above wraps a
+`MemoryRouter`, which cannot hold a data router, so routed tests use their own harness →
+`@skills/std-testing/references/react-components.md`. The role fixtures →
+`@skills/access-control-designer/references/ui-gates.md`.
 
 ---
 
@@ -271,6 +332,9 @@ Without this, a test that collapses the sidebar leaves it collapsed for every te
 | Conditional UI (empty / error / loading states) | Exact Tailwind class strings |
 | Store actions changing rendered output | Store internals in isolation |
 | Accessible names and roles are present | Snapshot of the whole DOM |
+| A chart's text alternative and its data mapping | Canvas pixels, draw calls, tick positions, animation frames |
+| Navigation per role: areas only, sections inside their area, `aria-current` | The sidebar's pixel layout |
+| Your composition of a primitive — labels, wiring, states | The primitive's own focus trap and keyboard handling (Base UI's or Radix's test suite) |
 
 Coverage targets from the org standard: **80% on business logic** (hooks, stores, schema
 transforms), **60% overall minimum**.

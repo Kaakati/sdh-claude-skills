@@ -41,6 +41,13 @@ SQLAlchemy 2.0 side by side — the principles are the same, the spellings diffe
   `assertNumQueries` (Django) or a query-count assertion via engine events (SQLAlchemy).
 - **A query count in a test is the only durable N+1 fix** — an eager-load without a pinned
   count silently regresses the next time someone touches the serializer.
+- **Load each drill-down level deliberately.**
+  - List rows load only what the row shows: `only()` / `load_only()`.
+  - A detail's ancestor chain is one join (`select_related("site__region")`,
+    `joinedload(Asset.site).joinedload(Site.region)`) or one recursive CTE, never parent by parent.
+  - Pin the query count for each level.
+  - Contract → `../std-api-design/references/drill-down-resources.md`; tree walks →
+    `../std-database/references/hierarchies.md`
 
 ## Fetch Less
 
@@ -64,6 +71,9 @@ SQLAlchemy 2.0 side by side — the principles are the same, the spellings diffe
 
 - `exists()` over `count() > 0` — existence stops at the first row; a count scans them all.
 - Count only what the UI displays — drop total counts from infinite scroll entirely.
+- **Compute badge counts inside the caller's policy scope.** Use one grouped count per level
+  (`values("status").annotate(n=Count("id"))`, or `group_by` in SQLAlchemy), never one count per row.
+  A stored counter is valid only when the caller can see every row it counts.
 
 ## Indexing
 
@@ -74,8 +84,11 @@ SQLAlchemy 2.0 side by side — the principles are the same, the spellings diffe
 - Partial indexes for soft-delete filters — Django `condition=Q(deleted_at__isnull=True)`,
   SQLAlchemy `postgresql_where=...` — so the index covers only rows queries actually touch.
 - GIN for JSONB containment and trigram search; GiST for PostGIS geometry.
-- Depth (concurrent creation, migration safety, when not to index) is owned by std-database —
-  read it before writing the migration.
+- The design-time index plan (which index each planned query needs, `EXPLAIN` before the
+  migration) is owned by std-database → `../std-database/references/design-and-query-plan.md`;
+  concurrent creation and migration safety by db-migration →
+  `../db-migration/references/migration-guide-python.md`; diagnosing a slow production query
+  by performance-profiler.
 
 ## Measure First
 
@@ -91,6 +104,9 @@ SQLAlchemy 2.0 side by side — the principles are the same, the spellings diffe
   row, so page 500 costs 500x page 1. Filter on the last-seen key instead:
   `WHERE (created_at, id) < (:last_seen, :last_id) ORDER BY created_at DESC, id DESC LIMIT :n`.
 - OFFSET is acceptable only for shallow numbered pages (admin tables).
+- **Make the ordering unique.** DRF's `CursorPagination` needs "a unique, unchanging ordering", so
+  end it with `id`: `ordering = ("-created_at", "-id")`. With `-created_at` alone, rows that share a
+  timestamp at a page boundary are dropped.
 - The pagination response format (cursors, links, meta) is owned by std-api-design.
 
 ## Connection Pooling
@@ -126,6 +142,7 @@ SQLAlchemy 2.0 side by side — the principles are the same, the spellings diffe
 - Guard hot keys against stampedes: jitter the TTL or lock-and-recompute.
 
 Related, owned elsewhere — do not duplicate: the JSON error envelope and pagination response
-format live in std-api-design; migration safety and indexing depth in std-database; FastAPI
+format live in std-api-design; the design-time query/index plan in std-database; migration
+safety in db-migration; diagnosing slow production queries in performance-profiler; FastAPI
 async sessions and route wiring in std-fastapi; general Python layout, typing, and layering
 in std-python; the Rails caching conventions this mirrors in std-rails-conventions.

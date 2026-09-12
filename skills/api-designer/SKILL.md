@@ -17,6 +17,9 @@ Design, review, and document APIs that are consistent, intuitive, and maintainab
 3. Define relationships between resources (one-to-many, many-to-many).
 4. Identify sub-resources vs. top-level resources.
 5. Determine which operations are idempotent.
+6. Map the drill-down levels (area overview → collection list → member detail → sub-collection),
+   each resource's one canonical parent, and the summary each overview needs →
+   `@skills/std-api-design/references/drill-down-resources.md`.
 
 ### Step 2: Define URL Structure
 
@@ -24,8 +27,24 @@ Design, review, and document APIs that are consistent, intuitive, and maintainab
 - Use lowercase with hyphens for multi-word paths: `/user-profiles`, not `/userProfiles`.
 - Use plural nouns for collections: `/users`, `/orders`, `/products`.
 - Use resource IDs for specific items: `/users/{userId}`.
-- Nest sub-resources only one level deep: `/users/{userId}/orders`.
+- Nest only collection routes, one level deep: `/users/{userId}/orders` lists and creates. Member
+  routes stay flat: `/orders/{orderId}`, never `/users/{userId}/orders/{orderId}`. A deep link then
+  needs one ID and survives a move to another parent.
 - For deeper relationships, use query parameters or top-level resources.
+
+#### Drill-down Levels
+Each screen level maps to one endpoint, and every detail response can rebuild its own location:
+
+| Level | Endpoint | Carries |
+|---|---|---|
+| Overview | `GET /sites/{siteId}/summary`, only when the overview needs one | aggregates counted inside the caller's scope, plus `asOf` |
+| List | `GET /sites/{siteId}/assets` | lean rows; filters, sort, and cursor in the query string |
+| Detail | `GET /assets/{assetId}` | `parentId`, the permission-filtered `ancestors`, and `links` |
+| Search | `GET /search?q=` | hits carrying `type`, `id`, `name`, and `ancestors` |
+
+Authorize every level separately: the parent of a nested list, the child of a flat route, and every
+include. Return `404` for anything outside the caller's scope. Depth, sources, and the per-project
+questions → `@skills/std-api-design/references/drill-down-resources.md`.
 
 #### HTTP Method Mapping
 
@@ -44,6 +63,7 @@ Design, review, and document APIs that are consistent, intuitive, and maintainab
 #### URL Anti-Patterns to Avoid
 - Verbs in URLs: `/getUsers`, `/createOrder` — use HTTP methods instead.
 - Deeply nested resources: `/users/1/orders/2/items/3/reviews` — flatten to `/items/3/reviews`.
+- A member nested under its parent: `/users/1/orders/2` gives one order two URLs. Use `/orders/2`.
 - Query parameters for resource identification: `/users?id=123` — use path parameters.
 - Inconsistent pluralization: `/user/123` vs `/orders/456`.
 
@@ -96,7 +116,7 @@ datasets only. Both are pinned in `@skills/std-api-design/references/pagination-
 
 #### Standard Error Format
 
-Owned by `std-api-design` → `references/errors-rails.md` (Rails) and `references/errors-typescript.md`
+Owned by `std-api-design` → `@skills/std-api-design/references/errors-rails.md` (Rails) and `@skills/std-api-design/references/errors-typescript.md`
 (Next route handlers / Express). Both are scoped to controller and route work; this skill is not,
 so **they are the contract and this is the summary**:
 
@@ -221,6 +241,7 @@ When designing or reviewing an API, provide:
 3. Error scenarios and codes.
 4. Pagination and filtering parameters.
 5. OpenAPI specification (if generating from scratch).
+6. For navigable data, a level map: level → endpoint → serializer → authorization → validator.
 
 ## Deep guides (read on demand, do not preload)
 
@@ -238,3 +259,6 @@ restate them:
 - **Versioning a breaking change, deprecation windows** → `@skills/std-api-design/references/versioning-and-deprecation.md`
 - **Rate limiting** → `@skills/std-api-design/references/rate-limiting.md`
 - **Health checks** → `@skills/std-api-design/references/health-checks.md`
+- **Drill-down-ready resources**: levels, shallow routes, `ancestors`, scoped counts, includes,
+  per-level ETags, search → `@skills/std-api-design/references/drill-down-resources.md`
+- **Storing a same-type tree** → `@skills/std-database/references/hierarchies.md`

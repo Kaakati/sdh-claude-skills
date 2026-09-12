@@ -334,11 +334,15 @@ export function AuthLayout({ branding, children, footer }: AuthLayoutProps) {
 
 | Template | Slots | Use Case |
 |----------|-------|----------|
-| `DashboardLayout` | header, sidebar, content, footer | Admin dashboards |
+| `DashboardLayout` | header, sidebar, content, footer | App shell — the `sidebar` slot holds the global `AppSidebar` (areas only) |
+| `AreaLayout` | section-nav, content | Every page inside one area; its `SectionNav` lives here, never in the global sidebar |
 | `AuthLayout` | branding, form, footer | Login, signup, reset password |
 | `MarketingLayout` | hero, features, cta, footer | Landing pages |
-| `DetailLayout` | breadcrumb, content, related | Detail/show pages |
-| `ListLayout` | filters, content, pagination | Index/list pages |
+| `DetailLayout` | breadcrumb, header, tabs, content, related | Detail/show pages; the breadcrumb comes from the API's `ancestors` |
+| `ListLayout` | filters, content, pagination | Index/list pages — the list's filters live in this slot |
+| `ListDetailLayout` | list, detail | Triage lists that open a record beside them |
+
+Which navigation each slot may hold → `@skills/ui-ux-patterns/references/drill-down-navigation.md`.
 
 **Template vs. organism:**
 - An organism is a self-contained section (Header, Sidebar)

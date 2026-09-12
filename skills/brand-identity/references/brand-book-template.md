@@ -95,15 +95,26 @@ Minimum clear space: **[X]** (height of logo mark / 4) on all sides.
 | `--error` | [H S% L%] | [#hex] | Errors, destructive actions |
 | `--info` | [H S% L%] | [#hex] | Informational states |
 
-### 3.4 Contrast Compliance
+### 3.4 Chart Series
+Fixed order; never cycled. A sixth series folds into "Other".
+| Token | HSL (light) | HSL (dark) | Contrast vs `--card` (light / dark) |
+|-------|-------------|------------|-------------------------------------|
+| `--chart-1` | [H S% L%] | [H S% L%] | [X]:1 / [X]:1 |
+| `--chart-2` | [H S% L%] | [H S% L%] | [X]:1 / [X]:1 |
+| `--chart-3` | [H S% L%] | [H S% L%] | [X]:1 / [X]:1 |
+| `--chart-4` | [H S% L%] | [H S% L%] | [X]:1 / [X]:1 |
+| `--chart-5` | [H S% L%] | [H S% L%] | [X]:1 / [X]:1 |
+
+### 3.5 Contrast Compliance
 | Pair | Ratio | WCAG Level |
 |------|-------|------------|
 | primary / primary-foreground | [X]:1 | AA / AAA |
 | background / foreground | [X]:1 | AA / AAA |
 | ... | ... | ... |
 
-### 3.5 Dark Mode
-All tokens have dark mode overrides defined in the `.dark` class scope.
+### 3.6 Dark Mode
+All tokens have dark mode overrides defined in the `.dark` class scope. The shadcn/ui aliases
+(`destructive`, `sidebar-*`) are `var()` references to the roles above and carry no brand values.
 
 ---
 
@@ -204,12 +215,15 @@ keep skip paths, and honor `prefers-reduced-motion` for story-bearing motion.
 
 ```css
 :root {
-  /* Colors — paste full :root block */
+  /* Colors — every value as hsl(H S% L%), chart-1..5 included */
 }
 
 .dark {
-  /* Dark mode overrides — paste full .dark block */
+  /* Dark mode overrides — same form */
 }
+
+/* @theme inline registry, @custom-variant dark, the shadcn/ui alias block and the
+   reduced-motion backstop come unchanged from theming's platform-integration.md */
 ```
 
 ---

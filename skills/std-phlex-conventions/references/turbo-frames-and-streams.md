@@ -20,6 +20,7 @@ read `references/stimulus-wiring.md`.
 | User action replaces a region with a server-rendered response | **Turbo Frame** |
 | Server pushes an update nobody asked for (broadcast, job finished) | **Turbo Stream** |
 | Region must update its URL/history | Frame + `data-turbo-action="advance"` |
+| A list opens a record beside it (list-detail) | Frame + `data-turbo-action="advance"` on the row; the record's own page wraps its body in the same frame id |
 | Multiple disjoint regions change from one response | Turbo Stream (multi-target) |
 
 ---
@@ -49,7 +50,7 @@ class Components::Organisms::ProductList < Components::Base
           render Components::Molecules::NavLink.new(
             label: category.name,
             href: "/products?category=#{category.slug}",
-            active: category.slug == @current_category
+            current: (category.slug == @current_category ? "page" : nil)
           )
         end
       end
@@ -176,3 +177,104 @@ end
 
 The 422 status is required — Turbo ignores non-2xx form responses unless they are 4xx/5xx with
 renderable HTML, and a `200` on failure leaves the form silently unchanged.
+
+---
+
+## Decision: a list opens a record beside it (list-detail)
+
+Only for lists people work through in order, on wide screens, when the record reads well at half
+width and has no tabs of its own. Anything else drills into a full page. The rule is
+`@skills/ui-ux-patterns/references/drill-down-navigation.md`; the areas, section nav and breadcrumb
+used below are `references/navigation.md`.
+
+Bad — the record loads into the frame and the URL never changes:
+
+```ruby
+a(href: invoice_path(invoice), data: { turbo_frame: "invoice_detail" }) { invoice.reference }
+# no URL for the record and no history entry: a refresh or a shared link loses it, and Back skips it
+```
+
+Good — the frame navigation is promoted to a visit, and the record's page is the same frame:
+
+```ruby
+# app/views/invoices/index.rb — excerpt
+def view_template
+  render Components::Templates::AreaLayout.new(areas: @areas) do
+    div(class: "flex gap-6", data: { controller: "list-detail", list_detail_frame_value: "invoice_detail" }) do
+      ul(class: "min-w-0 flex-1 divide-y divide-border") do
+        @invoices.each do |invoice|
+          li do
+            a(href: invoice_path(invoice), class: "block min-h-11 px-3 py-2 text-sm text-foreground hover:bg-accent",
+              data: { list_detail_target: "row", turbo_frame: "invoice_detail", turbo_action: "advance",
+                      action: "list-detail#select" }) { invoice.reference }
+          end
+        end
+      end
+      turbo_frame_tag "invoice_detail", class: "hidden min-w-0 flex-1 lg:block",
+                      data: { list_detail_target: "panel", action: "turbo:frame-load->list-detail#focus" }
+    end
+  end
+end
+```
+
+```ruby
+# app/views/invoices/show.rb — excerpt: a hard load renders the full page; a frame visit keeps only the frame
+def view_template
+  render Components::Templates::AreaLayout.new(areas: @areas) do
+    render Components::Molecules::Breadcrumb.new(items: @crumbs, current: @invoice.reference)
+    turbo_frame_tag "invoice_detail" do
+      send(@panel ? :h2 : :h1, tabindex: "-1", class: "text-xl font-semibold text-foreground") { @invoice.reference }
+      render Components::Organisms::InvoiceDetail.new(invoice: @invoice)
+    end
+  end
+end
+# controller: render Views::Invoices::Show.new(invoice:, areas: navigation.areas, crumbs:, panel: turbo_frame_request?)
+```
+
+```js
+// app/javascript/controllers/list_detail_controller.js
+import { Controller } from "@hotwired/stimulus"
+
+const wide = window.matchMedia("(min-width: 64rem)") // Tailwind's lg
+
+export default class extends Controller {
+  static targets = ["row", "panel"]
+  static values = { frame: String }
+
+  initialize() { this.retarget = this.retarget.bind(this) }
+
+  connect() {
+    wide.addEventListener("change", this.retarget)
+    this.retarget()
+  }
+
+  disconnect() { wide.removeEventListener("change", this.retarget) }
+
+  // One pane at a time on narrow screens: rows open the record's full page, not a hidden panel.
+  retarget() {
+    this.rowTargets.forEach((row) => { row.dataset.turboFrame = wide.matches ? this.frameValue : "_top" })
+  }
+
+  select({ currentTarget }) {
+    this.rowTargets.forEach((row) => row.removeAttribute("aria-current"))
+    currentTarget.setAttribute("aria-current", "page")
+  }
+
+  focus() { this.panelTarget.querySelector("h2")?.focus() } // a frame swap moves no focus by itself
+}
+```
+
+- **`advance` makes the level real.** "To promote a Frame navigation to a Visit, render the element
+  with the [data-turbo-action] attribute" (Turbo Handbook — Decompose with Turbo Frames). The record
+  gets a URL and a history entry, and Back and Forward become restoration visits (Turbo Handbook —
+  Navigate with Turbo Drive).
+- **The record's page wraps its body in the same frame id.** A hard load, refresh or shared link
+  renders the full page with its breadcrumb and `h1`; a frame visit keeps only the matching frame.
+  `turbo_frame_request?` tells the controller which one it is rendering.
+- **Focus goes to the panel heading.** `turbo:frame-load` fires on the `<turbo-frame>` element once
+  it finishes loading (Turbo reference — Events), so the action sits on the frame itself and needs
+  no bubbling. The heading carries `tabindex="-1"`.
+- **The selected row keeps a visible selection with two cues** (a background and a weight), styled
+  from its `aria-current` in the stylesheet — never colour alone.
+- **Verify in the app before shipping:** Back and Forward reopen the previous record in the panel and
+  move the row selection with it. The restoration of a promoted frame visit was not tested end to end.

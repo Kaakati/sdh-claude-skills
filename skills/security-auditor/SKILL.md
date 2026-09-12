@@ -71,6 +71,7 @@ Confirm that `.gitignore` excludes:
 4. Role/permission checks use a centralized mechanism, not ad-hoc checks scattered in code.
 5. Admin endpoints have additional protection (IP allowlisting, separate auth).
 6. IDOR (Insecure Direct Object Reference) — user-supplied IDs validated against the current user's permissions.
+7. Role design — policies and UI gates check permission keys, never role names; matrix cells are scopes; deny by default → `../access-control-designer/references/permission-matrix.md`
 
 ### Phase 3: Input Validation and Injection
 
@@ -114,7 +115,7 @@ Confirm that `.gitignore` excludes:
 4. **Rate Limiting**: API endpoints have rate limiting to prevent abuse.
 5. **Dependencies**: No known vulnerable dependencies — `bundle exec bundler-audit check --update`
    and `npm audit`/`pnpm audit` pass, and `bundle exec brakeman --exit-on-warn` is clean. Run what
-   CI runs (`std-infrastructure/references/ci-pipeline.md`) so findings and the merge gate agree.
+   CI runs (`../std-infrastructure/references/ci-pipeline.md`) so findings and the merge gate agree.
 6. **Debug Mode**: Debug/development mode is disabled in production configurations.
 7. **Default Credentials**: No default admin accounts, passwords, or API keys.
 

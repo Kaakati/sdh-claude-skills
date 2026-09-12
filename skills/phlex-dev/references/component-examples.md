@@ -302,18 +302,18 @@ end
 
 # backend/app/components/molecules/nav_link.rb
 class Components::Molecules::NavLink < Components::Base
-  def initialize(label:, href:, icon: nil, active: false)
+  def initialize(label:, href:, icon: nil, current: nil)
     @label = label
     @href = href
     @icon = icon
-    @active = active
+    @current = current # "page" on the link to this URL, "true" on the area the page sits inside, else nil
   end
 
   def view_template
     a(
       href: @href,
       class: link_classes,
-      aria: { current: @active ? "page" : nil }
+      aria: { current: @current }
     ) do
       render_icon if @icon
       span { @label }
@@ -323,11 +323,11 @@ class Components::Molecules::NavLink < Components::Base
   private
 
   def link_classes
-    base = "flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-    if @active
-      "#{base} bg-primary/10 text-primary"
+    base = "flex min-h-11 items-center gap-2 rounded-md border-l-2 px-3 text-sm transition-colors"
+    if @current
+      "#{base} border-primary bg-accent font-semibold text-accent-foreground" # two cues: the bar and the weight
     else
-      "#{base} text-muted-foreground hover:text-foreground hover:bg-muted"
+      "#{base} border-transparent text-muted-foreground hover:text-foreground hover:bg-muted"
     end
   end
 
@@ -347,98 +347,44 @@ end
 ```ruby
 # frozen_string_literal: true
 
-# backend/app/components/organisms/header.rb
+# backend/app/components/organisms/header.rb — brand, search on every page, the user menu; no area links
 class Components::Organisms::Header < Components::Base
-  def initialize(current_user: nil, nav_links: default_nav_links)
+  def initialize(search_action:, current_user: nil)
+    @search_action = search_action
     @current_user = current_user
-    @nav_links = nav_links
   end
 
   def view_template
-    header(class: "sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60") do
-      div(class: "container mx-auto flex h-14 items-center justify-between px-4") do
+    header(class: "sticky top-0 z-50 w-full border-b border-border bg-background") do
+      div(class: "container mx-auto flex h-14 items-center justify-between gap-4 px-4") do
         render_logo
-        render_desktop_nav
-        render_mobile_menu_button
+        render Components::Molecules::SearchForm.new(action: @search_action, placeholder: I18n.t("search.placeholder"))
+        render_user_menu if @current_user
       end
-      render_mobile_nav
     end
   end
 
   private
 
   def render_logo
-    a(href: "/", class: "flex items-center gap-2 font-bold text-lg") do
-      span { "AppName" }
+    a(href: "/", class: "flex items-center gap-2 font-bold text-lg text-foreground") do
+      span { I18n.t("app.name") }
     end
   end
 
-  def render_desktop_nav
-    nav(class: "hidden md:flex items-center gap-1") do
-      @nav_links.each do |link|
-        render Components::Molecules::NavLink.new(**link)
-      end
-      render Components::Molecules::SearchForm.new(placeholder: "Search...")
-    end
-  end
-
-  def render_mobile_menu_button
-    div(class: "md:hidden") do
-      render Components::Atoms::Button.new(
-        variant: :ghost,
-        size: :icon,
-        data: { action: "mobile-menu#toggle" },
-        aria: { label: "Toggle navigation menu" }
-      ) do
-        # Hamburger icon placeholder
-        span(class: "sr-only") { "Menu" }
-        svg_hamburger_icon
-      end
-    end
-  end
-
-  def render_mobile_nav
-    nav(
-      class: "md:hidden hidden border-t",
-      data: {
-        controller: "mobile-menu",
-        mobile_menu_target: "menu"
-      }
-    ) do
-      div(class: "flex flex-col gap-1 p-4") do
-        @nav_links.each do |link|
-          render Components::Molecules::NavLink.new(**link)
-        end
-      end
-    end
-  end
-
-  def svg_hamburger_icon
-    svg(
-      xmlns: "http://www.w3.org/2000/svg",
-      fill: "none",
-      viewbox: "0 0 24 24",
-      stroke_width: "1.5",
-      stroke: "currentColor",
-      class: "w-5 h-5"
-    ) do |s|
-      s.path(
-        stroke_linecap: "round",
-        stroke_linejoin: "round",
-        d: "M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
-      )
-    end
-  end
-
-  def default_nav_links
-    [
-      { label: "Dashboard", href: "/dashboard", active: false },
-      { label: "Projects", href: "/projects", active: false },
-      { label: "Team", href: "/team", active: false }
-    ]
+  def render_user_menu
+    render Components::Molecules::UserChip.new(
+      name: @current_user.name,
+      avatar_url: @current_user.avatar_url,
+      profile_path: "/profile"
+    )
   end
 end
 ```
+
+The areas live in the app sidebar, never in the header as well: one placement per product, and a
+hardcoded link list shows every role every area. The header's search is the second way in. Sidebar,
+area layout and breadcrumbs → `@skills/std-phlex-conventions/references/navigation.md`.
 
 ### Components::Organisms::ProductCard
 
@@ -523,19 +469,20 @@ end
 
 # backend/app/components/templates/dashboard_layout.rb
 class Components::Templates::DashboardLayout < Components::Base
-  def initialize(title: "Dashboard", current_user: nil)
+  # areas: built by the controller from policy(:navigation) — filtered, marked, translated.
+  # crumbs: built by the controller from the record's ancestors; empty on an area root.
+  def initialize(title:, areas:, crumbs: [], current_user: nil)
     @title = title
+    @areas = areas
+    @crumbs = crumbs
     @current_user = current_user
   end
 
   def view_template(&block)
     div(class: "min-h-screen flex flex-col bg-background") do
-      render Components::Organisms::Header.new(
-        current_user: @current_user,
-        nav_links: nav_links
-      )
+      render Components::Organisms::Header.new(search_action: "/search", current_user: @current_user)
       div(class: "flex flex-1") do
-        render_sidebar
+        render Components::Organisms::AppSidebar.new(areas: @areas) # areas only; never sections, never filters
         main(class: "flex-1 overflow-y-auto") do
           div(class: "container mx-auto p-6 space-y-6") do
             render_page_header
@@ -548,43 +495,16 @@ class Components::Templates::DashboardLayout < Components::Base
 
   private
 
-  def render_sidebar
-    aside(
-      class: "hidden lg:flex w-64 flex-col border-r bg-card",
-      data: { controller: "sidebar" }
-    ) do
-      nav(class: "flex-1 p-4 space-y-1") do
-        sidebar_links.each do |link|
-          render Components::Molecules::NavLink.new(**link)
-        end
-      end
-    end
-  end
-
   def render_page_header
-    div(class: "flex items-center justify-between") do
-      render Components::Atoms::Heading.new(text: @title, level: 1)
-    end
-  end
-
-  def nav_links
-    [
-      { label: "Dashboard", href: "/dashboard", active: true },
-      { label: "Analytics", href: "/analytics", active: false }
-    ]
-  end
-
-  def sidebar_links
-    [
-      { label: "Overview", href: "/dashboard", icon: "home", active: true },
-      { label: "Projects", href: "/projects", icon: "folder", active: false },
-      { label: "Tasks", href: "/tasks", icon: "check-square", active: false },
-      { label: "Team", href: "/team", icon: "users", active: false },
-      { label: "Settings", href: "/settings", icon: "cog", active: false }
-    ]
+    render Components::Molecules::Breadcrumb.new(items: @crumbs, current: @title) # renders nothing when empty
+    render Components::Atoms::Heading.new(text: @title, level: 1, tabindex: "-1")
   end
 end
 ```
+
+A page inside an area with more than one section renders through `AreaLayout`, which adds the section
+nav. `AppSidebar`, `AreaLayout`, `Breadcrumb` and the controller's `Navigation` →
+`@skills/std-phlex-conventions/references/navigation.md`.
 
 ---
 
@@ -597,13 +517,14 @@ end
 
 # backend/app/views/articles/index.rb
 class Views::Articles::Index < Views::Base
-  def initialize(articles:, pagy: nil)
+  def initialize(articles:, areas:, pagy: nil)
     @articles = articles
+    @areas = areas
     @pagy = pagy
   end
 
   def view_template
-    render Components::Templates::DashboardLayout.new(title: "Articles") do
+    render Components::Templates::DashboardLayout.new(title: "Articles", areas: @areas) do
       render_toolbar
       render_articles_grid
       render_pagination if @pagy
@@ -700,13 +621,16 @@ end
 
 # backend/app/views/articles/show.rb
 class Views::Articles::Show < Views::Base
-  def initialize(article:, comments: [])
+  # crumbs: [{ label:, href: }] from ArticlesController#show — the list crumb carries the list's last query
+  def initialize(article:, areas:, crumbs:, comments: [])
     @article = article
+    @areas = areas
+    @crumbs = crumbs
     @comments = comments
   end
 
   def view_template
-    render Components::Templates::DashboardLayout.new(title: @article.title) do
+    render Components::Templates::DashboardLayout.new(title: @article.title, areas: @areas, crumbs: @crumbs) do
       render_article_header
       render_article_body
       render_article_footer
@@ -716,14 +640,8 @@ class Views::Articles::Show < Views::Base
 
   private
 
-  def render_article_header
+  def render_article_header # the layout renders the breadcrumb and the h1; never a "Back" link to history
     div(class: "space-y-4") do
-      div(class: "flex items-center gap-2") do
-        a(href: helpers.articles_path, class: "text-sm text-muted-foreground hover:text-foreground") do
-          "Back to Articles"
-        end
-      end
-      render Components::Atoms::Heading.new(text: @article.title, level: 1)
       div(class: "flex items-center gap-4 text-sm text-muted-foreground") do
         span { "By #{@article.author.name}" }
         span { @article.published_at&.strftime("%B %d, %Y") || "Draft" }

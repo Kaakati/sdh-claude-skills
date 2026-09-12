@@ -2,9 +2,11 @@
 name: phlex-dev
 description: |
   Build Phlex (Ruby) view components for Rails with Atomic Design methodology,
-  Tailwind CSS styling, Stimulus controllers, and Turbo integration.
+  Tailwind CSS styling, Stimulus controllers, and Turbo integration, including
+  drill-down navigation and Chart.js charts in Rails views.
   Triggers on "Phlex component", "Phlex view", "Ruby view component",
-  "build a Phlex", "Rails component", or "view_template".
+  "build a Phlex", "Rails component", "view_template", "Phlex sidebar",
+  "Phlex breadcrumbs", or "chart in a Rails view".
 model: sonnet
 agent: phlex-developer
 context: fork
@@ -22,14 +24,16 @@ Use this skill when:
 - Building a component library in Rails
 - Adding Stimulus interactivity to Phlex components
 - Integrating Turbo frames/streams with Phlex views
+- Building navigation in Phlex views: the areas-only sidebar, an area's section nav, breadcrumbs, list-detail
+- Rendering a chart in a Rails view (Chart.js through the house Stimulus controller)
 
 ## Workflow
 
 ### 8-Step Component Development
 
-1. **Analyze requirements** -- Understand what the component needs to do, its props, and behavior
+1. **Analyze requirements** -- Understand what the component needs to do, its props, and behavior — including where the view sits in the drill-down levels (its area, its level, and what its breadcrumb shows)
 2. **Determine atomic level** -- Use the decision tree to classify as atom/molecule/organism/template/page
-3. **Check existing components** -- Search `backend/app/components/` and `backend/app/views/` for reusable pieces
+3. **Check existing components** -- Glob `**/app/components/**/*.rb` and `**/app/views/**/*.rb` for reusable pieces; never search a hardcoded wrapper directory
 4. **Check theming tokens** -- Verify design tokens exist for needed visual properties
 5. **Create component class** -- Inherit from `Components::Base` or `Views::Base`, use `view_template`
 6. **Apply Tailwind styling** -- Use token-based utility classes, `class_variants` for variants
@@ -54,6 +58,11 @@ Use this skill when:
 - **Styling**: Tailwind utilities, design tokens, `class_variants`
 - **Variants**: `class_variants` gem for multi-variant components
 - **File limit**: 200 lines max per component
+- **Navigation**: the global sidebar lists areas only; an area's sections render in its area layout;
+  frame navigation between levels uses `data-turbo-action: "advance"`; breadcrumbs come from the
+  controller's `ancestors` → rules in `@skills/ui-ux-patterns/references/drill-down-navigation.md`,
+  the endpoints behind each level in `@skills/std-api-design/references/drill-down-resources.md`
+- **Charts**: Chart.js 4.5.1 through the house `chart` Stimulus controller — never Chartkick
 
 ## References
 
@@ -69,10 +78,15 @@ and are what the conventions actually mean — naming the skill is not the same 
 - **Organisms, templates, pages** → `@skills/std-phlex-conventions/references/component-levels-composites.md`
 - **Variants, tokens, class merging (`class_variants`)** → `@skills/std-phlex-conventions/references/variants-and-styling.md`
 - **Stimulus wiring** → `@skills/std-phlex-conventions/references/stimulus-wiring.md`
-- **Turbo Frames and Streams** → `@skills/std-phlex-conventions/references/turbo-frames-and-streams.md`
+- **Turbo Frames and Streams, list-detail** → `@skills/std-phlex-conventions/references/turbo-frames-and-streams.md`
+- **Drill-down navigation — routes, sidebar, area layout, breadcrumbs, per-role spec** → `@skills/std-phlex-conventions/references/navigation.md`
+- **Charts — install, organism, Stimulus controller, tests** → `@skills/std-phlex-conventions/references/charts.md`
 - **Testing components** → `@skills/std-phlex-conventions/references/testing.md`
 
 Rails backend conventions → the `std-rails-conventions` skill.
+
+Role-gated nav and actions: permission booleans arrive as props computed by the controller —
+components never call Pundit → `@skills/std-rails-conventions/references/roles-and-permissions.md`.
 
 **Two token facts before you style anything.** `destructive` and `neutral` are variant **keys**,
 not tokens — the registered tokens are `error` and `muted`, and a class naming an unregistered

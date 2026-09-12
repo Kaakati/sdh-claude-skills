@@ -17,6 +17,7 @@ Access control enforces that users cannot act outside of their intended permissi
 - [ ] CORS policy does not use wildcard origins with credentials.
 - [ ] JWT tokens are validated completely (signature, expiration, issuer, audience).
 - [ ] ID parameters (user ID, order ID) are checked against the authenticated user's permissions.
+- [ ] Policies and UI gates check permission keys, never role names, against a deny-by-default role → permission matrix → `@skills/access-control-designer/references/permission-matrix.md`.
 
 ### Remediation
 - Implement centralized access control middleware.

@@ -13,6 +13,8 @@ Load-bearing rules restated (assume nothing else here has been read):
    the `ring-ring` token.
 4. Multi-variant components go through `cva` (TypeScript) or `class_variants` (Ruby/Phlex) —
    never through hand-rolled conditional string concatenation.
+5. Classes merge through **`cn` imported from `@/lib/utils`**, never a `cn` defined inside a
+   component file.
 
 ---
 
@@ -59,18 +61,13 @@ Four failures: hex literals bypass dark mode entirely; `p-[9px]`/`text-[13px]` a
 `focus:` flashes a ring on every mouse click; and `className` concatenation cannot override a base
 class, so callers resort to `!important`.
 
-### Good — `cva` + `tailwind-merge`, tokens only, `focus-visible:`
+### Good — `cva` + `cn`, tokens only, `focus-visible:`
 
 ```tsx
 // src/components/ui/button.tsx
 import { cva, type VariantProps } from 'class-variance-authority';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import { forwardRef } from 'react';
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
   [
@@ -123,8 +120,19 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 Button.displayName = 'Button';
 ```
 
-`twMerge` is what makes `className` a real override: `<Button className="bg-accent" />` replaces
-`bg-primary` rather than producing two competing classes whose winner depends on stylesheet order.
+`cn` is `twMerge(clsx())`, and the merge is what makes `className` a real override:
+`<Button className="bg-accent" />` replaces `bg-primary` rather than producing two competing
+classes whose winner depends on stylesheet order. `cva` still owns the variants; `cn` only merges.
+
+Where `@/lib/utils` gets `cn` depends on whether the package uses shadcn/ui:
+
+| Package | `lib/utils.ts` | Why |
+|---|---|---|
+| shadcn/ui (Next.js, Vite SPA) | `export { cn } from "cn";` | Since 2026-09-03 every shadcn registry item imports `cn` from the `cn` package (a drop-in for `twMerge(clsx())`) and declares it as a dependency. Re-exporting keeps house imports on `@/lib/utils` and every `add` unedited. The `cn` package supports Tailwind v4 only. |
+| No shadcn/ui | `twMerge(clsx(inputs))` over `clsx` + `tailwind-merge` | Still fine. `npx shadcn migrate cn` converts the package the day it adopts shadcn/ui. It rewrites imports across the package, so ask before running it. |
+
+One definition per package. A second `cn` in a component file is how two merge behaviours end up
+in one bundle.
 
 ### Testing a variant component (Vitest + RTL)
 
@@ -255,6 +263,27 @@ removing.
 `ring-offset-background` matters: without it the 2px offset gap is painted with the default white,
 which appears as a white halo in dark mode.
 
+### An opacity modifier on the ring is a contrast change
+
+shadcn/ui's default focus style is `focus-visible:ring-[3px] focus-visible:ring-ring/50`. Half
+opacity is not a stylistic detail. It halves the distance between the ring and the surface, and the
+result depends on the preset. These are measured against `--background`, compositing the ring at
+50% over it:
+
+| Palette | `ring-ring` | `ring-ring/50` |
+|---|---|---|
+| Default / Corporate light | 20.01:1 | 3.76:1 |
+| Default / Corporate dark | 13.47:1 | 3.89:1 |
+| Modern light | 5.70:1 | **2.26:1** |
+| Modern dark | 3.47:1 | **1.66:1** |
+| Minimal light | 19.80:1 | 3.74:1 |
+| Minimal dark | 13.36:1 | 3.94:1 |
+
+The same class passes in four palettes and fails 3:1 in two. So the house ring stays
+`focus-visible:ring-2 focus-visible:ring-ring`, with no `/50` unless the active preset measures
+≥3:1 with it. Adapting the rest of a vendored primitive is owned by the `std-shadcn-ui` skill
+(`@skills/std-shadcn-ui/references/accessibility-and-i18n.md`).
+
 ---
 
 ## Decision: I genuinely need a value the scale does not have
@@ -278,5 +307,5 @@ third-party embed size. Document them.
 <div className="grid grid-cols-[280px_1fr] gap-4 p-4 text-sm">
 ```
 
-If a one-off value appears three times, it is not a one-off — promote it to a token in
-`tailwind.config.js` and delete the arbitrary values.
+If a one-off value appears three times, it is not a one-off. Promote it to a token in the
+stylesheet's `@theme` block (Tailwind v4) and delete the arbitrary values.

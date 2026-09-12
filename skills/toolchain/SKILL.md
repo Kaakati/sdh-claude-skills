@@ -73,7 +73,7 @@ and `npx` on adjacent lines, which are two different managers' runners. Read the
 
 | Lockfile present | Runner |
 |---|---|
-| `package-lock.json` | `npx eslint .` — and this is what `std-infrastructure/references/ci-pipeline.md` currently runs (`npm ci`, `npx tsc --noEmit`, `npm audit`) |
+| `package-lock.json` | `npx eslint .` — and this is what `../std-infrastructure/references/ci-pipeline.md` currently runs (`npm ci`, `npx tsc --noEmit`, `npm audit`) |
 | `pnpm-lock.yaml` | `pnpm exec eslint .` |
 | `yarn.lock` | `yarn eslint .` |
 

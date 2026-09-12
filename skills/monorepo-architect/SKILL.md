@@ -47,6 +47,12 @@ big ball of mud. Being in one repo is not permission to couple.
 - Enforce with a machine: ESLint `no-restricted-imports`, Nx module boundaries, or **packwerk**
   for boundaries *inside* a large Rails app.
 
+Coupling between bounded contexts *inside* a deployable, cross-context writes, cycles, and a
+second library for a concern → the `orthogonality` skill; cross-package imports and the
+one-version policy stay here. Its scans measure context coupling and competing mechanisms on
+changed paths, locally and in CI → `../orthogonality/references/context-maps.md`,
+`../orthogonality/references/scans-and-tools.md`.
+
 → `references/boundaries.md`
 
 ## 3. Structure by deployable unit, not by layer
@@ -94,6 +100,11 @@ boundaries**.
 Where a package genuinely must pin differently — **React Native routinely forces this** —
 isolate it deliberately and **document why**. A deliberate, documented pin is fine. An
 accidental one is a landmine.
+
+One version of the *same* dependency is this section's concern. Two *different* libraries for
+one concern — a second HTTP client, a second chart library — are not version drift but a
+competing mechanism, which the `orthogonality` skill's mechanism registry reports →
+`../orthogonality/references/competing-mechanisms.md`.
 
 → `references/versioning-and-release.md`
 

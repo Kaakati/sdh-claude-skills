@@ -23,6 +23,7 @@ paths:
 - Use scopes for reusable queries: `scope :active, -> { where(active: true) }`
 - Validate at the model level, not just the database level
 - Use `has_many through:` for join tables, never `has_and_belongs_to_many`
+  → `../std-database/references/relationships.md`
 - Always add database-level constraints (NOT NULL, foreign keys, unique indexes) alongside model validations
 
 ## Controllers
@@ -31,6 +32,11 @@ paths:
 - Use `before_action` for authentication and authorization checks
 - Never put business logic in controllers — delegate to service objects
 - Use strong parameters: `params.require(:model).permit(:field1, :field2)`
+- **Drill-down routes are `shallow: true`.** Collection actions nest one level under the canonical
+  parent; member actions are flat by ID. A nested `index` loads the parent through
+  `policy_scope(Parent).find(params[:parent_id])` before scoping the children. A flat member action
+  has no parent in the URL, so it scopes the child itself (`policy_scope(Child).find`, then
+  `authorize`) → `../std-api-design/references/drill-down-resources.md`
 
 ## Authorization (Pundit) — non-negotiable
 - **Wire `after_action :verify_authorized, except: :index` and
@@ -41,12 +47,16 @@ paths:
   filter it.
 - Public endpoints call `skip_authorization` / `skip_policy_scope` — explicit, not silent.
 - Deep guide → `references/authorization.md`
+- Designing roles and the permission matrix — roles on the membership, permission keys (never role
+  names) in policies, scope levels, the guarded grant path → `references/roles-and-permissions.md`
 
 ## Serialization (Panko)
 - Use Panko::Serializer for all JSON responses — it's significantly faster than AMS
 - Define explicit `attributes` — never serialize entire models
 - Use `has_many` and `has_one` associations in serializers
 - Create separate serializers for list vs detail views (e.g., `UserListSerializer`, `UserDetailSerializer`)
+- Detail serializers carry `parentId` and the policy-filtered `ancestors`, built in one query by a
+  query object and passed in through `context:`. Never load the chain one parent at a time.
 - Example:
   ```ruby
   class UserSerializer < Panko::Serializer
@@ -79,7 +89,13 @@ paths:
 
 ## Caching (Redis)
 - Use Rails cache with Redis backend: `Rails.cache.fetch`
-- Cache serialized responses at the controller level for list endpoints
+- Cache serialized responses at the controller level for list endpoints. When the output is
+  permission-scoped, key it on the viewer's scope and `permissions_version`, because a key built
+  from params alone serves one user's rows to another. Permission-scoped responses are never
+  `public`.
+- Every drill-down level answers conditional GET: `stale?` / `fresh_when`, with
+  `etag { current_user&.id }` and the membership's `permissions_version` in the controller →
+  `../std-api-design/references/drill-down-resources.md`
 - Use Russian Doll caching for nested views
 - Set explicit TTLs — no infinite caches
 - Use cache keys that include `updated_at` for automatic invalidation
@@ -103,6 +119,10 @@ paths:
 - Making the policy actually run (`verify_authorized`/`verify_policy_scoped`), `policy_scope`
   vs `authorize`, 404-not-403 for non-owners, deliberate public endpoints, and JWT revocation
   → `references/authorization.md`
+- Roles on the membership, `PermissionCatalog` / `PermissionMatrix` and the DB-backed variant,
+  `pundit_user` tenancy, `permitted?(key)` and `Scope#resolve` by level, the grant policy with its
+  last-owner guard and audit event, `/me` CASL rules, matrix-driven policy specs
+  → `references/roles-and-permissions.md`
 
 Related, owned elsewhere — do not duplicate: the API error envelope and
 `rescue_from Pundit::NotAuthorizedError` live in `../std-api-design/references/errors-rails.md`;

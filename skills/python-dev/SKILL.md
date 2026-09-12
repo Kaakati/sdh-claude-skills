@@ -35,6 +35,8 @@ tree is owned by `std-python` — do not relitigate it here.
   migration** — autogenerate misses server defaults, constraint names, and data moves
 - Verify `downgrade()` actually reverses; split schema change from backfill
 - Migration safety (locking, backfills, concurrent indexes) → `std-database`
+- For a same-type tree (folders, categories), start with an adjacency list and a guarded recursive
+  CTE → `@skills/std-database/references/hierarchies.md`
 
 ### 3. Schemas
 - Three pydantic models per resource in `app/schemas/<resource>.py`: `XCreate`,
@@ -54,6 +56,9 @@ tree is owned by `std-python` — do not relitigate it here.
 - Every route declares `response_model=` and `status_code=` explicitly (201 create,
   204 delete)
 - Parse → authorize → one service call → `XRead.model_validate(...)` — no logic in routes
+- Drill-down levels: a nested collection router whose parent comes from a scope-checked dependency,
+  a flat member router, and one response model per level → `std-fastapi` (Routers) and
+  `@skills/std-api-design/references/drill-down-resources.md`
 - Domain exceptions become the house envelope in ONE app-level exception handler —
   envelope shape → `std-api-design`
 
@@ -75,6 +80,8 @@ tree is owned by `std-python` — do not relitigate it here.
 - Before opening the PR, walk every list endpoint: eager-load with `selectinload()` /
   `joinedload()` and pin a query-count assertion in a test — an eager load without a
   pinned count silently regresses
+- Walk each drill-down level too: the ancestor chain loads in one query, badge counts are grouped
+  inside the caller's scope, and the cursor ordering ends in `id`
 - Keyset pagination for deep lists; `EXPLAIN` anything filtering a large table
 - The full checklist → `std-python-performance`
 

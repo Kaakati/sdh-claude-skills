@@ -6,147 +6,287 @@ Per-platform guides for consuming design tokens across Tailwind CSS (Vite SPA an
 
 ## Tailwind CSS (Vite SPA & Next.js)
 
-### Tailwind v4 -- `@theme` Directive
+### Tailwind v4 — the token stylesheet
 
-Tailwind v4 uses CSS-native configuration via the `@theme` directive. Define tokens directly in your CSS entry point:
+One stylesheet carries the whole token layer. In a shadcn/ui package it is the file
+`components.json` names as `tailwind.css`: `globals.css` in Next.js, the entry stylesheet in the Vite
+SPA. Three rules make it work:
+
+1. **Variables hold complete colors**: `--primary: hsl(222.2 47.4% 11.2%)`. The numbers are the HSL
+   triples `design-tokens.md` measures; only the delivery wraps them.
+2. **`@theme inline` registers them**: `--color-primary: var(--primary)`. With `inline`, the utility
+   emits `var(--primary)` itself, so it resolves on the element it styles and a nested `.dark`
+   section flips. Opacity modifiers (`bg-primary/90`) compile to `color-mix()` over the complete
+   color.
+3. **`@custom-variant dark (&:is(.dark *))`** points `dark:` at the class. Without it, Tailwind v4's
+   `dark:` follows `prefers-color-scheme` and ignores the toggle.
+
+Arbitrary CSS reads the variable directly: `var(--primary)`. Never write `hsl(var(--primary))`,
+which wraps a color in a color and resolves to `unset`.
 
 ```css
-/* app.css (Vite) or globals.css (Next.js) */
+/* globals.css (Next.js) or the Vite entry stylesheet */
 @import "tailwindcss";
+@import "tw-animate-css"; /* shadcn/ui packages only: the primitives' CSS enter/exit animations */
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(222.2 84% 4.9%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(222.2 84% 4.9%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(222.2 84% 4.9%);
+  --primary: hsl(222.2 47.4% 11.2%);
+  --primary-foreground: hsl(210 40% 98%);
+  --secondary: hsl(210 40% 96.1%);
+  --secondary-foreground: hsl(222.2 47.4% 11.2%);
+  --accent: hsl(210 40% 96.1%);
+  --accent-foreground: hsl(222.2 47.4% 11.2%);
+  --neutral: hsl(0 0% 46.1%);
+  --muted: hsl(210 40% 96.1%);
+  --muted-foreground: hsl(215.4 16.3% 44%);
+  --success: hsl(142.1 76.2% 28%);
+  --success-foreground: hsl(355.7 100% 97.3%);
+  --warning: hsl(37.7 92.1% 50.2%);
+  --warning-foreground: hsl(26 83.3% 14.1%);
+  --error: hsl(0 84.2% 47%);
+  --error-foreground: hsl(0 0% 98%);
+  --info: hsl(199.4 95.5% 53.8%);
+  --info-foreground: hsl(200 100% 10%);
+  --border: hsl(214.3 31.8% 59%);
+  --input: hsl(214.3 31.8% 59%);
+  --ring: hsl(222.2 84% 4.9%);
+  --chart-1: hsl(217.2 91.2% 50%);
+  --chart-2: hsl(316 75% 42%);
+  --chart-3: hsl(21 90% 42%);
+  --chart-4: hsl(262.1 83.3% 57.8%);
+  --chart-5: hsl(167 80% 28%);
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: hsl(222.2 84% 4.9%);
+  --foreground: hsl(210 40% 98%);
+  --card: hsl(222.2 84% 4.9%);
+  --card-foreground: hsl(210 40% 98%);
+  --popover: hsl(222.2 84% 4.9%);
+  --popover-foreground: hsl(210 40% 98%);
+  --primary: hsl(210 40% 98%);
+  --primary-foreground: hsl(222.2 47.4% 11.2%);
+  --secondary: hsl(217.2 32.6% 17.5%);
+  --secondary-foreground: hsl(210 40% 98%);
+  --accent: hsl(217.2 32.6% 17.5%);
+  --accent-foreground: hsl(210 40% 98%);
+  --neutral: hsl(0 0% 63.9%);
+  --muted: hsl(217.2 32.6% 17.5%);
+  --muted-foreground: hsl(215 20.2% 65.1%);
+  --success: hsl(142.1 70.6% 45.3%);
+  --success-foreground: hsl(144.9 80.4% 10%);
+  --warning: hsl(43.3 96.4% 56.3%);
+  --warning-foreground: hsl(26 83.3% 14.1%);
+  --error: hsl(0 62.8% 30.6%);
+  --error-foreground: hsl(0 85.7% 97.3%);
+  --info: hsl(199.4 80% 35%);
+  --info-foreground: hsl(200 100% 95%);
+  --border: hsl(217.2 32.6% 42%);
+  --input: hsl(217.2 32.6% 42%);
+  --ring: hsl(212.7 26.8% 83.9%);
+  --chart-1: hsl(213 94% 62%);
+  --chart-2: hsl(322 81% 58%);
+  --chart-3: hsl(20.5 90.2% 48.2%);
+  --chart-4: hsl(258.3 89.5% 66.3%);
+  --chart-5: hsl(180 80% 36%);
+}
+
+/* shadcn/ui aliases (Next.js and Vite SPA shadcn packages only): var() references to house roles.
+   Declared on both scopes so a nested .dark section re-resolves them. Never a copied value. */
+:root,
+.dark {
+  --destructive: var(--error);
+  --destructive-foreground: var(--error-foreground);
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--card-foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
 
 @theme {
-  /* Colors - reference CSS custom properties */
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
 
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-error: var(--error);
+  --color-error-foreground: var(--error-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
 
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
 
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
-
-  --color-success: hsl(var(--success));
-  --color-success-foreground: hsl(var(--success-foreground));
-
-  --color-warning: hsl(var(--warning));
-  --color-warning-foreground: hsl(var(--warning-foreground));
-
-  --color-error: hsl(var(--error));
-  --color-error-foreground: hsl(var(--error-foreground));
-
-  --color-info: hsl(var(--info));
-  --color-info-foreground: hsl(var(--info-foreground));
-
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
-
-  /* Typography */
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-mono);
-
-  /* Border Radius */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 }
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Mandatory: tw-animate-css ships no reduced-motion rule (std-design-system motion.md) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 ```
 
-This generates utility classes like `bg-primary`, `text-primary-foreground`, `border-border`, and `rounded-lg` that automatically resolve to your design tokens.
+This generates utility classes like `bg-primary`, `text-primary-foreground`, `border-border`,
+`bg-sidebar-accent` and `rounded-lg` that resolve to the design tokens. Font families are literal
+values, so they sit in a plain `@theme`. A `next/font` variable is a reference, so it goes through
+`@theme inline { --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif; }`.
 
-### Tailwind v3 Fallback -- `tailwind.config.ts`
+Packages without shadcn/ui drop the `tw-animate-css` import and the alias block. Nothing else changes.
 
-For projects still on Tailwind v3, extend the theme in the config file:
+### shadcn/ui token aliases
 
-```typescript
-// tailwind.config.ts
-import type { Config } from "tailwindcss";
+shadcn/ui source names ten tokens after its own roles. The registry declares them as aliases, so
+every `add` compiles unmodified and `add --diff` merges stay small:
 
-const config: Config = {
-  darkMode: "class",
-  content: [
-    "./src/**/*.{ts,tsx}",        // Vite SPA
-    "./app/**/*.{ts,tsx}",        // Next.js App Router
-    "./components/**/*.{ts,tsx}", // Shared components
-  ],
-  theme: {
-    extend: {
-      colors: {
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
-        primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
-        },
-        secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
-        },
-        accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
-        },
-        muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
-        },
-        card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
-        },
-        popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
-        },
-        success: {
-          DEFAULT: "hsl(var(--success))",
-          foreground: "hsl(var(--success-foreground))",
-        },
-        warning: {
-          DEFAULT: "hsl(var(--warning))",
-          foreground: "hsl(var(--warning-foreground))",
-        },
-        error: {
-          DEFAULT: "hsl(var(--error))",
-          foreground: "hsl(var(--error-foreground))",
-        },
-        info: {
-          DEFAULT: "hsl(var(--info))",
-          foreground: "hsl(var(--info-foreground))",
-        },
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-      },
-      borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
-      },
-      fontFamily: {
-        sans: ["var(--font-sans)"],
-        mono: ["var(--font-mono)"],
-      },
-    },
-  },
-  plugins: [],
-};
+| Alias | Resolves to | Rendered by |
+|---|---|---|
+| `destructive` / `destructive-foreground` | `error` / `error-foreground` | Button, Badge and Alert destructive variants, invalid form controls |
+| `sidebar` / `sidebar-foreground` | `card` / `card-foreground` | The Sidebar primitive and sidebar blocks |
+| `sidebar-primary` / `sidebar-primary-foreground` | `primary` / `primary-foreground` | Sidebar blocks; the primitive itself does not use them |
+| `sidebar-accent` / `sidebar-accent-foreground` | `accent` / `accent-foreground` | Hovered and active sidebar items |
+| `sidebar-border` | `border` | Sidebar edges and rail |
+| `sidebar-ring` | `ring` | Sidebar focus |
 
-export default config;
+- **An alias is a `var()` reference, never a value.** A copied value is one role with two numbers,
+  and it cannot follow a preset swap. The pairs an alias renders are measured through its role in
+  `design-tokens.md`.
+- **Declared on `:root, .dark`.** A custom property holding `var()` is substituted where it is
+  declared. Declared on `:root` alone, a nested `.dark` section inherits the light result.
+- **Code the house writes names the role** (`bg-error`, `bg-card`). The aliases are for vendored
+  shadcn source, not new vocabulary.
+- **Aliasing fixes names, not values.** shadcn source still carries raw `text-white`, `bg-black/50`
+  and `bg-white`, plus `dark:` opacity overrides tuned to its own palette. Those are edits, owned by
+  the `std-shadcn-ui` skill (`@skills/std-shadcn-ui/references/components-and-blocks.md`).
+- Phlex and React Native packages carry no alias block.
+
+### Chart colors
+
+Every stack's charts draw from the same `chart-1`…`chart-5` tokens, each through its house library:
+Next.js through shadcn/ui's `chart` component (below), the Vite SPA through Chart.js with
+`useChartTokens` (`@skills/std-reactjs/references/charts.md`), and Rails Phlex views through the house
+`chart` Stimulus controller on Chart.js (`@skills/std-phlex-conventions/references/charts.md`). The
+series rules after the example hold on all three.
+
+In Next.js, shadcn/ui's chart component composes Recharts. It reads colors from `ChartConfig` and
+injects each one as `--color-<key>` under the chart's `data-chart` scope. Point every entry at a
+series token:
+
+```tsx
+// inside the component, after const t = useTranslations("dashboard")
+const chartConfig = {
+  revenue: { label: t("revenue"), color: "var(--chart-1)" },
+  refunds: { label: t("refunds"), color: "var(--chart-2)" },
+} satisfies ChartConfig;
 ```
+
+- Write `var(--chart-1)`, never `hsl(var(--chart-1))`: the variable already holds a complete color.
+- **Series take slots in order and never cycle.** Color follows the entity, so a filter that drops a
+  series must not repaint the survivors. A sixth series folds into "Other" or becomes small
+  multiples.
+- **Scatter, bubble and small-multiple charts carry at most three series.** Only `chart-1`…`chart-3`
+  stay apart pairwise under simulated protanopia and deuteranopia; the measurements are in
+  `design-tokens.md`.
+- **Never color alone.** Use a legend for two or more series, direct labels where there is room, and
+  a text alternative (a summary or a data table). `accessibilityLayer` adds keyboard access and
+  screen-reader support, not a text alternative.
+- **A series never shares a chart with status colors.** A series that *means* good or bad wears
+  `success`/`error` with an icon and a label, and then it is not a `chart-N`.
+- Charts animate in JS, which the CSS backstop cannot stop. Pass `isAnimationActive={!reduce}` to
+  each Recharts series; Chart.js takes `animation: false` under reduced motion.
+
+The chart component itself (install, tooltip and legend composition, the text alternative's
+markup) is owned by the `std-shadcn-ui` skill (`@skills/std-shadcn-ui/references/charts.md`); the
+Vite SPA's and Rails views' Chart.js charts by `@skills/std-reactjs/references/charts.md` and
+`@skills/std-phlex-conventions/references/charts.md`.
+
+### What the shadcn CLI does to this file
+
+- `shadcn init` writes its own palette over this stylesheet, as oklch values. Never run it on an
+  existing app without asking.
+- `add` can append CSS variables. The new-york-v4 `sidebar` item still ships legacy
+  `--sidebar-background`-style variables as bare HSL channels. Read the stylesheet back after every
+  `add` and delete anything appended beside the alias block.
+- `init` writes `* { @apply border-border outline-ring/50; }` into the base layer. `ring` at 50%
+  measures 3.76:1 on the default light background, but 2.26:1 in Modern light and 1.66:1 in Modern
+  dark. The house base layer above drops the `/50`.
+
+The CLI protocol (reuse, `add`, `--dry-run`/`--diff`, what needs a human) is owned by
+`@skills/std-shadcn-ui/references/cli-and-registry.md`.
+
+### Tailwind v3 packages (legacy)
+
+Tailwind v3 cannot apply an opacity modifier to a complete color, so the stylesheet above does not
+work there. v3 needs channel variables and `hsl(var(--x) / <alpha-value>)` in `tailwind.config.ts`.
+A v3 package keeps that wiring until it migrates (`npx @tailwindcss/upgrade`), and never mixes the
+two forms in one package. shadcn/ui and the `cn` package are v4-only, so a v3 package adopts
+neither.
 
 ### Tailwind Usage Examples
 
@@ -164,7 +304,7 @@ function Button({ children, variant = "primary" }: ButtonProps) {
 
   return (
     <button className={`inline-flex items-center justify-center rounded-md px-4 py-2
-      text-sm font-medium transition-colors focus-visible:outline-none
+      text-sm font-medium motion-safe:transition-colors focus-visible:outline-none
       focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
       disabled:pointer-events-none disabled:opacity-50
       ${variants[variant]}`}>
@@ -195,7 +335,8 @@ function Card({ title, children }: CardProps) {
 Define tokens as a JavaScript object mirroring the CSS custom property structure. Use camelCase naming:
 
 ```typescript
-// theme/tokens.ts
+// theme/tokens.ts — values mirror the measured spec in design-tokens.md.
+// The shadcn/ui aliases (destructive, sidebar-*) are web wiring and never appear here.
 export const lightTokens = {
   colors: {
     background: "hsl(0, 0%, 100%)",
@@ -211,25 +352,28 @@ export const lightTokens = {
     accentForeground: "hsl(222.2, 47.4%, 11.2%)",
 
     muted: "hsl(210, 40%, 96.1%)",
-    mutedForeground: "hsl(215.4, 16.3%, 46.9%)",
+    mutedForeground: "hsl(215.4, 16.3%, 44%)",
 
     card: "hsl(0, 0%, 100%)",
     cardForeground: "hsl(222.2, 84%, 4.9%)",
 
-    success: "hsl(142.1, 76.2%, 36.3%)",
+    popover: "hsl(0, 0%, 100%)",
+    popoverForeground: "hsl(222.2, 84%, 4.9%)",
+
+    success: "hsl(142.1, 76.2%, 28%)",
     successForeground: "hsl(355.7, 100%, 97.3%)",
 
     warning: "hsl(37.7, 92.1%, 50.2%)",
     warningForeground: "hsl(26, 83.3%, 14.1%)",
 
-    error: "hsl(0, 84.2%, 60.2%)",
+    error: "hsl(0, 84.2%, 47%)",
     errorForeground: "hsl(0, 0%, 98%)",
 
     info: "hsl(199.4, 95.5%, 53.8%)",
     infoForeground: "hsl(200, 100%, 10%)",
 
-    border: "hsl(214.3, 31.8%, 91.4%)",
-    input: "hsl(214.3, 31.8%, 91.4%)",
+    border: "hsl(214.3, 31.8%, 59%)",
+    input: "hsl(214.3, 31.8%, 59%)",
     ring: "hsl(222.2, 84%, 4.9%)",
   },
 
@@ -315,6 +459,9 @@ export const darkTokens: typeof lightTokens = {
     card: "hsl(222.2, 84%, 4.9%)",
     cardForeground: "hsl(210, 40%, 98%)",
 
+    popover: "hsl(222.2, 84%, 4.9%)",
+    popoverForeground: "hsl(210, 40%, 98%)",
+
     success: "hsl(142.1, 70.6%, 45.3%)",
     successForeground: "hsl(144.9, 80.4%, 10%)",
 
@@ -324,11 +471,11 @@ export const darkTokens: typeof lightTokens = {
     error: "hsl(0, 62.8%, 30.6%)",
     errorForeground: "hsl(0, 85.7%, 97.3%)",
 
-    info: "hsl(199.4, 80%, 46%)",
+    info: "hsl(199.4, 80%, 35%)",
     infoForeground: "hsl(200, 100%, 95%)",
 
-    border: "hsl(217.2, 32.6%, 17.5%)",
-    input: "hsl(217.2, 32.6%, 17.5%)",
+    border: "hsl(217.2, 32.6%, 42%)",
+    input: "hsl(217.2, 32.6%, 42%)",
     ring: "hsl(212.7, 26.8%, 83.9%)",
   },
 };
@@ -484,30 +631,36 @@ export default function App() {
 
 ### Global CSS Custom Properties
 
-Include the design token CSS in the Rails layout. Create a dedicated stylesheet for tokens:
+Phlex takes the same Tailwind v4 token stylesheet as the web apps, so a class in a Phlex component
+resolves to the same value as in React:
 
 ```css
-/* app/assets/stylesheets/tokens.css */
+/* the Tailwind entry stylesheet (tailwindcss-rails) */
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
 :root {
-  /* All tokens from design-tokens.md :root block */
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
-  --primary: 222.2 47.4% 11.2%;
-  --primary-foreground: 210 40% 98%;
-  /* ... (all other tokens) */
+  /* every value from design-tokens.md, written as hsl() */
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(222.2 84% 4.9%);
+  --primary: hsl(222.2 47.4% 11.2%);
+  --primary-foreground: hsl(210 40% 98%);
+  /* ... */
   --radius: 0.5rem;
 }
 
 .dark {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  --primary: 210 40% 98%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-  /* ... (all other dark overrides) */
+  --background: hsl(222.2 84% 4.9%);
+  --foreground: hsl(210 40% 98%);
+  --primary: hsl(210 40% 98%);
+  --primary-foreground: hsl(222.2 47.4% 11.2%);
+  /* ... */
 }
-```
 
-Import this in the application stylesheet or the Rails layout `<head>`.
+/* The @theme inline registry and the reduced-motion backstop are identical to the Tailwind v4
+   section above. There is no shadcn/ui alias block, because Phlex is not a shadcn package. */
+```
 
 ### Phlex Components with Tailwind
 
@@ -622,23 +775,12 @@ end
 
 ## Dark / Light Mode
 
-### CSS `prefers-color-scheme` (Automatic)
+### Class, not media query
 
-For systems that follow the OS preference without user toggle:
-
-```css
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    /* ... all dark overrides */
-  }
-}
-```
-
-### Class Toggle (Tailwind `darkMode: 'class'`)
-
-For user-controllable theme switching, use a `.dark` class on `<html>`:
+The `.dark` class is the only dark-mode switch. A `@media (prefers-color-scheme: dark)` token
+block cannot be overridden, so a user on a dark OS has no path to light mode. The OS preference is
+the **default** (`system`), never the mechanism. Tailwind v4's `dark:` variant follows the media
+query unless the stylesheet declares `@custom-variant dark (&:is(.dark *));`.
 
 ```html
 <!-- Light mode -->
@@ -648,54 +790,33 @@ For user-controllable theme switching, use a `.dark` class on `<html>`:
 <html lang="en" class="dark">
 ```
 
-```typescript
-// Theme toggle utility (Vite SPA)
-function toggleTheme() {
-  const html = document.documentElement;
-  const isDark = html.classList.contains("dark");
+### Vite SPA — the house provider
 
-  if (isDark) {
-    html.classList.remove("dark");
-    localStorage.setItem("theme", "light");
-  } else {
-    html.classList.add("dark");
-    localStorage.setItem("theme", "dark");
-  }
-}
+The house `ThemeProvider` is in `@skills/std-design-system/references/defining-tokens.md`. It is a
+persisted `light | dark | system` store that toggles `.dark` on `<html>` and follows the OS while
+set to `system`. It applies the class in an effect, which runs after first paint. So pair it with a
+pre-paint script, or a dark-OS user sees a white flash on every load:
 
-// Initialize on page load
-function initializeTheme() {
-  const stored = localStorage.getItem("theme");
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-
-  if (stored === "dark" || (!stored && prefersDark)) {
-    document.documentElement.classList.add("dark");
-  } else {
-    document.documentElement.classList.remove("dark");
-  }
-}
-```
-
-### System Detection with `window.matchMedia`
-
-Listen for OS-level theme changes in real time:
-
-```typescript
-// Watch for system theme changes
-const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-
-mediaQuery.addEventListener("change", (event) => {
-  const stored = localStorage.getItem("theme");
-  // Only auto-switch if user hasn't explicitly chosen a theme
-  if (!stored) {
-    if (event.matches) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
+```html
+<!-- index.html, inside <head>, before the stylesheet -->
+<script>
+  (function () {
+    var root = document.documentElement;
+    try {
+      var stored = JSON.parse(localStorage.getItem("theme") || "null");
+      var theme = (stored && stored.state && stored.state.theme) || "system";
+      var dark = theme === "dark" ||
+        (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      root.classList.toggle("dark", dark);
+    } catch (e) {
+      root.classList.remove("dark"); // storage blocked: start light, the provider corrects it
     }
-  }
-});
+  })();
+</script>
 ```
+
+The key is `"theme"`, and the shape is what zustand's `persist` writes (`{"state":{"theme":…}}`).
+The script and the provider must read the same record.
 
 ### React Native `useColorScheme()`
 
@@ -724,125 +845,85 @@ storage.set("theme-mode", "dark"); // "light" | "dark" | "system"
 const mode = storage.getString("theme-mode") ?? "system";
 ```
 
-### Next.js with `next-themes`
+### Next.js — `next-themes`
 
-For Next.js App Router, use `next-themes` for SSR-safe theme management:
+Next.js uses `next-themes` because the class has to be right before hydration. This is the shape
+shadcn/ui documents, and sonner's `Toaster` reads this same provider.
 
-```typescript
-// app/providers.tsx
+```tsx
+// components/theme-provider.tsx
 "use client";
 
-import { ThemeProvider } from "next-themes";
+import { ThemeProvider as NextThemesProvider } from "next-themes";
+import type { ComponentProps } from "react";
 
-export function Providers({ children }: { children: React.ReactNode }) {
-  return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="system"
-      enableSystem
-      disableTransitionOnChange
-    >
-      {children}
-    </ThemeProvider>
-  );
+export function ThemeProvider(props: ComponentProps<typeof NextThemesProvider>) {
+  return <NextThemesProvider {...props} />;
 }
+```
 
+```tsx
 // app/layout.tsx
-import { Providers } from "./providers";
+import { ThemeProvider } from "@/components/theme-provider";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <Providers>{children}</Providers>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );
 }
 ```
 
-Theme toggle component for Next.js:
+`suppressHydrationWarning` belongs on `<html>` only. next-themes writes the class there before
+hydration, so that one element legitimately differs, and spreading the attribute further hides
+real mismatches. `disableTransitionOnChange` stops every `transition-colors` from animating the
+swap.
 
-```typescript
+```tsx
 // components/theme-toggle.tsx
 "use client";
 
 import { useTheme } from "next-themes";
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
 export function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
+  const t = useTranslations("theme");
   const [mounted, setMounted] = useState(false);
 
-  // Avoid hydration mismatch
+  // resolvedTheme is unknown on the server: render nothing until mounted
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;
 
+  const next = resolvedTheme === "dark" ? "light" : "dark";
   return (
     <button
-      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-      className="rounded-md p-2 hover:bg-accent"
-      aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+      type="button"
+      onClick={() => setTheme(next)}
+      className="rounded-md p-2 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      aria-label={t(next === "dark" ? "switchToDark" : "switchToLight")}
     >
-      {theme === "dark" ? "Light" : "Dark"}
+      {t(next)}
     </button>
   );
 }
 ```
 
-### Dark Token Override Block
+Read `resolvedTheme`, not `theme`. With `defaultTheme="system"`, `theme` is `"system"`, so
+`theme === "dark"` is false for every dark-OS user, and their first click sets the mode they
+already have.
 
-Complete dark mode CSS variable overrides -- place in the same stylesheet as `:root` tokens:
+### Dark token values
 
-```css
-.dark {
-  /* Surface */
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-
-  /* Card */
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
-
-  /* Popover */
-  --popover: 222.2 84% 4.9%;
-  --popover-foreground: 210 40% 98%;
-
-  /* Core Palette (inverted for dark) */
-  --primary: 210 40% 98%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-
-  --neutral: 0 0% 63.9%;
-
-  /* Muted */
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-
-  /* Semantic */
-  --success: 142.1 70.6% 45.3%;
-  --success-foreground: 144.9 80.4% 10%;
-
-  --warning: 43.3 96.4% 56.3%;
-  --warning-foreground: 26 83.3% 14.1%;
-
-  --error: 0 62.8% 30.6%;
-  --error-foreground: 0 85.7% 97.3%;
-
-  --info: 199.4 80% 46%;
-  --info-foreground: 200 100% 95%;
-
-  /* Borders & Ring */
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 212.7 26.8% 83.9%;
-}
-```
+The `.dark` block belongs to the token stylesheet above, and its measured values are in
+`design-tokens.md`. This file used to carry a second copy, and it drifted: it still had `--info` at
+46% lightness after the spec darkened it to 35% to clear AA. So there is no second copy.
 
 ### Theme Persistence Summary
 

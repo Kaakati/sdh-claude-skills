@@ -73,7 +73,8 @@ Define layout foundations:
 - **Column grid**: 12-column with responsive breakpoints
 - **Component padding by atomic level**: atoms (p-1 to p-3), molecules (p-2 to p-4), organisms (p-4 to p-8)
 - **Page margins**: mobile (p-4), tablet (p-8), desktop (p-16)
-- **Touch targets**: 44x44px minimum (mobile), 32x32px minimum (web)
+- **Touch targets**: 44×44px minimum on touch (mobile); 32×32px on web — a **house choice** above
+  WCAG 2.5.8's AA floor of 24×24 CSS px, so never label the 32 as WCAG
 
 ### 5. Produce Component Spec Matrix
 
@@ -90,9 +91,26 @@ For each component (target 30+ components), document:
 **Required component coverage:**
 
 Atoms: Button, Input, Label, Badge, Avatar, Icon, Checkbox, Radio, Switch, Separator, Skeleton
-Molecules: FormField, SearchInput, DropdownMenu, Tooltip, Toast, AlertDialog, Tabs
-Organisms: Header, Sidebar, DataTable, Card, Modal, CommandPalette, NavigationMenu
-Templates: DashboardLayout, AuthLayout, SettingsLayout, ListDetailLayout
+Molecules: FormField, SearchInput, DropdownMenu, Tooltip, Toast, AlertDialog, Tabs, NavLink, Breadcrumb
+Organisms: Header, AppSidebar, SectionNav, DataTable, Card, Modal, CommandPalette, NavigationMenu
+Templates: DashboardLayout, AuthLayout, SettingsLayout, AreaLayout, ListDetailLayout
+
+**Navigation spec.** A component matrix can pass every row while the product still ships a mega
+sidebar, so the chrome gets a spec of its own. The rules are owned by
+`@skills/ui-ux-patterns/references/drill-down-navigation.md`; the spec records how this product
+applies them and restates none of the rest:
+
+- **Area budget per role** — list each role's top-level areas after permission filtering: at most
+  7 on desktop, 3–5 native tabs (Account included). A role over budget is a design-review item in
+  the spec, never a silent exception; above 10, the spec proposes the split, merge, or landing page.
+- **Sidebar shape** — `AppSidebar` lists areas only, with optional static group labels, and ships
+  open (collapsing is the person's choice). No nested sections and no `SidebarMenuSub` in the
+  global sidebar, for any product: `SectionNav` renders inside `AreaLayout`.
+- **Command palette organism** — one shared `CommandPalette` for the product's web apps, fed by
+  `visibleNav` (the permission-filtered nav) and the search endpoint, opened by a visible button as
+  well as the shortcut, optional per product, and never the only route to anything. Specify its
+  groups, empty state and keyboard map; verify the Command component API on ui.shadcn.com when it
+  is built, never from memory.
 
 ### 6. Cross-Reference Quality
 
@@ -101,7 +119,11 @@ Validate the entire system against quality standards:
 - **WCAG 2.2 AA**: All color pairs meet contrast ratios (4.5:1 text, 3:1 UI components)
 - **Motion**: All transitions respect `prefers-reduced-motion` with `motion-safe:` prefix
 - **Dark mode**: Every token has both light and dark values, verified for contrast
-- **Touch targets**: All interactive elements meet minimum size (44x44px mobile, 32x32px web)
+- **Touch targets**: All interactive elements meet minimum size (44×44px on touch; on web the
+  house's 32×32px, and never below WCAG 2.5.8's 24×24 CSS px floor)
+- **Navigation**: every role within the area budget, an areas-only global sidebar, and a second
+  way to every page set (search, plus the palette where the product has one) that is never the
+  only route
 - **Focus indicators**: 2px ring with 3:1 contrast against adjacent colors
 - **Consistency**: Same token names, same scale ratios across all platforms
 
@@ -131,6 +153,7 @@ Produce a **Design System Specification** document with these sections:
 ### Molecules
 ### Organisms
 ### Templates
+### Navigation Spec (area budget per role, sidebar shape, command palette)
 
 ## 4. Accessibility Matrix
 ### Color Contrast Pairs (verified ratios)
@@ -151,6 +174,8 @@ Produce a **Design System Specification** document with these sections:
 - the `std-phlex-conventions` skill — Phlex component patterns
 - the `std-accessibility` skill — WCAG 2.2 AA requirements
 - `@skills/theming/references/design-tokens.md` — Canonical token specification
+- `@skills/ui-ux-patterns/references/drill-down-navigation.md` — Drill-down navigation: area budget, areas-only sidebar, section nav, the command palette as an accelerator (the navigation spec, step 5)
+- `@skills/std-shadcn-ui/references/components-and-blocks.md` — The web implementation of `AppSidebar` and the command palette
 
 ## Team Lead Protocol
 
@@ -173,3 +198,5 @@ When serving as lead for a **Design Team**, follow this coordination protocol:
 - All tokens come from the defined system (no hardcoded values)
 - WCAG 2.2 AA compliance for all interactive components
 - Focus indicators and motion accessibility included
+- Navigation organisms match the navigation spec: `AppSidebar` lists areas only, `SectionNav` lives
+  in `AreaLayout`, and the palette is never the only route

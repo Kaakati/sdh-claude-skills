@@ -80,12 +80,12 @@ Every developer and AI agent must account for these risks in all code:
 - Verify authentication on every protected route. Do not rely on client-side checks alone.
 - Implement authorization checks at the service layer, not just the controller:
   ```typescript
-  // Check both authentication AND authorization
+  // Check both authentication AND authorization — a permission key, never a role name
   async function getOrder(orderId: string, currentUser: User) {
     const order = await orderRepo.findById(orderId);
-    if (!order) throw new NotFoundError("Order", orderId);
-    if (order.userId !== currentUser.id && !currentUser.isAdmin) {
-      throw new ForbiddenError("Not authorized to view this order");
+    // `orders.read` at the caller's scope (own / team / org), not `currentUser.isAdmin`
+    if (!order || !permissions.allows(currentUser, "orders.read", order)) {
+      throw new NotFoundError("Order", orderId); // 404, not 403 — see below
     }
     return order;
   }
@@ -98,6 +98,10 @@ Every developer and AI agent must account for these risks in all code:
 - **Filter collections; don't just authorize them.** Asking "may you list orders?" is not the
   same as returning only *your* orders. Scope the query (`policy_scope`).
 - Prefer **404 over 403** for a record the caller may not see — a 403 confirms it exists.
+- **Check permissions, never role names.** `role === "admin"` hardcodes today's role list — the
+  next role a customer needs silently gets nothing, or everything. Ask for a key
+  (`orders.cancel`) and let the matrix decide who holds it. Designing roles and the matrix →
+  `/access-control-designer`.
 - Use short-lived tokens (JWTs with reasonable expiry). Implement refresh token rotation.
 - **Sign-out must revoke**, not just discard client-side. `devise-jwt` does not revoke by
   default; a token kept after logout keeps working until expiry.

@@ -4,6 +4,10 @@ CLAUDE.local.md
 **/.claude/audit/
 hooks/__pycache__/
 hooks/tests/__pycache__/
+# Bytecode anywhere else: the orthogonality skill's scripts import _bootstrap, which leaves
+# skills/orthogonality/scripts/__pycache__/ behind after a run.
+__pycache__/
+*.py[cod]
 
 # Environment files
 .env

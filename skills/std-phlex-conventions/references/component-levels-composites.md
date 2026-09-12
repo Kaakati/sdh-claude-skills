@@ -160,7 +160,7 @@ Bad — the "template" bakes in real content and thus can only ever render one p
 ```ruby
 class Components::Templates::DashboardLayout < Components::Base
   def view_template
-    div(class: "grid grid-cols-[240px_1fr]") do
+    div(class: "flex") do
       aside { render Components::Organisms::Sidebar.new }
       main { render Views::Dashboard::Index.new(stats: Stat.all) } # data + a specific page
     end
@@ -177,9 +177,9 @@ class Components::Templates::DashboardLayout < Components::Base
   end
 
   def view_template(&block)
-    div(class: "min-h-screen grid grid-cols-1 md:grid-cols-[240px_1fr] bg-background") do
-      aside(class: "hidden md:block border-r p-4") { @sidebar_block&.call }
-      div(class: "flex flex-col") do
+    div(class: "min-h-screen bg-background md:flex") do
+      aside(class: "hidden w-60 shrink-0 border-r p-4 md:block") { @sidebar_block&.call }
+      div(class: "flex min-w-0 flex-1 flex-col") do
         header(class: "border-b px-6 py-4") do
           h1(class: "text-xl font-semibold text-foreground") { @title }
         end
@@ -197,6 +197,10 @@ class Components::Templates::DashboardLayout < Components::Base
   end
 end
 ```
+
+A sidebar slot holds the app sidebar, and the app sidebar lists **areas only**. List filters sit
+beside the list in the main slot, and an area's sections render in its area layout — never in the
+sidebar slot (`references/navigation.md`).
 
 Simpler and preferred when you only need one slot — take a single block:
 
@@ -268,6 +272,46 @@ class Views::Articles::Index < Views::Base
 end
 ```
 
+### Rule: a page receives its location from the controller
+
+Bad — the page decides where it is, so the trail is wrong on a deep link and every role sees every
+link:
+
+```ruby
+class Views::Shipments::Show < Views::Base
+  def view_template
+    a(href: helpers.request.referer) { "Back" }                                    # history, not hierarchy
+    render Components::Templates::DashboardLayout.new(sidebar_links: ALL_LINKS)   # hardcoded, unfiltered
+    h1 { @shipment.name }
+  end
+end
+```
+
+Good — the controller builds `areas:` from `policy(:navigation)` and `crumbs:` from the record's
+permission-filtered `ancestors`; the page only places them:
+
+```ruby
+# app/views/shipments/show.rb
+class Views::Shipments::Show < Views::Base
+  def initialize(shipment:, areas:, crumbs:)
+    @shipment = shipment
+    @areas = areas
+    @crumbs = crumbs
+  end
+
+  def view_template
+    render Components::Templates::AreaLayout.new(areas: @areas) do
+      render Components::Molecules::Breadcrumb.new(items: @crumbs, current: @shipment.name)
+      h1(tabindex: "-1", class: "text-2xl font-semibold text-foreground") { @shipment.name }
+      render Components::Organisms::ShipmentDetail.new(shipment: @shipment)
+    end
+  end
+end
+```
+
+The controller side (`Navigation`, `crumbs_for`) and the `AreaLayout`, `AppSidebar` and `Breadcrumb`
+components → `references/navigation.md`.
+
 ---
 
 ## Violation checklist: composites
@@ -279,4 +323,6 @@ end
 | Template receives model data | Template is really a page | Move to `Views::{Resource}::` |
 | Template renders a specific page/organism directly | Template is not reusable | Take blocks as slots instead |
 | Page queries in `view_template` | Data access in the view layer | Controller fetches, passes as a prop |
+| Page builds its own breadcrumb or nav links (hardcoded, `request.path`, the referrer) | Location decided in the view, unfiltered by role | Controller passes `areas:` and `crumbs:` → `references/navigation.md` |
+| Filters or section links in a template's sidebar slot | Filters or depth in the global nav | Filters beside the list; sections in the area layout |
 | File > 200 lines | Multiple responsibilities | Extract private methods, then extract child components |

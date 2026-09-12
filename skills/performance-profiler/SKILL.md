@@ -54,6 +54,21 @@ Key rule: **Measure first, optimize second.** Never optimize based on assumption
    - Unnecessary columns fetched (`SELECT *` instead of specific columns).
    - Large result sets without pagination.
 
+#### Drill-down Level Profiling
+For navigable data (overview → list → detail → sub-collection), profile each level, not just each
+endpoint. The contract being checked is `../std-api-design/references/drill-down-resources.md`:
+1. **Requests per screen.** A detail paints from one request that carries its `ancestors`. A
+   waterfall of parent fetches just to draw a breadcrumb is the bug.
+2. **Queries per level.** Pin the count in a test, within the queries-per-request budget in
+   `references/performance-benchmarks.md`. An ancestor chain is one query, never one per parent.
+3. **Counts.** No `COUNT(*)` per row on an overview: use one grouped count inside the caller's
+   scope, or a read model that returns `asOf`.
+4. **Pagination.** No `OFFSET` on a large child list: use a cursor with a unique order.
+5. **Back-navigation.** Measure the `304` rate on levels people return to. If every response is a
+   `200`, the level sends no validator, or one that changes on every request.
+6. **Realtime bursts.** Watch for one event refetching every active descendant query; if it does,
+   narrow the invalidation key.
+
 #### Application Code Profiling
 1. Use a CPU profiler to capture a flame graph during the slow operation.
 2. Identify hot functions — functions that consume the most time.
@@ -260,3 +275,5 @@ When reporting performance findings:
 ## Deep guides (read on demand, do not preload)
 
 - The actual numbers: API response times, query limits, bundle budgets, Core Web Vitals, memory thresholds, throughput targets → `references/performance-benchmarks.md`
+
+Related, owned elsewhere — do not duplicate: this skill diagnoses slow queries already in production. The design-time query/index plan — which index a planned query needs, verified with `EXPLAIN (ANALYZE, BUFFERS)` before the migration ships — is `../std-database/references/design-and-query-plan.md`; building that index safely (`CREATE INDEX CONCURRENTLY`, lock timeouts, rollout) is `../db-migration`.

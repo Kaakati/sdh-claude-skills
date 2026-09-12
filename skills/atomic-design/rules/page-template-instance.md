@@ -64,10 +64,11 @@ end
 
 # backend/app/views/articles/index.rb
 class Views::Articles::Index < Views::Base
-  def initialize(articles:, current_user:, filters:)
+  def initialize(articles:, current_user:, filters:, areas:)
     @articles = articles
     @current_user = current_user
     @filters = filters
+    @areas = areas # the visible areas, built by the controller from policy(:navigation) — never hardcoded here
   end
 
   def view_template
@@ -80,18 +81,17 @@ class Views::Articles::Index < Views::Base
       end
 
       layout.sidebar do
-        render Components::Organisms::Sidebar.new(
-          nav_items: sidebar_nav_items,
-          active_item: :articles,
-        )
-        render Components::Organisms::FilterPanel.new(
-          filters: @filters,
-          applied: params[:filters],
-        )
+        # The global sidebar holds areas only: no list filters, no section tree
+        render Components::Organisms::AppSidebar.new(areas: @areas)
       end
 
       layout.content do
         render Components::Atoms::Heading.new(text: "Articles", level: 1)
+        # List filters belong to the list page, beside the list they filter
+        render Components::Organisms::FilterPanel.new(
+          filters: @filters,
+          applied: params[:filters],
+        )
         render Components::Organisms::ArticleList.new(articles: @articles)
         render Components::Molecules::Pagination.new(
           collection: @articles,
@@ -100,24 +100,16 @@ class Views::Articles::Index < Views::Base
       end
     end
   end
-
-  private
-
-  def sidebar_nav_items
-    [
-      { label: "Dashboard", href: dashboard_path, icon: :home },
-      { label: "Articles", href: articles_path, icon: :document },
-      { label: "Users", href: users_path, icon: :users },
-    ]
-  end
 end
 
 # backend/app/views/articles/show.rb
 class Views::Articles::Show < Views::Base
-  def initialize(article:, current_user:, related_articles:)
+  def initialize(article:, current_user:, related_articles:, crumbs:, breadcrumb_label:)
     @article = article
     @current_user = current_user
     @related_articles = related_articles
+    @crumbs = crumbs # root → parent, from the policy-filtered ancestors; the list crumb keeps its query string
+    @breadcrumb_label = breadcrumb_label
   end
 
   def view_template
@@ -128,10 +120,9 @@ class Views::Articles::Show < Views::Base
 
       layout.breadcrumb do
         render Components::Molecules::Breadcrumb.new(
-          items: [
-            { label: "Articles", href: articles_path },
-            { label: @article.title },
-          ],
+          items: @crumbs,
+          current: @article.title,
+          label: @breadcrumb_label,
         )
       end
 
@@ -155,10 +146,11 @@ end
 
 ```tsx
 // web/src/pages/DashboardPage.tsx
+// The global AppSidebar is rendered once by the AppLayout route from visibleNav (ui-gates.md);
+// a page never passes nav items.
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/templates/DashboardLayout";
 import { Header } from "@/components/organisms/Header";
-import { Sidebar } from "@/components/organisms/Sidebar";
 import { MetricsGrid } from "@/components/organisms/MetricsGrid";
 import { ActivityFeed } from "@/components/organisms/ActivityFeed";
 import { Heading } from "@/components/atoms/Heading";
@@ -187,16 +179,6 @@ export function DashboardPage() {
           onSearch={(q) => console.log("Search:", q)}
         />
       }
-      sidebar={
-        <Sidebar
-          navItems={[
-            { label: "Dashboard", href: "/dashboard", icon: "home" },
-            { label: "Articles", href: "/articles", icon: "document" },
-            { label: "Users", href: "/users", icon: "users" },
-          ]}
-          activeItem="dashboard"
-        />
-      }
     >
       <Heading level={1}>Dashboard</Heading>
 
@@ -219,11 +201,12 @@ export function DashboardPage() {
 ### Next.js (App Router)
 
 ```tsx
-// next/app/dashboard/page.tsx
+// next/app/(app)/dashboard/page.tsx
+// The global AppSidebar comes from app/(app)/layout.tsx, filtered on the server by visibleNav
+// (ui-gates.md); a page never passes nav items.
 import { Suspense } from "react";
 import { DashboardLayout } from "@/components/templates/DashboardLayout";
 import { Header } from "@/components/organisms/Header";
-import { Sidebar } from "@/components/organisms/Sidebar";
 import { MetricsGrid } from "@/components/organisms/MetricsGrid";
 import { ActivityFeed } from "@/components/organisms/ActivityFeed";
 import { Heading } from "@/components/atoms/Heading";
@@ -244,19 +227,7 @@ export default async function DashboardPage() {
   ]);
 
   return (
-    <DashboardLayout
-      header={<Header currentUser={currentUser} />}
-      sidebar={
-        <Sidebar
-          navItems={[
-            { label: "Dashboard", href: "/dashboard", icon: "home" },
-            { label: "Articles", href: "/articles", icon: "document" },
-            { label: "Users", href: "/users", icon: "users" },
-          ]}
-          activeItem="dashboard"
-        />
-      }
-    >
+    <DashboardLayout header={<Header currentUser={currentUser} />}>
       <Heading level={1}>Dashboard</Heading>
 
       <Suspense fallback={<Spinner />}>
@@ -329,6 +300,7 @@ export function DashboardScreen() {
 3. **Organism composition**: Pages arrange organisms within template slots
 4. **Routing**: Pages are route entry points (React Router, Next.js routes, Rails controller actions)
 5. **SEO/Metadata**: Pages set page titles, meta tags, Open Graph data
+6. **Location**: Pages set their `h1` and title and pass breadcrumb items built from the API's `ancestors` — never hardcoded crumbs, and never their own nav items (`@skills/ui-ux-patterns/references/drill-down-navigation.md`)
 
 **Pages are NOT reusable:**
 - Each page is unique to a specific route/URL
@@ -354,6 +326,7 @@ class ArticlesController < ApplicationController
       articles: articles,
       current_user: current_user,
       filters: Article::FILTER_OPTIONS,
+      areas: navigation_areas, # ApplicationController: policy(:navigation) booleans → the visible areas (ui-gates.md)
     )
   end
 end

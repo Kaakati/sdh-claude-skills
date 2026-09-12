@@ -1,7 +1,7 @@
 # Validating Input and Consuming Errors in TypeScript
 
-Covers Zod boundaries in Next.js route handlers, server-action results, and the typed axios
-client shared by the Vite SPA and React Native.
+Covers Zod boundaries in Next.js route handlers, where a server action's result stops and this
+envelope starts, and the typed axios client shared by the Vite SPA and React Native.
 
 Load-bearing rules restated (these hold even if you read nothing else):
 
@@ -132,8 +132,12 @@ export async function POST(req: Request) {
 
 ## Decision: how does a Next.js server action report validation failure?
 
-Server actions cannot set a status code — they return a value. Keep the same `code` vocabulary
-so client handling stays uniform.
+Server actions cannot set a status code — they return a value, and that value is not this
+envelope. Every action returns `ActionResult`: `{ ok: true, data }`, or `{ ok: false }` with
+`formErrors` / `fieldErrors` holding translation keys. `std-nextjs` owns the type, and `nextjs-dev`
+and `std-shadcn-ui` build their forms on it → `@skills/std-nextjs/references/server-actions.md`.
+Import it, and extend it when a form needs more (`ActionResult<T> & { values }`); never declare a
+second result shape.
 
 ### Bad — throwing raw errors across the RSC boundary
 
@@ -149,18 +153,18 @@ export async function createOrder(formData: FormData) {
 In production React replaces the message with an opaque digest — the user sees a generic error
 boundary and the field never gets highlighted.
 
-### Good — a discriminated result the form can render field-by-field
+### Good — the shared `ActionResult`, which the form renders field by field
 
 ```typescript
 'use server';
 
+import type { ActionResult } from '@/src/actions/result';
 import { CreateOrderSchema } from '@/src/api/schemas/order';
 
-export type ActionResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; code: string; error: string; details?: Array<{ field: string; message: string }> };
-
-export async function createOrder(formData: FormData): Promise<ActionResult<{ id: string }>> {
+export async function createOrder(
+  _prev: ActionResult<{ id: string }> | null,
+  formData: FormData,
+): Promise<ActionResult<{ id: string }>> {
   const parsed = CreateOrderSchema.safeParse({
     productId: formData.get('productId'),
     quantity: Number(formData.get('quantity')),
@@ -168,21 +172,22 @@ export async function createOrder(formData: FormData): Promise<ActionResult<{ id
   });
 
   if (!parsed.success) {
-    return {
-      ok: false,
-      code: 'VALIDATION_ERROR',
-      error: 'Validation failed',
-      details: parsed.error.issues.map((i) => ({
-        field: i.path.join('.'),
-        message: i.message,
-      })),
-    };
+    const { formErrors, fieldErrors } = parsed.error.flatten(); // every issue at once
+    return { ok: false, formErrors, fieldErrors };
   }
 
-  const order = await createOrderOnBackend(parsed.data);
-  return { ok: true, data: { id: order.id } };
+  try {
+    const order = await createOrderOnBackend(parsed.data);
+    return { ok: true, data: { id: order.id } };
+  } catch {
+    return { ok: false, formErrors: ['orders.errors.createFailed'] }; // a key, never the raw error
+  }
 }
 ```
+
+The envelope and the action result meet in one place. A Rails `VALIDATION_ERROR` caught inside an
+action carries localized messages, not keys, so it is returned in a map of its own and never merged
+into `fieldErrors` → `@skills/std-shadcn-ui/references/forms-and-feedback.md`.
 
 ---
 

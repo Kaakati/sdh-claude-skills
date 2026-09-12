@@ -2,15 +2,22 @@
 
 Load-bearing rules restated (this file is read standalone):
 
-- Middleware runs on the **Edge Runtime** for every matched request: no Node APIs, no DB, no
-  heavy work, no data fetching.
+- Middleware runs for every matched request — on the **Edge Runtime** on Next.js 15, and as
+  `proxy.ts` on Node.js on 16: no DB, no heavy work, no data fetching.
 - **Every page must export `metadata` or `generateMetadata`.**
 - Vercel is the primary deployment target; ECS Fargate with `output: 'standalone'` is the
   alternative.
 
 ---
 
-# Part 1 — Middleware: work that must happen before the route
+# Part 1 — Middleware (proxy on Next.js 16): work that must happen before the route
+
+**Check the pinned major before naming the file.** Next.js 16 deprecates `middleware` and renames it
+`proxy`: the file is `proxy.ts` and the function `proxy`. Proxy runs on Node.js only — a `runtime`
+config in the file throws — so a package that must stay on the Edge runtime keeps the deprecated
+`middleware.ts` (Next.js docs — proxy.js; Next.js docs — Upgrading to version 16). The codemod
+renames both: `npx @next/codemod@canary middleware-to-proxy .`. The examples below use 15's names;
+15 has no proxy convention, so a `proxy.ts` there runs nothing.
 
 ## Decision: does this belong in middleware?
 
@@ -23,6 +30,7 @@ Load-bearing rules restated (this file is read standalone):
 | Verifying a JWT signature against Rails | **No** — network call on every request |
 | Loading the user record for the page | **No** — do it in the Server Component |
 | Authorization ("can this user edit order 42?") | **No** — Rails decides, per request |
+| Hide nav items by permission | **No** — the layout builds the CASL ability from `getSession()` (`@skills/access-control-designer/references/ui-gates.md`) |
 
 Middleware is a **coarse gate**, never the security boundary. The real authorization check lives
 in Rails (Pundit); the page's own `requireSession()` is the second line. Middleware only avoids
@@ -83,9 +91,11 @@ export const config = {
 The page still calls `requireSession()`. A forged-but-present cookie passes middleware and is
 rejected by Rails — that is the intended layering.
 
-Edge Runtime constraints worth remembering: no `fs`, no `crypto` Node module (use Web Crypto),
-no `process.env` values that were not inlined at build, and a small code-size budget. Importing a
-JWT library that pulls in Node built-ins is the usual cause of a middleware build failure.
+Edge Runtime constraints worth remembering on Next.js 15: no `fs`, no `crypto` Node module (use Web
+Crypto), no `process.env` values that were not inlined at build, and a small code-size budget.
+Importing a JWT library that pulls in Node built-ins is the usual cause of a middleware build
+failure. A Next.js 16 `proxy.ts` runs on Node.js, and the table above still holds: a cookie check,
+never a network call per request.
 
 ---
 

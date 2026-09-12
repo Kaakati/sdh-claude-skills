@@ -7,7 +7,8 @@ Load-bearing rules restated (hold even if you read nothing else):
 2. **No `useEffect` for data fetching.** `useQuery` / `useMutation` only.
 3. **Components never call axios directly.** Components → hooks (`src/hooks` or `src/api`) → the
    shared axios client in `src/api/client.ts`.
-4. **One query-key factory per resource**, exported from the same module as the hooks.
+4. **One query-key factory per resource**, exported from the same module as the hooks. A drill-down
+   key mirrors its level's place in the hierarchy.
 
 ---
 
@@ -40,9 +41,9 @@ queryClient.invalidateQueries({ queryKey: orderKeys.lists() }); // ✅ every lis
 queryClient.invalidateQueries({ queryKey: orderKeys.all });     // ✅ lists + details
 ```
 
-The list key takes the filter object as its last segment — filters live in Zustand or the URL and
-are the *input* to the query (see `references/state-placement.md`). A query hook built on this
-factory:
+The list key takes the filter object as its last segment. Filters are the *input* to the query:
+a list people drill into keeps them in the URL, a panel's local view keeps them in Zustand
+(`references/state-placement.md`). A query hook built on this factory:
 
 ```ts
 export function useOrders(filters: OrderFilters) {
@@ -62,6 +63,55 @@ export function useOrders(filters: OrderFilters) {
 
 Pass `signal` through to axios — Query aborts in-flight requests when the key changes, which is
 what stops a fast-typing search box from racing itself.
+
+---
+
+## Decision: keys for drill-down levels
+
+A drill-down key follows the API: a collection nests under its one canonical parent, and a record
+is addressed flat by ID. Invalidating a parent's prefix then reaches every list and summary
+beneath it. Levels, endpoints and the change-event payload →
+`@skills/std-api-design/references/drill-down-resources.md`.
+
+```ts
+// src/api/customers.ts — a customer's orders: a list scoped to its parent
+export const customerKeys = {
+  all: ['customers'] as const,
+  detail: (id: string) => [...customerKeys.all, 'detail', id] as const,       // flat, like its URL
+  scope: (id: string) => [...customerKeys.all, id] as const,                  // everything under one customer
+  summary: (id: string) => [...customerKeys.scope(id), 'summary'] as const,   // the overview's scoped counts
+  orders: (id: string, state: OrderListState) => [...customerKeys.scope(id), 'orders', state] as const,
+};
+```
+
+- **A record's detail key is flat**, like its URL. `orderKeys.detail(id)` stays valid when the
+  order moves to another customer, and one cache entry serves every screen that opens it.
+- **A list key ends with the list's URL state** — the parsed search params, never a cursor. A
+  cursor is only valid with the parameters that produced it, so it lives in `useInfiniteQuery`'s
+  page param → `@skills/std-api-design/references/pagination-clients.md`. Where the URL state is
+  read and validated → `references/routing-and-code-split.md`.
+
+A change event carries IDs and `ancestorIds`, never the record. The client invalidates, and never
+patches permission-scoped data from a broadcast:
+
+```ts
+// src/api/order-events.ts — the fixed chain here is region → customer → order; regionKeys has customerKeys' shape
+export function invalidateOrderChanged(queryClient: QueryClient, event: OrderChanged) {
+  const [regionId, customerId] = event.ancestorIds;
+  void queryClient.invalidateQueries({ queryKey: orderKeys.detail(event.id) });
+  void queryClient.invalidateQueries({ queryKey: customerKeys.scope(customerId) });            // its lists and its counts
+  void queryClient.invalidateQueries({ queryKey: regionKeys.summary(regionId), exact: true }); // the counts above, nothing below
+}
+```
+
+- `invalidateQueries` marks every matching query stale — overriding `staleTime` — and refetches
+  the ones on screen. Keys match by prefix; `exact: true` or a predicate narrows the match
+  (TanStack — Query Invalidation).
+- **Invalidate the narrowest prefix that covers the change.** A broad prefix on a deep tree
+  refetches every active query beneath it at once: `regionKeys.all` for one order's status is a
+  request burst.
+- Switching organization clears the whole cache →
+  `@skills/access-control-designer/references/ui-gates.md`.
 
 ---
 
@@ -219,3 +269,9 @@ api.interceptors.response.use(
 
 Note `useAuthStore.getState()` — interceptors are outside React, so read the store imperatively.
 Never call a hook from an interceptor.
+
+---
+
+## Sources
+
+- TanStack — Query Invalidation — https://tanstack.com/query/latest/docs/framework/react/guides/query-invalidation

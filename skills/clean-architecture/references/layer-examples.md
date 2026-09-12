@@ -181,17 +181,28 @@ export function useOrders() {
 'use server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import type { ActionResult } from '@/actions/result';
+import { railsApi } from '@/api/client';
 
 const CreateOrderSchema = z.object({ /* ... */ });
 
-export async function createOrder(prevState: unknown, formData: FormData) {
+export async function createOrder(
+  _prev: ActionResult<null> | null,
+  formData: FormData,
+): Promise<ActionResult<null>> {
   const parsed = CreateOrderSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { errors: parsed.error.flatten().fieldErrors };
+  if (!parsed.success) {
+    const { formErrors, fieldErrors } = parsed.error.flatten();
+    return { ok: false, formErrors, fieldErrors };
+  }
   await railsApi.post('/api/v1/orders', parsed.data);
   revalidatePath('/orders');
-  return { success: true };
+  return { ok: true, data: null };
 }
 ```
+
+`ActionResult` is the one result shape every action returns →
+`@skills/std-nextjs/references/server-actions.md`.
 
 ## Layer 3: Interface Adapters
 
@@ -199,6 +210,8 @@ export async function createOrder(prevState: unknown, formData: FormData) {
 ```ruby
 # backend/app/controllers/api/v1/orders_controller.rb
 class Api::V1::OrdersController < ApplicationController
+  include ApiErrorHandling # the one error envelope → @skills/std-api-design/references/errors-rails.md
+
   def create
     authorize Order
 
@@ -213,7 +226,8 @@ class Api::V1::OrdersController < ApplicationController
         order: OrderSerializer.new.serialize(result.value)
       ), status: :created
     else
-      render json: { error: result.error_message, type: result.error_type }, status: error_status(result.error_type)
+      render_api_error(message: Array(result.error_message).to_sentence,
+                       code: result.error_type.to_s.upcase, status: error_status(result.error_type))
     end
   end
 

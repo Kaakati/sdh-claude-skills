@@ -36,6 +36,30 @@ Use this checklist during every code review. Not every item applies to every PR 
 - [ ] API responses return only necessary fields — no over-fetching.
 - [ ] Assets (images, scripts, styles) are optimized and properly cached.
 
+## Navigation (web and mobile)
+
+- [ ] The global sidebar renders areas only (optional static group labels) — no `SidebarMenuSub`, section tree, collapsible group, or recursive renderer over `children`; sections render in the area's own layout.
+- [ ] The active area comes from `areaState(pathname, area)` — whole path segments plus the area's `match` prefixes — never a bare `pathname.startsWith(href)`.
+- [ ] Nav items come from `visibleNav(NAV, ability, entitlements)`, never a hardcoded `navItems` array.
+- [ ] A feature reached by URL without its permission renders the no-access page; `notFound()` is reserved for records outside the caller's scope.
+- [ ] Breadcrumbs render the detail's `ancestors` — never browser history, the referrer, or URL segments.
+- [ ] Filters, sort, and query live in the URL; Up is a real link, never `history.back()`; Phlex frame navigation between levels carries `data-turbo-action="advance"`.
+- [ ] Charts use the stack's library: the shadcn chart component (Next.js), `react-chartjs-2` with an explicit registration module (Vite SPA), or the house Stimulus controller on `chart.js` (Rails views) — never ApexCharts.
+
+Rules: `../ui-ux-patterns/references/drill-down-navigation.md` and `../access-control-designer/references/ui-gates.md`. Charts: `../std-shadcn-ui/references/charts.md`, `../std-reactjs/references/charts.md`, `../std-phlex-conventions/references/charts.md`.
+
+## Drill-down APIs
+
+- [ ] Collection routes nest one level under the resource's one canonical parent; member routes are flat by ID.
+- [ ] A nested `index` loads the parent through its policy scope; a flat member lookup scopes the child itself — out of scope answers 404.
+- [ ] A detail's `ancestors` pass each ancestor's read policy and load in one query, never one per parent.
+- [ ] Overview counts are computed within the caller's scope; a cached counter is shown only to `org`-scoped callers.
+- [ ] The query count per level is pinned in a test.
+- [ ] ETags on scoped levels vary by viewer and `permissions_version`; no scoped level is cached `public`.
+- [ ] A same-type tree uses the storage its ADR records; recursive queries carry a cycle guard and a depth cap.
+
+Contract: `../std-api-design/references/drill-down-resources.md`. Tree storage: `../std-database/references/hierarchies.md`.
+
 ## Maintainability
 
 - [ ] Functions and methods have a single clear responsibility.

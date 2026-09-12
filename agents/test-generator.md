@@ -107,12 +107,27 @@ pipeline is Jest-based. Reaching for Vitest + jsdom there is a whole afternoon l
 real cache/retry behaviour under test; stubbing `axios` or the query hook tests your mock instead.
 This is the single most common way coverage here becomes fictional.
 
+**Charts are tested through their words, not their pixels.** A Vite SPA chart is Chart.js drawn
+through react-chartjs-2 on a `<canvas>`, and jsdom has neither a 2D context nor a
+`ResizeObserver`. The setup file imports `vitest-canvas-mock` and stubs `ResizeObserver`; without
+the mock, Chart.js only logs "Failed to create chart" and the test passes having asserted nothing.
+Assert the summary sentence and the visually hidden data table with RTL, the data mapping as a pure
+function, and `Chart.getChart(canvas)` when the wiring is the point — never draw calls or pixels. A
+Next.js chart is Recharts (SVG) through shadcn/ui's `chart`: the same words-first rule, no canvas
+mock, and never a `recharts-*` class name.
+
+**Navigation is tested rendered, per role.** Render the app's real routes in a memory router for
+each role's `/me` fixture and assert areas only in the main nav, the section nav inside its area,
+and `aria-current` on the current link. Reading the nav config proves nothing: it lists every area,
+and a role sees its subset only at runtime.
+
 ## References (read the one matching the target)
 
 - `@skills/std-testing/references/test-strategy.md` — unit vs integration, mock boundaries, test
   data builders, the edge-case matrix, Sidekiq jobs.
 - `@skills/std-testing/references/react-components.md` — Vitest + RTL setup, query priority,
-  `userEvent`, MSW, providers, Zustand, Framer Motion, ApexCharts.
+  `userEvent`, MSW, providers, Zustand, Framer Motion, charts (Chart.js via react-chartjs-2; the
+  shadcn `chart` on Next.js), navigation rendered per role.
 - `@skills/std-testing/references/nextjs-server.md` — Server Components, server actions,
   `generateMetadata`, route handlers.
 - `@skills/std-testing/references/react-native.md` — RNTL, navigation, Reanimated, MMKV,

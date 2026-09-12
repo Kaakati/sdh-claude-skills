@@ -7,7 +7,9 @@ this file.
 Load-bearing rules restated (assume nothing else here has been read):
 
 1. **Every animation must have a reduced-motion path.** On the web that means the `motion-safe:`
-   prefix or a `useReducedMotion()` check; in React Native it means `AccessibilityInfo`.
+   prefix or a `useReducedMotion()` check. In React Native it means `AccessibilityInfo`. Every web
+   token stylesheet also carries the global `prefers-reduced-motion` backstop, and that backstop is
+   **mandatory**: it is the only path vendored shadcn/ui primitives have.
    Users with vestibular disorders are made physically ill by motion they did not opt into.
 2. **Duration ceiling is 500ms.** Longer reads as sluggish, not as elegant.
 3. Durations and easings come from the scale below — no `duration-[230ms]`, no invented beziers.
@@ -59,27 +61,25 @@ guard at all.
 Animate `transform` and `opacity` — they run on the compositor and never trigger layout. Animating
 `height`, `width`, `top`, or `margin` runs on the main thread and drops frames.
 
-For keyframes defined in config, guard at the CSS level:
-
-```js
-// tailwind.config.js
-module.exports = {
-  theme: {
-    extend: {
-      keyframes: {
-        'slide-in': {
-          from: { opacity: '0', transform: 'translateY(-8px)' },
-          to: { opacity: '1', transform: 'translateY(0)' },
-        },
-      },
-      animation: { 'slide-in': 'slide-in 300ms cubic-bezier(0, 0, 0.2, 1)' },
-    },
-  },
-};
-```
+Tailwind v4 registers keyframe animations in the stylesheet's `@theme`, and the class is used as
+`motion-safe:animate-slide-in`:
 
 ```css
-/* globals.css — global backstop for anything that slipped past motion-safe: */
+/* globals.css (Next.js) or the Vite entry stylesheet */
+@theme {
+  --animate-slide-in: slide-in 300ms cubic-bezier(0, 0, 0.2, 1);
+
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+```
+
+### The global backstop (mandatory)
+
+```css
+/* same stylesheet, after the tokens */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -92,8 +92,25 @@ module.exports = {
 }
 ```
 
-The backstop is a safety net, not a license to skip `motion-safe:` — it cannot stop a JS-driven
-animation.
+The duration is `0.01ms`, not `animation: none`. Radix and Base UI keep exit-animated content mounted
+until `animationend` fires. A near-zero duration fires it at once, while removing the animation
+changes the unmount path the primitive was written against.
+
+**Why it is mandatory rather than a safety net:** shadcn/ui primitives animate their data-state
+enter and exit through `tw-animate-css` (`animate-in`, `fade-in-0`, `zoom-in-95`). That is the one
+place the house allows it; `framer-motion` stays for house page and list transitions, and one
+element never gets both. Measured against the published packages, `tw-animate-css@1.4.0` ships no
+`prefers-reduced-motion` or `motion-safe` rule at all. shadcn's own `tailwind.css` has exactly one,
+and it only disables `.shimmer`. 39 of the 61 new-york-v4 primitives animate, and none carry
+`motion-safe:`. Hand-editing `motion-safe:` into every vendored file breaks the `add --diff`
+merges the files exist for, so the backstop is those primitives' reduced-motion path.
+
+The backstop is still not a license to skip `motion-safe:` in code the house writes, and it
+**cannot stop a JS-driven animation**. Framer Motion needs `useReducedMotion()` (below). Charts
+animate in JS too: in Next.js, Recharts behind the shadcn chart component takes
+`isAnimationActive={!reduce}` on each series (`@skills/std-shadcn-ui/references/charts.md`); Chart.js,
+in the Vite SPA and in Rails Phlex views, takes `animation: false` under reduced motion
+(`@skills/std-reactjs/references/charts.md`, `@skills/std-phlex-conventions/references/charts.md`).
 
 ---
 
@@ -163,6 +180,10 @@ export function Toggle({ on }: { on: boolean }) {
 Reduced motion means **removing movement, not removing feedback**. Keep the opacity change and the
 color change; drop the translation and the bounce. Setting `duration: 0` (rather than skipping the
 animation) keeps the final state correct with no special-casing.
+
+Framer Motion is for what the house builds, such as route transitions, list reorder, and the card
+above. A vendored shadcn/ui primitive keeps its `tw-animate-css` classes. Rewriting it onto
+`AnimatePresence` forfeits every upstream diff for a behaviour the backstop already gives it.
 
 ---
 

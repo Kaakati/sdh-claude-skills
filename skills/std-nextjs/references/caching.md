@@ -5,7 +5,8 @@ Load-bearing rules restated (this file is read standalone):
 - A route is **static by default** unless something in it reads request-time data.
 - **ISR** = `export const revalidate = N` (seconds) on a page/layout, or `next: { revalidate: N }`
   on a `fetch`.
-- **Every mutation must call `revalidatePath()` or `revalidateTag()`**, or users see stale data.
+- **Every mutation must invalidate what it changed** — `revalidatePath()`, or its tags: `updateTag()`
+  in a server action on Next.js 16, `revalidateTag()` on 15 — or users see stale data.
 - Cache tags are the preferred invalidation handle; paths are the blunt instrument.
 
 ---
@@ -17,7 +18,7 @@ Load-bearing rules restated (this file is read standalone):
 | Marketing page, no per-user data | (nothing) or `export const dynamic = 'force-static'` | Rendered at build |
 | Catalog/list that may lag a minute | `export const revalidate = 60` | ISR: served from cache, regenerated in the background |
 | Per-user dashboard, auth-dependent | `export const dynamic = 'force-dynamic'` | Rendered per request |
-| Content changed by an admin action | `revalidate = false` + `revalidateTag()` from the action | Cached indefinitely, invalidated on write |
+| Content changed by an admin action | `revalidate = false` + a tag invalidation from the action (`updateTag()` on 16, `revalidateTag()` on 15) | Cached indefinitely, invalidated on write |
 
 Reading `cookies()`, `headers()`, `searchParams`, or `draftMode()` opts the route into dynamic
 rendering automatically — a route with a session check is dynamic whether you declare it or not.
@@ -122,7 +123,7 @@ export async function fetchProduct(id: string) {
 ```
 
 ```ts
-// src/actions/products.ts — the write invalidates by tag
+// src/actions/products.ts — the write invalidates by tag (Next.js 15)
 'use server';
 
 import { revalidateTag } from 'next/cache';
@@ -139,6 +140,14 @@ export async function updateProduct(id: string, formData: FormData) {
 }
 ```
 
+```ts
+// Next.js 16 — the same action; the one-argument revalidateTag is deprecated there
+import { updateTag } from 'next/cache';
+
+updateTag(`product:${id}`); // expired now: the editor's next request waits for fresh data
+updateTag('products');
+```
+
 Use `revalidatePath` only when the thing that changed genuinely *is* a route — e.g.
 `revalidatePath('/sitemap.xml')`, or `revalidatePath('/orders/[id]', 'page')` for a dynamic
 segment shape.
@@ -152,23 +161,30 @@ Handler with a shared secret and have Rails call it.
 
 ```ts
 // app/api/revalidate/route.ts
+import { randomUUID } from 'node:crypto';
 import { revalidateTag } from 'next/cache';
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
+import { validationErrorBody } from '@/api/http/errors'; // the house envelope helper
 
 const Body = z.object({ tags: z.array(z.string().min(1)).max(20) });
 
 export async function POST(request: NextRequest) {
+  const requestId = request.headers.get('x-request-id') ?? randomUUID();
   if (request.headers.get('x-revalidate-secret') !== process.env.REVALIDATE_SECRET) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    return NextResponse.json(
+      { error: 'Not authenticated', code: 'UNAUTHENTICATED', status: 401, requestId },
+      { status: 401 },
+    );
   }
 
   const parsed = Body.safeParse(await request.json());
   if (!parsed.success) {
-    return NextResponse.json({ error: 'invalid payload' }, { status: 422 });
+    return NextResponse.json(validationErrorBody(parsed.error, requestId), { status: 422 });
   }
 
-  parsed.data.tags.forEach(revalidateTag);
+  // Next.js 16: (tag) => revalidateTag(tag, { expire: 0 }). Never forEach(revalidateTag): 16 reads the index as the profile
+  parsed.data.tags.forEach((tag) => revalidateTag(tag));
   return NextResponse.json({ revalidated: parsed.data.tags });
 }
 ```
@@ -189,7 +205,9 @@ end
 ```
 
 Never leave this endpoint unauthenticated — it is a free cache-stampede lever for anyone who
-finds it.
+finds it. Its refusals are an endpoint's errors, so they carry the house envelope (`error`, `code`,
+`status`, `requestId`), and `validationErrorBody` lists every issue in a bad payload →
+`@skills/std-api-design/references/errors-typescript.md`.
 
 ---
 
@@ -243,6 +261,10 @@ export async function requireSession(): Promise<Session> {
 `cache()` scopes to a single request — it is a dedupe, not a cross-user cache. Never use
 `unstable_cache` for per-user data; you will serve one user's session to another.
 
+`Session` also carries the user's permission rules from `/me`, so the layout's CASL ability and
+every gate below it read this one memoized call rather than refetching. The payload contract is
+owned by `@skills/access-control-designer/references/ui-gates.md`.
+
 ---
 
 ## Decision: pre-rendering dynamic segments
@@ -274,6 +296,34 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
 ---
 
+## Decision: revalidating a drill-down level
+
+A write to one record changes the lists and overview counts above it, not just its own page.
+
+- **Tag a shared level with its own entity and its ancestors** — `tags: ['asset:9', 'site:42',
+  'region:7']` on the `fetch`, or `cacheTag(...)` under `cacheComponents`. Invalidating an
+  ancestor's tag then clears every level cached beneath it; the IDs come from the `ancestorIds` the
+  change event carries. One `cacheTag` call takes at most 128 tags of at most 256 characters, and
+  anything beyond is dropped with only a console warning (Next.js docs — cacheTag).
+- **A permission-scoped level is per-user data** — it never enters a shared cache or carries a tag.
+  It renders dynamically, or under `'use cache: private'` (Next.js docs — Caching).
+- **A subtree by path** is `revalidatePath(path, 'layout')`: that layout, every nested layout and
+  every page beneath. A `'page'` revalidation of `/orders/[id]` does not reach
+  `/orders/[id]/shipments` (Next.js docs — revalidatePath).
+- **Check the pinned major before copying a call.** On Next.js 16 the one-argument
+  `revalidateTag(tag)` used on 15 is deprecated: it behaves like `{ expire: 0 }` and fails
+  type-checking. A server action whose user must see their own write calls `updateTag(tag)` — it
+  works only inside Server Actions. A Route Handler, like the Rails webhook above, calls
+  `revalidateTag(tag, { expire: 0 })` when the data must go at once, or `revalidateTag(tag, 'max')`
+  where serving stale content while it refreshes is acceptable. Either way the revalidation runs on
+  the next request for the data, not at the call (Next.js docs — revalidateTag; Next.js docs —
+  updateTag).
+
+Which levels are per-user, the event payload, and per-level ETags →
+`@skills/std-api-design/references/drill-down-resources.md`.
+
+---
+
 ## Debugging: "why is my page dynamic?"
 
 ```ts
@@ -287,3 +337,13 @@ export default nextConfig;
 Then `next build` prints a per-route legend: `○ (Static)`, `● (SSG)`, `ƒ (Dynamic)`. If a route
 you expect to be static is `ƒ`, something in its tree read `cookies()`/`headers()` — often a
 shared analytics or session helper imported by a layout.
+
+---
+
+## Sources
+
+- Next.js docs — cacheTag — https://nextjs.org/docs/app/api-reference/functions/cacheTag
+- Next.js docs — Caching — https://nextjs.org/docs/app/getting-started/caching
+- Next.js docs — revalidatePath — https://nextjs.org/docs/app/api-reference/functions/revalidatePath
+- Next.js docs — revalidateTag — https://nextjs.org/docs/app/api-reference/functions/revalidateTag
+- Next.js docs — updateTag — https://nextjs.org/docs/app/api-reference/functions/updateTag

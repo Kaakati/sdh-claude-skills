@@ -18,34 +18,39 @@ All tokens follow the pattern `--{category}-{name}`:
 | Radius | `--radius-` | `--radius-sm`, `--radius-lg` |
 | Shadow | `--shadow-` | `--shadow-md`, `--shadow-xl` |
 
-### HSL Format
+### Color Format
 
-Colors use space-separated HSL values (without the `hsl()` wrapper) so they can be composed with opacity modifiers in Tailwind CSS:
+Every color is an **HSL triple** (hue, saturation, lightness): the numbers this file measures. The
+stylesheet writes each one as a **complete color**, and Tailwind v4 reads it through `@theme inline`:
 
 ```css
-/* Definition: raw HSL values */
---primary: 222.2 47.4% 11.2%;
+/* stylesheet: a complete color */
+--primary: hsl(222.2 47.4% 11.2%);
 
-/* Usage with Tailwind: opacity modifier works */
-/* bg-primary/50 compiles to: */
-background-color: hsl(222.2 47.4% 11.2% / 0.5);
+/* @theme inline { --color-primary: var(--primary); } makes bg-primary/50 compile to: */
+background-color: color-mix(in oklab, var(--primary) 50%, transparent);
 ```
 
-This pattern enables `bg-primary/80`, `text-primary-foreground/90`, and similar opacity utilities without defining extra variables.
+Opacity modifiers work on the complete color, so there is no longer a reason to store bare
+channels. Arbitrary CSS reads `var(--primary)` directly, never `hsl(var(--primary))`. The value
+blocks below stay as triples because the contrast gate parses them. The wiring is in
+`platform-integration.md`, and the one-line wrap from triple to stylesheet is in `theme-presets.md`.
 
 ### Root Scope
 
-All tokens are declared in `:root` for global availability. Dark mode overrides use the `.dark` class selector:
+All tokens are declared in `:root` for global availability. Dark mode overrides use the `.dark` class selector, and `@custom-variant dark` points Tailwind v4's `dark:` at it:
 
 ```css
+@custom-variant dark (&:is(.dark *));
+
 :root {
   /* Light mode tokens */
-  --primary: 222.2 47.4% 11.2%;
+  --primary: hsl(222.2 47.4% 11.2%);
 }
 
 .dark {
   /* Dark mode overrides */
-  --primary: 210 40% 98%;
+  --primary: hsl(210 40% 98%);
 }
 ```
 
@@ -73,20 +78,20 @@ All tokens are declared in `:root` for global availability. Dark mode overrides 
 | `--success-foreground` | Text on success backgrounds | `355.7 100% 97.3%` | `144.9 80.4% 10%` |
 | `--warning` | Warning states, caution | `37.7 92.1% 50.2%` | `43.3 96.4% 56.3%` |
 | `--warning-foreground` | Text on warning backgrounds | `26 83.3% 14.1%` | `26 83.3% 14.1%` |
-| `--error` | Error states, destructive | `0 84.2% 60.2%` | `0 62.8% 30.6%` |
+| `--error` | Error states, destructive actions (shadcn/ui's `--destructive` aliases it) | `0 84.2% 47%` | `0 62.8% 30.6%` |
 | `--error-foreground` | Text on error backgrounds | `0 0% 98%` | `0 85.7% 97.3%` |
-| `--info` | Informational states | `199.4 95.5% 53.8%` | `199.4 80% 46%` |
+| `--info` | Informational states | `199.4 95.5% 53.8%` | `199.4 80% 35%` |
 | `--info-foreground` | Text on info backgrounds | `200 100% 10%` | `200 100% 95%` |
 
 ### Background / Foreground Convention
 
-Every color token has a `-foreground` counterpart. This ensures accessible text contrast on any background:
+Every surface color token has a `-foreground` counterpart. This ensures accessible text contrast on any background. The exceptions are the tokens nothing sits on: `border`, `input`, `ring`, and `chart-1`…`chart-5`.
 
 ```css
 /* The foreground color is always readable on its base color */
 .btn-primary {
-  background-color: hsl(var(--primary));
-  color: hsl(var(--primary-foreground));
+  background-color: var(--primary);
+  color: var(--primary-foreground);
 }
 ```
 
@@ -101,17 +106,78 @@ Every color token has a `-foreground` counterpart. This ensures accessible text 
 | `--popover` | Popover/dropdown backgrounds | `0 0% 100%` | `222.2 84% 4.9%` |
 | `--popover-foreground` | Popover text | `222.2 84% 4.9%` | `210 40% 98%` |
 | `--muted` | Muted/disabled backgrounds | `210 40% 96.1%` | `217.2 32.6% 17.5%` |
-| `--muted-foreground` | Muted/disabled text | `215.4 16.3% 46.9%` | `215 20.2% 65.1%` |
+| `--muted-foreground` | Muted/disabled text | `215.4 16.3% 44%` | `215 20.2% 65.1%` |
 
 ### Border & Ring Colors
 
 | Token | Purpose | Light Value (HSL) | Dark Value (HSL) |
 |-------|---------|-------------------|------------------|
-| `--border` | Default borders | `214.3 31.8% 91.4%` | `217.2 32.6% 17.5%` |
-| `--input` | Input borders | `214.3 31.8% 91.4%` | `217.2 32.6% 17.5%` |
+| `--border` | Default borders | `214.3 31.8% 59%` | `217.2 32.6% 42%` |
+| `--input` | Input borders | `214.3 31.8% 59%` | `217.2 32.6% 42%` |
 | `--ring` | Focus ring color | `222.2 84% 4.9%` | `212.7 26.8% 83.9%` |
 
-### Complete Light Mode `:root` Block
+A border is a non-text boundary, so WCAG 1.4.11 asks 3:1 against the surface it sits on. `--border`
+and `--input` measure **3.20:1 light and 3.29:1 dark** against `--background`, `--card` and
+`--popover`, which are one value in each mode. They used to sit at `91.4%` / `17.5%` lightness:
+1.23:1 and 1.37:1, a text field with no visible edge. They share one value, so a card edge and a
+field edge weigh the same.
+
+### Chart Series
+
+Categorical data series, consumed by the shadcn/ui chart component as `ChartConfig` color
+`var(--chart-N)`. Series are non-text marks, so WCAG 1.4.11 asks only 3:1 against the surface they
+sit on. This set clears 4.5:1, so the same contrast gate verifies it.
+
+| Token | Hue family | Light Value (HSL) | Dark Value (HSL) |
+|-------|------------|-------------------|------------------|
+| `--chart-1` | Blue | `217.2 91.2% 50%` | `213 94% 62%` |
+| `--chart-2` | Magenta | `316 75% 42%` | `322 81% 58%` |
+| `--chart-3` | Orange | `21 90% 42%` | `20.5 90.2% 48.2%` |
+| `--chart-4` | Violet | `262.1 83.3% 57.8%` | `258.3 89.5% 66.3%` |
+| `--chart-5` | Teal | `167 80% 28%` | `180 80% 36%` |
+
+Each property was measured, not judged. ΔE is OKLab distance ×100; color-vision deficiency (CVD)
+is simulated with Machado 2009 at full severity.
+
+- **The order is the safety mechanism.** Every ordering of the five hue families was scored, and
+  40 of 120 pass every gate in both modes. This one keeps the most distance from the status colors,
+  then the most CVD separation.
+  - Adjacent series under protanopia and deuteranopia: worst ΔE 17.1 light, 14.2 dark (target ≥8).
+  - Adjacent series under normal vision: worst ΔE 20.3 light, 19.8 dark (floor 15).
+  - Every pair among the first three passes the same gates.
+- **Scatter, bubble and small multiples carry at most three series.** In those charts any two marks
+  can touch, and `chart-4` against `chart-1` is ΔE 1.2 under deuteranopia in light mode (6.7 dark).
+  Past three series, fold into "Other" or facet.
+- **No status hue.** Green, red and amber belong to `success`, `error` and `warning`. The closest
+  pairs are `chart-5` to `success` (ΔE 6.3, light) and `chart-3` to `error` (ΔE 7.2, light). So a
+  series never shares a chart with a status color, and a status color always ships with an icon
+  and a label.
+- **One set for every preset.** Series identity must not change when a client switches presets. The
+  set was measured against all three presets' dark backgrounds (`theme-presets.md`).
+
+### shadcn/ui Aliases
+
+shadcn/ui names ten tokens after its own roles. They are registered as aliases so vendored source
+compiles unmodified. An alias has **no value of its own**: in the stylesheet it is `var(--role)`,
+declared on `:root, .dark` (`platform-integration.md`). The blocks below list the resolved values,
+so the contrast gate measures the pairs the primitives actually render.
+
+| Alias | Role | Measured |
+|-------|------|----------|
+| `--destructive` / `--destructive-foreground` | `--error` / `--error-foreground` | Pair row below |
+| `--sidebar` / `--sidebar-foreground` | `--card` / `--card-foreground` | Pair row below |
+| `--sidebar-primary` / `--sidebar-primary-foreground` | `--primary` / `--primary-foreground` | Pair row below |
+| `--sidebar-accent` / `--sidebar-accent-foreground` | `--accent` / `--accent-foreground` | Pair row below |
+| `--sidebar-border` | `--border` | No foreground: nothing sits on it |
+| `--sidebar-ring` | `--ring` | Focus ring, 3:1 against the surface |
+
+An alias's resolved value must equal its role's value character for character. If the two differ,
+the spec has grown one role with two numbers.
+
+### Light Mode Values (`:root`)
+
+HSL triples, in the form the contrast gate parses. For the stylesheet form, see
+`platform-integration.md`.
 
 ```css
 :root {
@@ -157,16 +223,35 @@ Every color token has a `-foreground` counterpart. This ensures accessible text 
   --info-foreground: 200 100% 10%;
 
   /* Borders & Ring */
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
+  --border: 214.3 31.8% 59%;
+  --input: 214.3 31.8% 59%;
   --ring: 222.2 84% 4.9%;
+
+  /* Chart series (fixed order) */
+  --chart-1: 217.2 91.2% 50%;
+  --chart-2: 316 75% 42%;
+  --chart-3: 21 90% 42%;
+  --chart-4: 262.1 83.3% 57.8%;
+  --chart-5: 167 80% 28%;
+
+  /* shadcn/ui aliases: resolved values so the gate can measure them; in the stylesheet each is var(--role) */
+  --destructive: 0 84.2% 47%;                       /* alias of --error */
+  --destructive-foreground: 0 0% 98%;               /* alias of --error-foreground */
+  --sidebar: 0 0% 100%;                             /* alias of --card */
+  --sidebar-foreground: 222.2 84% 4.9%;             /* alias of --card-foreground */
+  --sidebar-primary: 222.2 47.4% 11.2%;             /* alias of --primary */
+  --sidebar-primary-foreground: 210 40% 98%;        /* alias of --primary-foreground */
+  --sidebar-accent: 210 40% 96.1%;                  /* alias of --accent */
+  --sidebar-accent-foreground: 222.2 47.4% 11.2%;   /* alias of --accent-foreground */
+  --sidebar-border: 214.3 31.8% 59%;                /* alias of --border */
+  --sidebar-ring: 222.2 84% 4.9%;                   /* alias of --ring */
 
   /* Border Radius */
   --radius: 0.5rem;
 }
 ```
 
-### Complete Dark Mode Block
+### Dark Mode Values (`.dark`)
 
 ```css
 .dark {
@@ -212,9 +297,28 @@ Every color token has a `-foreground` counterpart. This ensures accessible text 
   --info-foreground: 200 100% 95%;
 
   /* Borders & Ring */
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
+  --border: 217.2 32.6% 42%;
+  --input: 217.2 32.6% 42%;
   --ring: 212.7 26.8% 83.9%;
+
+  /* Chart series (fixed order) */
+  --chart-1: 213 94% 62%;
+  --chart-2: 322 81% 58%;
+  --chart-3: 20.5 90.2% 48.2%;
+  --chart-4: 258.3 89.5% 66.3%;
+  --chart-5: 180 80% 36%;
+
+  /* shadcn/ui aliases: resolved values (see the :root block) */
+  --destructive: 0 62.8% 30.6%;                     /* alias of --error */
+  --destructive-foreground: 0 85.7% 97.3%;          /* alias of --error-foreground */
+  --sidebar: 222.2 84% 4.9%;                        /* alias of --card */
+  --sidebar-foreground: 210 40% 98%;                /* alias of --card-foreground */
+  --sidebar-primary: 210 40% 98%;                   /* alias of --primary */
+  --sidebar-primary-foreground: 222.2 47.4% 11.2%;  /* alias of --primary-foreground */
+  --sidebar-accent: 217.2 32.6% 17.5%;              /* alias of --accent */
+  --sidebar-accent-foreground: 210 40% 98%;         /* alias of --accent-foreground */
+  --sidebar-border: 217.2 32.6% 42%;                /* alias of --border */
+  --sidebar-ring: 212.7 26.8% 83.9%;                /* alias of --ring */
 }
 ```
 
@@ -441,10 +545,39 @@ never been computed, and these are the **default** tokens teams copy.
 | `--warning` | `--warning-foreground` | 6.79:1 | 8.73:1 | Passes AA |
 | `--error` | `--error-foreground` | 4.82:1 | 9.16:1 | Passes AA |
 | `--info` | `--info-foreground` | 6.82:1 | 4.80:1 | Passes AA |
+| `--destructive` | `--destructive-foreground` | 4.82:1 | 9.16:1 | Passes AA (alias of `--error`) |
+| `--sidebar` | `--sidebar-foreground` | 20.01:1 | 19.12:1 | Passes AA & AAA (alias of `--card`) |
+| `--sidebar-primary` | `--sidebar-primary-foreground` | 17.06:1 | 17.06:1 | Passes AA & AAA (alias of `--primary`) |
+| `--sidebar-accent` | `--sidebar-accent-foreground` | 16.30:1 | 13.98:1 | Passes AA & AAA (alias of `--accent`) |
+| `--card` | `--chart-1` | 5.07:1 | 6.58:1 | Non-text: needs 3:1, clears 4.5:1 |
+| `--card` | `--chart-2` | 5.71:1 | 5.51:1 | Non-text: needs 3:1, clears 4.5:1 |
+| `--card` | `--chart-3` | 4.53:1 | 5.62:1 | Non-text: needs 3:1, clears 4.5:1 |
+| `--card` | `--chart-4` | 5.70:1 | 4.72:1 | Non-text: needs 3:1, clears 4.5:1 |
+| `--card` | `--chart-5` | 4.82:1 | 6.62:1 | Non-text: needs 3:1, clears 4.5:1 |
 
 All pairs clear **4.5:1** (WCAG 1.4.3, normal text) in both modes. `--success`, `--error`,
 `--muted-foreground` and dark `--info` were darkened to get there — fixing only the table
 would have left defaults documented as failing and still shipped.
+
+The chart rows are graphics, not text, and 1.4.11 asks only 3:1 of them. They sit in this table
+anyway, because the set was chosen to clear 4.5:1 and so the gate that recomputes this table
+verifies them too. `--card` equals `--background` in both modes, so each row covers both surfaces.
+
+### Pairs the shadcn/ui Primitives Render Beyond This Table
+
+Measured the same way. A ring with an opacity modifier is composited over the surface first.
+
+| What renders | Light | Dark | Needs | Verdict |
+|---|---|---|---|---|
+| `text-muted-foreground` on `bg-background` (descriptions, placeholders) | 5.27:1 | 7.80:1 | 4.5:1 | Passes |
+| `text-sidebar-foreground/70` on `bg-sidebar` (sidebar group labels) | 7.81:1 | 9.31:1 | 4.5:1 | Passes |
+| `ring-ring` on `bg-background` (the house focus ring) | 20.01:1 | 13.47:1 | 3:1 | Passes |
+| `ring-ring/50` on `bg-background` (shadcn's default focus ring) | 3.76:1 | 3.89:1 | 3:1 | Passes here, fails in Modern (2.26 / 1.66), so the house drops `/50` |
+| `border-input` on `bg-background` or `bg-card` (text-input boundary) | 3.20:1 | 3.29:1 | 3:1 | Passes. It measured 1.23:1 / 1.37:1 before `--input` was darkened in every preset; shadcn's own default measures 1.26:1 |
+| `border-border` on `bg-background` or `bg-card` (card edges, table rules, `sidebar-border`) | 3.20:1 | 3.29:1 | 3:1 where the border is what separates a component | Passes. Same value as `--input` |
+| `border-input` on `bg-muted`, `bg-secondary` or `bg-accent` (a field on a tinted panel) | 2.92:1 | 2.40:1 | 3:1 when the border is what identifies the field | **Below 3:1.** The tokens clear 3:1 against the default surfaces, not the tinted ones. A field on a tinted panel keeps its own `bg-background` fill and a visible label |
+
+Per-preset numbers for the alias pairs, the boundaries and the chart series are in `theme-presets.md`.
 
 ### Contrast Validation Process
 
@@ -462,6 +595,8 @@ Use these tools for validation:
 
 When overriding token values:
 - Always update both the base color and its `-foreground` counterpart together
+- Never customize an alias (`--destructive`, `--sidebar-*`). Change its role, and the alias follows
+- Keep `--border` and `--input` at 3:1 or better against `--background` and `--card` in both modes. Lightening them for a softer look removes the visible edge of every text field
 - Re-validate contrast ratios after any color change
 - Document any pairs that fall to AA-only (no AAA) compliance
 - Semantic color pairs (success, warning, error, info) are especially important to validate because they convey meaning through color alone -- always pair with an icon or text label

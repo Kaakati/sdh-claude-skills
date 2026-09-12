@@ -13,7 +13,7 @@ Load-bearing rules restated (this file is read standalone):
 
 Answer **no** unless it needs one of: `useState`/`useReducer`/`useEffect`, an event handler
 (`onClick`, `onChange`), a browser API (`window`, `localStorage`), a Zustand store, a TanStack
-Query hook, or a third-party library that itself calls hooks (Framer Motion, ApexCharts).
+Query hook, or a third-party library that itself calls hooks (Framer Motion, Recharts — which is what shadcn's `chart` component composes).
 
 Everything else — data fetching, layout, formatting, SEO-critical markup — stays on the server.
 
@@ -116,7 +116,7 @@ because the server renders them before the client boundary is reached. Importing
 import { useState } from 'react';
 import { OrderSummary } from '@/components/orders/OrderSummary'; // async server component
 
-export function Accordion() {
+export function Disclosure() {
   const [open, setOpen] = useState(false);
   return (
     <div>
@@ -132,12 +132,12 @@ export function Accordion() {
 ### Good — the server component is passed in as `children`
 
 ```tsx
-// src/components/ui/Accordion.tsx
+// src/components/molecules/Disclosure/Disclosure.tsx
 'use client';
 
 import { useState, type ReactNode } from 'react';
 
-export function Accordion({ label, children }: { label: string; children: ReactNode }) {
+export function Disclosure({ label, children }: { label: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <div>
@@ -152,18 +152,23 @@ export function Accordion({ label, children }: { label: string; children: ReactN
 
 ```tsx
 // app/(dashboard)/orders/[id]/page.tsx — Server Component composes them
-import { Accordion } from '@/components/ui/Accordion';
+import { Disclosure } from '@/components/molecules/Disclosure';
 import { OrderSummary } from '@/components/orders/OrderSummary';
 
 export default async function OrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   return (
-    <Accordion label="Details">
+    <Disclosure label="Details">
       <OrderSummary orderId={id} />
-    </Accordion>
+    </Disclosure>
   );
 }
 ```
+
+Not in `components/ui/`: that directory belongs to the shadcn CLI (`aliases.ui`), and a hand-written
+`Accordion.tsx` beside its `accordion.tsx` is one file on a case-insensitive disk. shadcn's own
+`Collapsible` and `Accordion` compose the same way — a Server Component passes server-rendered
+children through them.
 
 ---
 
@@ -301,10 +306,11 @@ export default async function DashboardPage() {
 ```tsx
 // src/components/dashboard/AnalyticsPanel.tsx — Server Component
 import { fetchAnalytics } from '@/api/analytics';
+import { RevenueChart } from '@/components/organisms/RevenueChart'; // 'use client': shadcn chart + Recharts
 
 export async function AnalyticsPanel() {
   const data = await fetchAnalytics();
-  return <ApexWrapper series={data.series} />;
+  return <RevenueChart points={data.points} currency={data.currency} />; // plain data into the client leaf
 }
 ```
 

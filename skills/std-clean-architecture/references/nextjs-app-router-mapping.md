@@ -62,6 +62,7 @@ export async function createOrder(formData: FormData) {
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { apiClient } from '@/src/api/client';
+import type { ActionResult } from '@/src/actions/result';
 import type { Order } from '@/src/domain/order';
 
 const CreateOrderSchema = z.object({
@@ -69,21 +70,25 @@ const CreateOrderSchema = z.object({
   quantity: z.coerce.number().int().positive(),
 });
 
-export type CreateOrderResult =
-  | { ok: true; order: Order }
-  | { ok: false; errors: string[] };
-
-export async function createOrder(formData: FormData): Promise<CreateOrderResult> {
+export async function createOrder(
+  _prev: ActionResult<Order> | null,
+  formData: FormData,
+): Promise<ActionResult<Order>> {
   const parsed = CreateOrderSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
-    return { ok: false, errors: parsed.error.issues.map((i) => i.message) };
+    const { formErrors, fieldErrors } = parsed.error.flatten();
+    return { ok: false, formErrors, fieldErrors };
   }
 
   const order = await apiClient.post<Order>('/orders', parsed.data);
   revalidatePath('/orders');
-  return { ok: true, order };
+  return { ok: true, data: order };
 }
 ```
+
+The action declares no result type of its own. `ActionResult` is the one shape every action returns
+(`ok` with `data`, or `ok: false` with `formErrors` / `fieldErrors` of translation keys) →
+`@skills/std-nextjs/references/server-actions.md`.
 
 ## Decision: how should a Client Component get its data?
 
@@ -225,19 +230,28 @@ export async function POST(request: Request) {
 
 ```ts
 // GOOD — next/app/api/orders/route.ts (thin adapter)
+import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { createOrderFromPayload } from '@/src/actions/createOrder';
+import { postOrder } from '@/src/api/orders';
+import { validationErrorBody } from '@/src/api/http/errors';
+import { CreateOrderSchema } from '@/src/api/schemas/order';
 
 export async function POST(request: Request) {
-  const result = await createOrderFromPayload(await request.json());
+  const requestId = request.headers.get('x-request-id') ?? randomUUID();
+  const parsed = CreateOrderSchema.safeParse(await request.json());
 
-  if (!result.ok) {
-    return NextResponse.json({ errors: result.errors }, { status: 422 });
+  if (!parsed.success) {
+    return NextResponse.json(validationErrorBody(parsed.error, requestId), { status: 422 });
   }
 
-  return NextResponse.json({ data: result.order }, { status: 201 });
+  const order = await postOrder(parsed.data); // the Rails API decides; no rule lives here
+  return NextResponse.json({ data: order }, { status: 201 });
 }
 ```
+
+A route handler is an HTTP endpoint, so its failures use the one house error envelope, never an
+action's `ActionResult`. The envelope and `validationErrorBody` are owned by
+`@skills/std-api-design/references/errors-typescript.md`.
 
 ## Decision: how do I test each Next.js layer?
 

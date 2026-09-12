@@ -145,6 +145,13 @@ Offset:        Same hue, vary S and L
    just its numbers. Dark mode is **a separate set of pairs, measured independently** — pick each
    surface for the dark background, then solve its foreground and record the ratio. The dark
    halves of all three presets failed on exactly this.
+8. **Generate chart series** (`chart-1`…`chart-5`). Series identify data. They must not repeat the
+   status families, so pick them from hues the semantic step did not take: blue, teal/cyan,
+   violet, orange and pink. They are non-text marks, measured against the surface (≥3:1 against
+   `--card` and `--background`, WCAG 1.4.11), in both modes, and neighbours must stay apart under
+   simulated protanopia and deuteranopia. The measured house set and its numbers are in
+   `@skills/theming/references/design-tokens.md`. A brand hue can take a slot, but only if the set
+   is re-measured with it.
 
 ### Saturation Guidelines
 
@@ -163,8 +170,13 @@ Offset:        Same hue, vary S and L
 | Background | 95-100% | 4-10% |
 | Foreground (text) | 4-15% | 90-98% |
 | Primary actions | 30-50% | 60-80% |
-| Muted text | 40-50% | 55-65% |
-| Borders | 85-92% | 15-25% |
+| Muted text | **4.5:1 against the background and `--muted`**, measured. The house presets land at 43.8-45.1% | **4.5:1 against the background and `--muted`**, measured. The house presets land at 63.9-65.1% |
+| Borders, input boundaries | **3:1 against the background and `--card`** (WCAG 1.4.11), measured. The house presets land at 56-59% | **3:1 against the background and `--card`**, measured. The house presets land at 38-42% |
+
+A text or boundary row names the surface it is measured against, because a lightness alone is not
+a contrast claim. The border row used to read 85-92% / 15-25%, which is where the old tokens sat:
+1.23:1 light and 1.37:1 dark, an input with no visible edge in every preset. The muted-text row
+read 40-50%, and 50% grey on white measures 3.95:1.
 
 ---
 

@@ -111,19 +111,20 @@ end
 module Api
   module V1
     class OrdersController < ApplicationController
+      include CursorPaginable # limits and the envelope are owned by std-api-design's pagination-rails
       before_action :authenticate_user!
       before_action :set_order, only: [:show, :update]
 
       def index
         orders = policy_scope(Order)
           .includes(:customer, :line_items)
-          .order(created_at: :desc)
+          .order(created_at: :desc, id: :desc)
 
-        pagy, records = pagy(orders, items: 20)
+        records, pagination = paginate_by_cursor(orders)
 
         render json: {
           data: Panko::ArraySerializer.new(records, each_serializer: OrderListSerializer).to_a,
-          meta: pagy_metadata(pagy)
+          pagination:
         }
       end
 
@@ -133,6 +134,7 @@ module Api
       end
 
       def create
+        authorize Order
         result = CreateOrder.new(
           user: current_user,
           items: order_params[:items],
@@ -143,15 +145,17 @@ module Api
           render json: { data: OrderDetailSerializer.new.serialize(result.value) },
                  status: :created
         else
-          render json: { error: result.error, code: 422 },
-                 status: :unprocessable_entity
+          # The one envelope, rendered by the shared concern (std-api-design's errors-rails)
+          render_api_error(message: result.error, code: "VALIDATION_ERROR",
+                           status: :unprocessable_entity)
         end
       end
 
       private
 
+      # Scoped: another tenant's order is a 404, never a 403 that confirms it exists
       def set_order
-        @order = Order.find(params[:id])
+        @order = policy_scope(Order).find(params[:id])
       end
 
       def order_params
@@ -212,8 +216,11 @@ end
 
 ## Redis Caching Pattern
 ```ruby
-# Controller-level caching with Panko
+# Controller-level caching with Panko, for a PUBLIC catalog: nothing in it varies by viewer.
+# A permission-scoped list must add the viewer's scope and permissions_version to the key, or it
+# serves one user's rows to another (@skills/std-api-design/references/drill-down-resources.md).
 def index
+  skip_policy_scope # deliberate: the catalog is public
   cache_key = "api:v1:products:#{params_fingerprint}"
 
   json = Rails.cache.fetch(cache_key, expires_in: 2.minutes) do
@@ -222,7 +229,7 @@ def index
 
     {
       data: Panko::ArraySerializer.new(records, each_serializer: ProductSerializer).to_a,
-      meta: pagy_metadata(pagy)
+      pagination: { page: pagy.page, pageSize: pagy.limit, totalItems: pagy.count, totalPages: pagy.pages }
     }.to_json
   end
 
@@ -277,39 +284,20 @@ end
 ```
 
 ## Pundit Policy Pattern
+Policies ask for a permission key, never a role name. `permitted?`, the scope levels it checks, and
+the matrix behind them → `@skills/std-rails-conventions/references/roles-and-permissions.md`.
+
 ```ruby
 # backend/app/policies/order_policy.rb
 class OrderPolicy < ApplicationPolicy
-  def show?
-    owner? || admin?
-  end
+  def show? = permitted?("orders.read")
+  def update? = permitted?("orders.update") && record.pending?
+  def cancel? = permitted?("orders.cancel") && !record.shipped?
 
-  def update?
-    owner? && record.pending?
-  end
-
-  def destroy?
-    admin? && !record.paid?
-  end
-
-  class Scope < Scope
-    def resolve
-      if user.admin?
-        scope.all
-      else
-        scope.where(user: user)
-      end
-    end
-  end
-
-  private
-
-  def owner?
-    record.user_id == user.id
-  end
-
-  def admin?
-    user.admin?
+  class Scope < ApplicationPolicy::Scope
+    # scope_for turns the caller's level for the key (own / team / org / all) into a where
+    # clause; no level at all resolves to scope.none
+    def resolve = scope_for("orders.read")
   end
 end
 ```

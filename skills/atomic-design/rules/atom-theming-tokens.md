@@ -270,8 +270,11 @@ export function Badge({
 **Design token categories that atoms must reference:**
 - **Colors**: `primary`, `secondary`, `accent`, `muted`, `success`, `warning`, `error`, `info` and their
   `-foreground` pairs. These are the names registered in `theming/references/platform-integration.md`;
-  a name that is not registered there (`neutral`, `destructive`) compiles to no CSS at all. A variant
-  may still be *keyed* `:neutral` — it just has to resolve to a registered token.
+  a name that is not registered there (`neutral`) compiles to no CSS at all. `destructive` is
+  registered only as a shadcn/ui alias of `error`, in Next.js and Vite packages that carry the alias
+  block; in Phlex and every other package without that block, `bg-destructive` compiles to no CSS
+  too. Atoms the house writes name the role (`bg-error`) either way. A variant may still be *keyed*
+  `:neutral` or `:destructive` — it just has to resolve to a registered token.
 - **Spacing**: Use the spacing scale (`spacing[1]`, `spacing[2]`, etc.) not raw pixel values
 - **Typography**: Font sizes, weights, and line heights from the type scale
 - **Radii**: Border radius values from the radii scale (`rounded-sm`, `rounded-lg`, etc.)

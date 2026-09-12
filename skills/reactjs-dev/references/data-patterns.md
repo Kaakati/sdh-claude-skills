@@ -31,40 +31,53 @@ export const useUIPreferences = create<UIPreferencesState>()(
 
 ```tsx
 // web/src/router/index.tsx
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter, type RouteObject } from 'react-router';
 import { lazy, Suspense } from 'react';
-import { AppLayout } from '../components/AppLayout';
-import { AuthGuard } from '../components/AuthGuard';
-import { LoadingSpinner } from '../components/ui/LoadingSpinner';
+import { useTranslation } from 'react-i18next';
+import { AppLayout } from '../components/templates/AppLayout/AppLayout';
+import { AreaLayout } from '../components/templates/AreaLayout/AreaLayout';
+import { AuthGuard } from '../components/templates/AuthGuard/AuthGuard';
+import { Spinner } from '../components/ui/spinner'; // shadcn's spinner, with the house label prop
+import { landingRedirect, orderListLoader } from './loaders';
 
 const Dashboard = lazy(() => import('../pages/Dashboard'));
-const Orders = lazy(() => import('../pages/Orders'));
-const OrderDetail = lazy(() => import('../pages/OrderDetail'));
+const OrderList = lazy(() => import('../pages/orders/OrderList'));
+const OrderDetail = lazy(() => import('../pages/orders/OrderDetail'));
 const Login = lazy(() => import('../pages/Login'));
 const NotFound = lazy(() => import('../pages/NotFound'));
 
-function SuspenseWrapper({ children }: { children: React.ReactNode }) {
-  return <Suspense fallback={<LoadingSpinner />}>{children}</Suspense>;
+// Only for routes outside AppLayout — inside it, AppLayout and each area layout own the boundary.
+function StandaloneSuspense({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation();
+  return <Suspense fallback={<Spinner label={t('common.loading')} />}>{children}</Suspense>;
 }
 
-export const router = createBrowserRouter([
-  {
-    path: '/login',
-    element: <SuspenseWrapper><Login /></SuspenseWrapper>,
-  },
+export const routes: RouteObject[] = [
+  { path: '/login', element: <StandaloneSuspense><Login /></StandaloneSuspense> },
   {
     path: '/',
     element: <AuthGuard><AppLayout /></AuthGuard>,
     children: [
-      { index: true, element: <Navigate to="/dashboard" replace /> },
-      { path: 'dashboard', element: <SuspenseWrapper><Dashboard /></SuspenseWrapper> },
-      { path: 'orders', element: <SuspenseWrapper><Orders /></SuspenseWrapper> },
-      { path: 'orders/:id', element: <SuspenseWrapper><OrderDetail /></SuspenseWrapper> },
+      { index: true, loader: landingRedirect },     // the role's first reachable section, never a fixed page
+      { path: 'dashboard', element: <Dashboard /> },
+      {
+        element: <AreaLayout areaKey="orders" />,   // pathless area layout: section nav + its own <Suspense>
+        children: [
+          { path: 'orders', element: <OrderList />, loader: orderListLoader },
+          { path: 'orders/:orderId', element: <OrderDetail /> },
+        ],
+      },
     ],
   },
-  { path: '*', element: <SuspenseWrapper><NotFound /></SuspenseWrapper> },
-]);
+  { path: '*', element: <StandaloneSuspense><NotFound /></StandaloneSuspense> },
+];
+
+export const router = createBrowserRouter(routes);
 ```
+
+`RouterProvider` comes from `react-router/dom`; React Router 8 has no `react-router-dom`. Why every
+page is lazy, what the area layout renders, list state in search params, `ScrollRestoration`, and
+the list crumb → `@skills/std-reactjs/references/routing-and-code-split.md`.
 
 ## API Client with Interceptors
 
@@ -98,12 +111,12 @@ apiClient.interceptors.response.use(
 ## Vitest Component Test
 
 ```tsx
-// web/src/components/OrderTable.test.tsx
+// web/src/components/organisms/OrderTable/OrderTable.test.tsx
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi } from 'vitest';
 import { OrderTable } from './OrderTable';
-import { createTestOrder } from '../../tests/factories';
+import { createTestOrder } from '../../../../tests/factories';
 
 describe('OrderTable', () => {
   it('should render order rows when orders are provided', () => {

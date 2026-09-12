@@ -4,6 +4,7 @@ description: Validate and implement Clean Architecture patterns including entity
 agent: clean-architecture
 context: fork
 model: sonnet
+allowed-tools: Read, Grep, Glob, Bash(bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/skills/orthogonality/scripts/*)
 ---
 
 # Clean Architecture Skill
@@ -11,6 +12,14 @@ model: sonnet
 Validate, implement, and maintain Clean Architecture patterns across the full stack. This skill covers architectural conformance checking, layer boundary enforcement, and guided refactoring.
 
 See `references/layer-examples.md` for full code examples across all frameworks.
+
+**Scope.** Coupling between bounded contexts, dependency cycles and code in the wrong context → the `orthogonality` skill; this skill owns the layers inside a context. A second model, table or library for something that already has an owner is the `orthogonality` skill's as well.
+
+## Dynamic Context: context coupling (auto-loaded when available)
+
+The line below runs the `orthogonality` skill's boundary detectors on the branch before the agent starts — cross-context dependencies (BC1), new cycles (BC2), cross-context writes (BC3), wrong-context files (MF1) — so the read-only agent receives the findings without holding Bash. The `allowed-tools` rule above exists only for this line; the agent's own tools stay `Read, Grep, Glob`. When it prints "orthogonality scan unavailable", the agent reads `.claude/orthogonality/last-scan.json` if it exists.
+
+!`bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/skills/orthogonality/scripts/arch_scan.py --changed-since origin/main --new-only --detectors BC1,BC2,BC3,MF1 --format brief --no-refresh --cache-dir ${CLAUDE_PLUGIN_DATA}/orthogonality 2>/dev/null || echo "orthogonality scan unavailable"`
 
 ## Architecture Layers
 

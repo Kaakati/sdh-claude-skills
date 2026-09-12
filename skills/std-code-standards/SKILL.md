@@ -49,11 +49,21 @@ you, the number below is why — not the hook being arbitrary.
     a service or a value object. The tighter limit is aimed at the file types that rot, not at
     file length as a virtue. Detection is wrapper-agnostic — `api/app/models/` counts the same as
     `backend/app/models/`.
-- **Parameters**: Maximum 4 parameters per function. Use an options/config object for more.
+- **Parameters**: Maximum 4 parameters per function. Use an options/config object for more. A
+  destructured props or options object (`{ className, variant, ...props }`) is **one** parameter,
+  however many names it binds — it is the remedy, not a violation.
 - **Nesting depth**: Maximum 3 levels of nesting. Extract early returns or helper functions to reduce depth.
 
 All four are **warnings, not blocks** — the hook is advisory and never fails your edit. A limit is
 a prompt to think, not a law: exceeding one deliberately, with a reason, is a normal outcome.
+
+**CLI-owned shadcn/ui primitives are exempt from all four.** The files in the directory that
+`components.json` names in `aliases.ui` are registry source the shadcn CLI copied in, and
+`shadcn add --diff` compares against them. The file-length, function-length, parameter, and nesting
+checks skip them, and they are never split or refactored to fit these limits: a long
+`ui/sidebar.tsx` stays whole. Blocks installed outside `aliases.ui`, and the components you compose
+from the primitives, are held to every limit. Installing and styling primitives → the
+`std-shadcn-ui` skill.
 
 ## Error Handling
 

@@ -138,20 +138,20 @@ Server actions take `FormData` and return a result shape (or throw/redirect). Te
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { ActionResult } from "@/actions/result";
 import { createProject } from "@/lib/api/projects";
 
-const schema = z.object({ name: z.string().min(3) });
-
-export type ActionState = { errors?: Record<string, string[]> };
+const schema = z.object({ name: z.string().min(3, "projects.errors.nameTooShort") });
 
 export async function createProjectAction(
-  _prev: ActionState,
+  _prev: ActionResult<null> | null,
   formData: FormData,
-): Promise<ActionState> {
+): Promise<ActionResult<null>> {
   const parsed = schema.safeParse({ name: formData.get("name") });
 
   if (!parsed.success) {
-    return { errors: parsed.error.flatten().fieldErrors };
+    const { formErrors, fieldErrors } = parsed.error.flatten();
+    return { ok: false, formErrors, fieldErrors };
   }
 
   const project = await createProject(parsed.data);
@@ -160,13 +160,17 @@ export async function createProjectAction(
 }
 ```
 
+The action declares no result type of its own. `ActionResult` is the one shape every action returns
+(`ok` with `data`, or `ok: false` with `formErrors` / `fieldErrors` of translation keys) →
+`@skills/std-nextjs/references/server-actions.md`. Assert on the key, never on rendered copy.
+
 ```typescript
 // BAD — mocks the zod schema so the validation branch is never really exercised,
 // and never mocks next/cache, so revalidatePath throws
 // "static generation store missing" outside a request scope.
 vi.mock("zod");
 it("validates", async () => {
-  const result = await createProjectAction({}, new FormData());
+  const result = await createProjectAction(null, new FormData());
   expect(result).toBeDefined();
 });
 ```
@@ -178,7 +182,7 @@ import { redirect } from "next/navigation";
 import { createProject } from "@/lib/api/projects";
 import { createProjectAction } from "@/app/projects/actions";
 
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn(), updateTag: vi.fn() })); // updateTag: Next.js 16 actions
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 vi.mock("@/lib/api/projects");
 
@@ -195,10 +199,10 @@ it("should return field errors when the name is too short", async () => {
   const formData = formDataOf({ name: "ab" });
 
   // Act
-  const result = await createProjectAction({}, formData);
+  const result = await createProjectAction(null, formData);
 
   // Assert
-  expect(result.errors?.name).toBeDefined();
+  expect(result).toMatchObject({ ok: false, fieldErrors: { name: ["projects.errors.nameTooShort"] } });
   expect(createProject).not.toHaveBeenCalled();
   expect(revalidatePath).not.toHaveBeenCalled();
 });
@@ -206,7 +210,7 @@ it("should return field errors when the name is too short", async () => {
 it("should create the project and revalidate when the input is valid", async () => {
   vi.mocked(createProject).mockResolvedValue({ id: "42", name: "Apollo" });
 
-  await createProjectAction({}, formDataOf({ name: "Apollo" }));
+  await createProjectAction(null, formDataOf({ name: "Apollo" }));
 
   expect(createProject).toHaveBeenCalledWith({ name: "Apollo" });
   expect(revalidatePath).toHaveBeenCalledWith("/projects");
@@ -243,9 +247,13 @@ it("should return 400 when the signature header is missing", async () => {
 
   expect(response.status).toBe(400);
   await expect(response.json()).resolves.toMatchObject({
-    error: { code: "missing_signature" },
+    code: "MISSING_SIGNATURE",
+    status: 400,
+    requestId: expect.any(String),
   });
 });
 ```
 
-No test server, no supertest. Route handlers are `(Request) => Response` — call them directly.
+No test server, no supertest. Route handlers are `(Request) => Response` — call them directly. A
+route handler's error body is the house error envelope →
+`@skills/std-api-design/references/errors-typescript.md`. Assert on `code`, never on the `error` text.

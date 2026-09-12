@@ -64,7 +64,7 @@ Reference these guidelines when:
 |-------|----------------|-------------|---------|
 | Atoms | Nothing (standalone) | No | Button, Input, Label, Icon |
 | Molecules | Atoms only | No | SearchForm, FormField, NavLink |
-| Organisms | Atoms + Molecules | Yes (props/hooks) | Header, ProductGrid, Sidebar |
+| Organisms | Atoms + Molecules | Yes (props/hooks) | Header, ProductGrid, AppSidebar, SectionNav |
 | Templates | Atoms + Molecules + Organisms | Layout only | DashboardLayout, AuthLayout |
 | Pages | Everything | Full data | Articles::Index, DashboardPage |
 
@@ -90,6 +90,8 @@ It does not own the tokens those components style with:
   exist** is `@skills/theming/references/platform-integration.md`. A class naming an unregistered
   token compiles to no CSS at all — silently — so "uses a token" and "uses a *registered* token"
   are different claims, and only the second one renders.
+- **Navigation structure** — what the global `AppSidebar` holds (areas only), where `SectionNav`
+  renders, levels, breadcrumbs from `ancestors` → `@skills/ui-ux-patterns/references/drill-down-navigation.md`
 
 Loading one ~60-line rule beats skimming the whole directory. Do not preload it.
 

@@ -107,7 +107,7 @@ Complete property mapping table for translating Figma Auto Layout to CSS and Tai
 |-------|-----|----------|
 | Min width: 200px | `min-width: 200px` | `min-w-[200px]` |
 | Max width: 600px | `max-width: 600px` | `max-w-[600px]` or `max-w-xl` |
-| Min height: 44px | `min-height: 44px` | `min-h-[44px]` |
+| Min height: 44px | `min-height: 44px` | `min-h-11` (44px on the spacing scale) |
 
 ---
 

@@ -49,12 +49,19 @@ Rank findings by these, in order. The first two cause most monorepo failures.
    packages. Never recommend a layout without knowing the current one.
 2. **Measure the coupling, don't assume it.** Grep for the actual violations — deep relative
    imports (`../../apps/`), cross-app imports, packages importing apps. Report counts and the
-   worst offenders with file:line, not a general worry.
+   worst offenders with file:line, not a general worry. Context-level counts — coupling between
+   bounded contexts *inside* one deployable, cross-context writes, cycles — are in the injected
+   orthogonality scan or `.claude/orthogonality/last-scan.json` when present: cite them with the
+   scan's `generated_at` instead of re-deriving them. That axis is the `orthogonality` skill's
+   (`@skills/orthogonality/references/context-maps.md`); package boundaries stay yours.
 3. **Check CI scaling.** Does every PR run everything? Is there a remote cache? Is there path
    filtering for the Rails side? Linear-scaling CI is a finding even when it is currently fast.
 4. **Check version convergence.** One lockfile? One React/TypeScript version? Flag divergence,
    and flag *undocumented* divergence harder — React Native often forces a genuine pin, which
-   is fine when isolated deliberately and documented, and a landmine when accidental.
+   is fine when isolated deliberately and documented, and a landmine when accidental. Two
+   *different* libraries for one concern (a second HTTP client) are not version divergence but a
+   competing mechanism — route them to the `orthogonality` skill's registry
+   (`@skills/orthogonality/references/competing-mechanisms.md`).
 5. **Recommend the smallest tool that fits.** Turborepo for the JS side plus CI path filtering
    for Rails is the pragmatic middle for this stack. **Bazel is rarely worth its cost below
    ~50 engineers** — recommending it for a small team is a real error, not a safe default.
