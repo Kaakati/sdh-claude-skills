@@ -33,6 +33,8 @@ limits when a skill applies, so read the one bearing on your change.
 ## Conventions
 - Services own business logic and return typed result objects; routers stay thin.
 - pydantic schemas at every boundary — never return or leak ORM objects.
+- Authorization: a DRF `BasePermission` or FastAPI `require_permission` dependency, keys from the permission matrix — never role-name checks.
+- APIs are drill-down-ready: one router per level; collection routes nest one level under their one canonical parent, and member routes are flat by ID. Authorize the parent before the child (a FastAPI dependency or DRF `get_queryset`; 404 outside scope); detail schemas carry a permission-filtered `ancestors` chain; counts are computed inside the caller's scope. The contract is `std-api-design`'s drill-down resources reference; tree storage is `std-database`'s hierarchies reference.
 - Eager-load relations in list endpoints; assert query counts in tests.
 - Never log secrets, tokens, or PII. Bare `except:` / `except BaseException` is flagged by the hooks.
 - Prefer community libraries over custom code (`pydantic-settings`, `httpx`, `sqlalchemy`, `celery`).
